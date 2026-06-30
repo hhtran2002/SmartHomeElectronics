@@ -1,0 +1,458 @@
+import type {
+  Brand,
+  Category,
+  AuthResponse,
+  AdminDashboard,
+  AdminInventoryItem,
+  AdminOrder,
+  AdminOrderDetail,
+  AdminProduct,
+  AdminProductImage,
+  AdminProductPayload,
+  AdminPromotion,
+  AdminPromotionPayload,
+  AdminPromotionSkuOption,
+  AdminReports,
+  AdminReview,
+  AdminStockMovement,
+  AdminRole,
+  AdminUser,
+  AdminWarehouse,
+  WarehouseReadyOrder,
+  CustomerAddress,
+  CustomerAddressPayload,
+  CustomerProfile,
+  CustomerOrder,
+  CustomerOrderDetail,
+  AdministrativeProvince,
+  AdministrativeWard,
+  CheckoutPayload,
+  OrderStatusOption,
+  OrderResponse,
+  PaymentMethod,
+  Product,
+  ProductFilters,
+  ProductListResponse,
+} from './types'
+
+const pageSize = 12
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`)
+  }
+  return response.json() as Promise<T>
+}
+
+async function getJsonWithToken<T>(url: string, token: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+async function patchJsonWithToken<T>(url: string, token: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+async function putJsonWithToken<T>(url: string, token: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+async function postJsonWithToken<T>(url: string, token: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+export function getProducts(filters: ProductFilters) {
+  const params = new URLSearchParams()
+  params.set('page', String(filters.page))
+  params.set('pageSize', String(pageSize))
+
+  if (filters.search.trim()) params.set('search', filters.search.trim())
+  if (filters.category) params.set('category', filters.category)
+  if (filters.brand) params.set('brand', filters.brand)
+  if (filters.minPrice) params.set('minPrice', filters.minPrice)
+  if (filters.maxPrice) params.set('maxPrice', filters.maxPrice)
+
+  return getJson<ProductListResponse>(`/api/products?${params.toString()}`)
+}
+
+export function getProduct(slug: string) {
+  return getJson<{ data: Product }>(`/api/products/${encodeURIComponent(slug)}`)
+}
+
+export function submitProductReview(slug: string, token: string, payload: {
+  rating: number
+  comment: string
+  parentReviewId?: number | null
+}) {
+  return postJsonWithToken<{ data: { reviewId: number; status: string } }>(
+    `/api/products/${encodeURIComponent(slug)}/reviews`,
+    token,
+    payload,
+  )
+}
+
+export function getCategories() {
+  return getJson<{ data: Category[] }>('/api/categories')
+}
+
+export function getBrands() {
+  return getJson<{ data: Brand[] }>('/api/brands')
+}
+
+export function createOrder(payload: CheckoutPayload, token?: string) {
+  if (token) return postJsonWithToken<OrderResponse>('/api/orders', token, payload)
+  return postJson<OrderResponse>('/api/orders', payload)
+}
+
+export function getPaymentMethods() {
+  return getJson<{ data: PaymentMethod[] }>('/api/payment-methods')
+}
+
+export function register(payload: {
+  fullName: string
+  email: string
+  phone: string
+  password: string
+}) {
+  return postJson<AuthResponse>('/api/auth/register', payload)
+}
+
+export function login(payload: {
+  identifier: string
+  password: string
+}) {
+  return postJson<AuthResponse>('/api/auth/login', payload)
+}
+
+export function getAdminOrders(token: string) {
+  return getJsonWithToken<{ data: AdminOrder[] }>('/api/admin/orders', token)
+}
+
+export function getAdminDashboard(token: string) {
+  return getJsonWithToken<{ data: AdminDashboard }>('/api/admin/dashboard', token)
+}
+
+export function getAdminReports(token: string, filters: { fromDate: string; toDate: string }) {
+  const params = new URLSearchParams()
+  if (filters.fromDate) params.set('fromDate', filters.fromDate)
+  if (filters.toDate) params.set('toDate', filters.toDate)
+  return getJsonWithToken<{ data: AdminReports }>(`/api/admin/reports?${params.toString()}`, token)
+}
+
+export function getAdminReviews(token: string) {
+  return getJsonWithToken<{ data: AdminReview[] }>('/api/admin/reviews', token)
+}
+
+export function updateAdminReviewStatus(reviewId: number, status: string, token: string) {
+  return patchJsonWithToken<{ data: { reviewId: number; status: string } }>(
+    `/api/admin/reviews/${reviewId}/status`,
+    token,
+    { status },
+  )
+}
+
+export function getAdminOrderStatuses(token: string) {
+  return getJsonWithToken<{ data: OrderStatusOption[] }>('/api/admin/orders/statuses', token)
+}
+
+export function getAdminOrder(orderId: number, token: string) {
+  return getJsonWithToken<{ data: AdminOrderDetail }>(`/api/admin/orders/${orderId}`, token)
+}
+
+export function updateAdminOrderStatus(orderId: number, orderStatusId: number, token: string) {
+  return patchJsonWithToken<{ data: { orderId: number; orderStatusId: number } }>(
+    `/api/admin/orders/${orderId}/status`,
+    token,
+    { orderStatusId },
+  )
+}
+
+export function getAdminProducts(token: string) {
+  return getJsonWithToken<{ data: AdminProduct[] }>('/api/admin/products', token)
+}
+
+export function createAdminProduct(payload: AdminProductPayload, token: string) {
+  return postJsonWithToken<{ data: { productId: number } }>('/api/admin/products', token, payload)
+}
+
+export function updateAdminProduct(productId: number, payload: AdminProductPayload, token: string) {
+  return putJsonWithToken<{ data: { productId: number } }>(`/api/admin/products/${productId}`, token, payload)
+}
+
+export function updateAdminProductStatus(productId: number, status: string, token: string) {
+  return patchJsonWithToken<{ data: { productId: number; status: string } }>(
+    `/api/admin/products/${productId}/status`,
+    token,
+    { status },
+  )
+}
+
+export function getAdminProductImages(productId: number, token: string) {
+  return getJsonWithToken<{ data: AdminProductImage[] }>(`/api/admin/products/${productId}/images`, token)
+}
+
+export function addAdminProductImage(productId: number, imageUrl: string, token: string) {
+  return postJsonWithToken<{ data: { imageId: number } }>(
+    `/api/admin/products/${productId}/images`,
+    token,
+    { imageUrl },
+  )
+}
+
+export function setAdminProductPrimaryImage(productId: number, imageId: number, token: string) {
+  return patchJsonWithToken<{ data: { productId: number; imageId: number } }>(
+    `/api/admin/products/${productId}/images/${imageId}/primary`,
+    token,
+    {},
+  )
+}
+
+export function deleteAdminProductImage(productId: number, imageId: number, token: string) {
+  return fetch(`/api/admin/products/${productId}/images/${imageId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+    }
+    return response.json() as Promise<{ data: { productId: number; imageId: number } }>
+  })
+}
+
+export function getAdminPromotions(token: string) {
+  return getJsonWithToken<{ data: AdminPromotion[] }>('/api/admin/promotions', token)
+}
+
+export function getAdminPromotionSkuOptions(token: string) {
+  return getJsonWithToken<{ data: AdminPromotionSkuOption[] }>('/api/admin/promotions/sku-options', token)
+}
+
+export function createAdminPromotion(payload: AdminPromotionPayload, token: string) {
+  return postJsonWithToken<{ data: { promotionId: number } }>('/api/admin/promotions', token, payload)
+}
+
+export function updateAdminPromotion(promotionId: number, payload: AdminPromotionPayload, token: string) {
+  return putJsonWithToken<{ data: { promotionId: number } }>(`/api/admin/promotions/${promotionId}`, token, payload)
+}
+
+export function updateAdminPromotionStatus(promotionId: number, status: string, token: string) {
+  return patchJsonWithToken<{ data: { promotionId: number; status: string } }>(
+    `/api/admin/promotions/${promotionId}/status`,
+    token,
+    { status },
+  )
+}
+
+export function getAdminWarehouses(token: string) {
+  return getJsonWithToken<{ data: AdminWarehouse[] }>('/api/admin/inventory/warehouses', token)
+}
+
+export function getAdminInventory(token: string) {
+  return getJsonWithToken<{ data: AdminInventoryItem[] }>('/api/admin/inventory', token)
+}
+
+export function getAdminStockMovements(token: string) {
+  return getJsonWithToken<{ data: AdminStockMovement[] }>('/api/admin/inventory/movements', token)
+}
+
+export function createAdminStockIn(payload: {
+  warehouseId: number
+  skuId: number
+  quantity: number
+  unitCost: number
+  note?: string
+}, token: string) {
+  return postJsonWithToken<{ data: { stockInReceiptId: number; receiptCode: string } }>(
+    '/api/admin/inventory/stock-in',
+    token,
+    payload,
+  )
+}
+
+export function createAdminStockOut(payload: {
+  warehouseId: number
+  skuId: number
+  quantity: number
+  reason: string
+  note?: string
+}, token: string) {
+  return postJsonWithToken<{ data: { stockOutReceiptId: number; receiptCode: string } }>(
+    '/api/admin/inventory/stock-out',
+    token,
+    payload,
+  )
+}
+
+export function getWarehouseReadyOrders(token: string) {
+  return getJsonWithToken<{ data: WarehouseReadyOrder[] }>('/api/admin/inventory/ready-orders', token)
+}
+
+export function confirmWarehouseOrderExport(orderId: number, token: string) {
+  return postJsonWithToken<{
+    data: { orderId: number; orderCode: string; receiptIds: number[] }
+  }>(`/api/admin/inventory/ready-orders/${orderId}/confirm-export`, token, {})
+}
+
+export function getAdminUsers(token: string) {
+  return getJsonWithToken<{ data: AdminUser[] }>('/api/admin/users', token)
+}
+
+export function getAdminRoles(token: string) {
+  return getJsonWithToken<{ data: AdminRole[] }>('/api/admin/users/roles', token)
+}
+
+export function createAdminUser(payload: {
+  fullName: string
+  email: string
+  phone: string
+  password: string
+  roleIds: number[]
+}, token: string) {
+  return postJsonWithToken<{ data: { userId: number } }>('/api/admin/users', token, payload)
+}
+
+export function updateAdminUserRoles(userId: number, roleIds: number[], token: string) {
+  return putJsonWithToken<{ data: { userId: number; roleIds: number[] } }>(
+    `/api/admin/users/${userId}/roles`,
+    token,
+    { roleIds },
+  )
+}
+
+export function updateAdminUserStatus(userId: number, status: string, token: string) {
+  return patchJsonWithToken<{ data: { userId: number; status: string } }>(
+    `/api/admin/users/${userId}/status`,
+    token,
+    { status },
+  )
+}
+
+export function getCustomerProfile(token: string) {
+  return getJsonWithToken<{ data: CustomerProfile }>('/api/profile', token)
+}
+
+export function updateCustomerProfile(payload: {
+  fullName: string
+  email: string
+  dateOfBirth: string
+  gender: string
+}, token: string) {
+  return putJsonWithToken<{ data: { userId: number; fullName: string; email: string | null } }>(
+    '/api/profile', token, payload,
+  )
+}
+
+export function changeCustomerPassword(payload: {
+  currentPassword: string
+  newPassword: string
+}, token: string) {
+  return putJsonWithToken<{ data: { changed: boolean } }>('/api/profile/password', token, payload)
+}
+
+export function getCustomerAddresses(token: string) {
+  return getJsonWithToken<{ data: CustomerAddress[] }>('/api/profile/addresses', token)
+}
+
+export function createCustomerAddress(payload: CustomerAddressPayload, token: string) {
+  return postJsonWithToken<{ data: { addressId: number } }>('/api/profile/addresses', token, payload)
+}
+
+export function updateCustomerAddress(addressId: number, payload: CustomerAddressPayload, token: string) {
+  return putJsonWithToken<{ data: { addressId: number } }>(`/api/profile/addresses/${addressId}`, token, payload)
+}
+
+export function deleteCustomerAddress(addressId: number, token: string) {
+  return fetch(`/api/profile/addresses/${addressId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+    }
+    return response.json() as Promise<{ data: { addressId: number } }>
+  })
+}
+
+export function getCustomerOrders(token: string) {
+  return getJsonWithToken<{ data: CustomerOrder[] }>('/api/profile/orders', token)
+}
+
+export function getCustomerOrder(orderId: number, token: string) {
+  return getJsonWithToken<{ data: CustomerOrderDetail }>(`/api/profile/orders/${orderId}`, token)
+}
+
+export function getProvinces() {
+  return getJson<{ data: AdministrativeProvince[] }>('/api/locations/provinces')
+}
+
+export function getWards(provinceCode: string) {
+  return getJson<{ data: AdministrativeWard[] }>(`/api/locations/wards?provinceCode=${encodeURIComponent(provinceCode)}`)
+}
