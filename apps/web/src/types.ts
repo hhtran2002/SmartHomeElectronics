@@ -24,6 +24,12 @@ export type Product = {
   attributes?: ProductAttribute[]
   reviewSummary?: ProductReviewSummary
   reviews?: ProductReview[]
+  
+  aiScore?: number
+  keywordScore?: number | null
+  semanticScore?: number | null
+  imageScore?: number | null
+  aiReason?: string
 }
 
 export type ProductImage = {
@@ -98,6 +104,11 @@ export type ProductListResponse = {
   total: number
   page: number
   pageSize: number
+}
+
+export type AiSearchResponse = {
+  data: Product[]
+  total: number
 }
 
 export type CartItem = {

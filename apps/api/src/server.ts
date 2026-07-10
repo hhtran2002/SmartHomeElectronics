@@ -18,6 +18,7 @@ import { paymentMethodsRouter } from './routes/paymentMethods.js'
 import { productsRouter } from './routes/products.js'
 import { customerProfileRouter } from './routes/customerProfile.js'
 import { locationsRouter } from './routes/locations.js'
+import { aiSearchRouter } from './routes/aiSearch.js'
 
 const app = express()
 const port = Number(process.env.PORT ?? 3000)
@@ -42,6 +43,7 @@ app.get('/api/health', async (_request, response, next) => {
 })
 
 app.use('/api/products', productsRouter)
+app.use('/api/ai-search', aiSearchRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/brands', brandsRouter)
 app.use('/api/orders', ordersRouter)

@@ -33,6 +33,7 @@ import type {
   Product,
   ProductFilters,
   ProductListResponse,
+  AiSearchResponse,
 } from './types'
 
 const pageSize = 12
@@ -143,6 +144,21 @@ export function getProducts(filters: ProductFilters) {
 
 export function getProduct(slug: string) {
   return getJson<{ data: Product }>(`/api/products/${encodeURIComponent(slug)}`)
+}
+
+export function semanticAiSearch(query: string) {
+  const params = new URLSearchParams()
+  params.set('q', query)
+  params.set('limit', String(pageSize))
+
+  return getJson<AiSearchResponse>(`/api/ai-search/semantic?${params.toString()}`)
+}
+
+export function imageAiSearch(imageBase64: string) {
+  return postJson<AiSearchResponse>('/api/ai-search/image', {
+    imageBase64,
+    limit: pageSize,
+  })
 }
 
 export function submitProductReview(slug: string, token: string, payload: {
