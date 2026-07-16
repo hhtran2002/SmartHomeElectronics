@@ -188,6 +188,9 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
       GROUP BY
         ps.SkuId,
         ps.SkuCode,
+        p.ProductId,
+        p.CategoryId,
+        p.BrandId,
         ps.Price,
         p.ProductName,
         p.WarrantyMonths,
