@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   getAdminOrder,
   getAdminOrders,
-  getAdminOrderStatuses,
   updateAdminOrderStatus,
 } from '../api'
-import type { AdminOrder, AdminOrderDetail, OrderStatusOption } from '../types'
+import type { AdminOrder, AdminOrderDetail } from '../types'
 import { formatPrice } from '../utils'
 
 type Props = {
@@ -22,7 +21,6 @@ export function AdminOrdersPage({ roles, token }: Props) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [statuses, setStatuses] = useState<OrderStatusOption[]>([])
   const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
@@ -30,10 +28,9 @@ export function AdminOrdersPage({ roles, token }: Props) {
 
     setLoading(true)
     setError('')
-    void Promise.all([getAdminOrders(token), getAdminOrderStatuses(token)])
-      .then(([ordersPayload, statusPayload]) => {
+    void getAdminOrders(token)
+      .then((ordersPayload) => {
         setOrders(ordersPayload.data)
-        setStatuses(statusPayload.data)
       })
       .catch((error) => setError(error instanceof Error ? error.message : 'Không tải được danh sách đơn.'))
       .finally(() => setLoading(false))
@@ -128,11 +125,12 @@ export function AdminOrdersPage({ roles, token }: Props) {
               <label className="status-select">
                 Trạng thái đơn
                 <select
-                  disabled={updating}
+                  disabled={updating || detail.availableTransitions.length === 0}
                   value={detail.order.orderStatusId}
                   onChange={(event) => void changeStatus(Number(event.target.value))}
                 >
-                  {statuses.map((status) => (
+                  <option disabled value={detail.order.orderStatusId}>{detail.order.orderStatusName}</option>
+                  {detail.availableTransitions.map((status) => (
                     <option disabled={status.code === 'Shipping'} key={status.id} value={status.id}>
                       {status.name}{status.code === 'Shipping' ? ' — kho xác nhận' : ''}
                     </option>

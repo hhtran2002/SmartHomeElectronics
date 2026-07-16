@@ -12,7 +12,12 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
     const result = await pool.request().query(`
       SELECT
         (SELECT COUNT(*) FROM dbo.SalesOrder) AS totalOrders,
-        (SELECT COUNT(*) FROM dbo.SalesOrder WHERE OrderStatusId IN (1, 2, 4)) AS pendingOrders,
+        (
+          SELECT COUNT(*)
+          FROM dbo.SalesOrder so
+          INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+          WHERE os.StatusCode IN ('PendingConfirmation', 'PendingPayment', 'Confirmed', 'Processing', 'ReadyToShip')
+        ) AS pendingOrders,
         (SELECT ISNULL(SUM(TotalAmount), 0) FROM dbo.SalesOrder WHERE CAST(CreatedAt AS date) = CAST(SYSDATETIME() AS date)) AS todayRevenue,
         (SELECT ISNULL(SUM(TotalAmount), 0)
          FROM dbo.SalesOrder

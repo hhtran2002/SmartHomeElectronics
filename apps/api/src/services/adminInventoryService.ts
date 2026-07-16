@@ -164,7 +164,7 @@ export async function confirmOrderExport(orderId: number, userId: number) {
     const orderResult = await tx()
       .input('orderId', sql.BigInt, orderId)
       .query(`
-        SELECT so.OrderCode, os.StatusCode
+        SELECT so.OrderCode, so.OrderStatusId, os.StatusCode
         FROM dbo.SalesOrder so WITH (UPDLOCK, ROWLOCK)
         INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
         WHERE so.OrderId = @orderId
@@ -292,6 +292,24 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         SET OrderStatusId = (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Shipping'),
             UpdatedAt = SYSDATETIME()
         WHERE OrderId = @orderId
+      `)
+
+    await tx()
+      .input('orderId', sql.BigInt, orderId)
+      .input('fromStatusId', sql.TinyInt, order.OrderStatusId)
+      .input('changedByUserId', sql.BigInt, userId)
+      .query(`
+        INSERT INTO dbo.OrderStatusHistory (
+          OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
+        )
+        VALUES (
+          @orderId,
+          @fromStatusId,
+          (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Shipping'),
+          @changedByUserId,
+          N'Kho xác nhận xuất hàng',
+          SYSDATETIME()
+        )
       `)
 
     await transaction.commit()

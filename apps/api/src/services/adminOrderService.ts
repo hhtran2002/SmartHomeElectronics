@@ -1,5 +1,18 @@
 import { getPool, sql } from '../config/database.js'
 
+const allowedOrderTransitions: Record<string, string[]> = {
+  PendingConfirmation: ['Confirmed', 'Cancelled'],
+  PendingPayment: ['Cancelled'],
+  Confirmed: ['Processing', 'Cancelled'],
+  Processing: ['ReadyToShip', 'Cancelled'],
+  ReadyToShip: ['Cancelled'],
+  Shipping: ['Completed'],
+}
+
+function getAllowedTargetStatusCodes(currentStatusCode: string) {
+  return allowedOrderTransitions[currentStatusCode] ?? []
+}
+
 export async function getAdminOrders() {
   const pool = await getPool()
   const result = await pool.request().query(`
@@ -11,24 +24,15 @@ export async function getAdminOrders() {
       so.TotalAmount AS totalAmount,
       so.CreatedAt AS createdAt,
       os.OrderStatusId AS orderStatusId,
+      os.StatusCode AS orderStatusCode,
       os.StatusName AS orderStatusName,
       ps.PaymentStatusId AS paymentStatusId,
+      ps.StatusCode AS paymentStatusCode,
       ps.StatusName AS paymentStatusName
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
     INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
     ORDER BY so.OrderId DESC
-  `)
-
-  return result.recordset
-}
-
-export async function getAdminOrderStatuses() {
-  const pool = await getPool()
-  const result = await pool.request().query(`
-    SELECT OrderStatusId AS id, StatusCode AS code, StatusName AS name
-    FROM dbo.OrderStatus
-    ORDER BY SortOrder
   `)
 
   return result.recordset
@@ -53,10 +57,13 @@ export async function getAdminOrderDetail(orderId: number) {
         so.Note AS note,
         so.CreatedAt AS createdAt,
         os.OrderStatusId AS orderStatusId,
+        os.StatusCode AS orderStatusCode,
         os.StatusName AS orderStatusName,
         ps.PaymentStatusId AS paymentStatusId,
+        ps.StatusCode AS paymentStatusCode,
         ps.StatusName AS paymentStatusName,
-        pm.MethodName AS paymentMethodName
+        pm.MethodName AS paymentMethodName,
+        pm.MethodCode AS paymentMethodCode
       FROM dbo.SalesOrder so
       INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
       INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
@@ -68,6 +75,14 @@ export async function getAdminOrderDetail(orderId: number) {
 
   const order = orderResult.recordset[0]
   if (!order) return null
+
+  const allowedTargetCodes = getAllowedTargetStatusCodes(String(order.orderStatusCode))
+  const statusResult = await pool.request().query(`
+    SELECT OrderStatusId AS id, StatusCode AS code, StatusName AS name
+    FROM dbo.OrderStatus
+    ORDER BY SortOrder
+  `)
+  const availableTransitions = statusResult.recordset.filter((status) => allowedTargetCodes.includes(String(status.code)))
 
   const detailResult = await pool
     .request()
@@ -88,12 +103,13 @@ export async function getAdminOrderDetail(orderId: number) {
       ORDER BY OrderDetailId
     `)
 
-  return { order, items: detailResult.recordset }
+  return { order, items: detailResult.recordset, availableTransitions }
 }
 
 export async function updateAdminOrderStatus(input: {
   orderId: number
   orderStatusId: number
+  currentUserId: number
 }) {
   const pool = await getPool()
   const transaction = new sql.Transaction(pool)
@@ -135,6 +151,11 @@ export async function updateAdminOrderStatus(input: {
     const targetStatusCode = String(current.TargetStatusCode)
     const paymentStatusCode = String(current.PaymentStatusCode)
     const paymentMethodCode = String(current.PaymentMethodCode || '')
+
+    const allowedTargets = getAllowedTargetStatusCodes(currentStatusCode)
+    if (!allowedTargets.includes(targetStatusCode)) {
+      throw new Error(`Invalid order transition: ${currentStatusCode} -> ${targetStatusCode}.`)
+    }
 
     if (targetStatusCode === 'Shipping') {
       throw new Error('Đơn phải được nhân viên kho xác nhận xuất tại trang Kho hàng.')
@@ -218,7 +239,25 @@ export async function updateAdminOrderStatus(input: {
     }
 
     let nextPaymentStatusId: number | null = null
-    if (targetStatusCode === 'Completed' && paymentMethodCode === 'COD') {
+    if (targetStatusCode === 'Cancelled' && paymentStatusCode === 'Success') {
+      const refundPending = await tx().query(`
+        SELECT PaymentStatusId
+        FROM dbo.PaymentStatus
+        WHERE StatusCode = 'RefundPending'
+      `)
+
+      nextPaymentStatusId = Number(refundPending.recordset[0]?.PaymentStatusId)
+      if (!nextPaymentStatusId) throw new Error('Missing required refund payment status configuration.')
+
+      await tx()
+        .input('orderId', sql.BigInt, input.orderId)
+        .input('paymentStatusId', sql.TinyInt, nextPaymentStatusId)
+        .query(`
+          UPDATE dbo.Payment
+          SET PaymentStatusId = @paymentStatusId
+          WHERE OrderId = @orderId
+        `)
+    } else if (targetStatusCode === 'Completed' && paymentMethodCode === 'COD') {
       const successStatus = await tx().query(`
         SELECT PaymentStatusId
         FROM dbo.PaymentStatus
@@ -253,6 +292,19 @@ export async function updateAdminOrderStatus(input: {
             UpdatedAt = SYSDATETIME(),
             CancelledAt = CASE WHEN @isCancelled = 1 THEN SYSDATETIME() ELSE CancelledAt END
         WHERE OrderId = @orderId
+      `)
+
+    await tx()
+      .input('orderId', sql.BigInt, input.orderId)
+      .input('fromStatusId', sql.TinyInt, oldStatusId)
+      .input('toStatusId', sql.TinyInt, input.orderStatusId)
+      .input('changedByUserId', sql.BigInt, input.currentUserId)
+      .input('note', sql.NVarChar(500), targetStatusCode === 'Cancelled' ? 'Cancelled by administrator.' : null)
+      .query(`
+        INSERT INTO dbo.OrderStatusHistory (
+          OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
+        )
+        VALUES (@orderId, @fromStatusId, @toStatusId, @changedByUserId, @note, SYSDATETIME())
       `)
 
     await transaction.commit()

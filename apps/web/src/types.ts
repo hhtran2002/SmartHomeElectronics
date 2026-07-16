@@ -186,8 +186,10 @@ export type AdminOrder = {
   totalAmount: number
   createdAt: string
   orderStatusId: number
+  orderStatusCode: string
   orderStatusName: string
   paymentStatusId: number
+  paymentStatusCode: string
   paymentStatusName: string
 }
 
@@ -199,7 +201,9 @@ export type AdminOrderDetail = {
     shippingFee: number
     note: string | null
     paymentMethodName: string | null
+    paymentMethodCode: string | null
   }
+  availableTransitions: OrderStatusOption[]
   items: Array<{
     orderDetailId: number
     skuId: number

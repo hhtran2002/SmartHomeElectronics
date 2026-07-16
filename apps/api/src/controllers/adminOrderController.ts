@@ -3,7 +3,6 @@ import type { AuthRequest } from '../auth.js'
 import {
   getAdminOrderDetail,
   getAdminOrders,
-  getAdminOrderStatuses,
   updateAdminOrderStatus,
 } from '../services/adminOrderService.js'
 
@@ -11,15 +10,6 @@ export async function listAdminOrders(_request: AuthRequest, response: Response,
   try {
     const orders = await getAdminOrders()
     response.json({ data: orders })
-  } catch (error) {
-    next(error)
-  }
-}
-
-export async function listAdminOrderStatuses(_request: AuthRequest, response: Response, next: NextFunction) {
-  try {
-    const statuses = await getAdminOrderStatuses()
-    response.json({ data: statuses })
   } catch (error) {
     next(error)
   }
@@ -56,7 +46,11 @@ export async function changeAdminOrderStatus(request: AuthRequest, response: Res
   }
 
   try {
-    const result = await updateAdminOrderStatus({ orderId, orderStatusId })
+    const result = await updateAdminOrderStatus({
+      orderId,
+      orderStatusId,
+      currentUserId: request.user!.userId,
+    })
     response.json({ data: result })
   } catch (error) {
     if (error instanceof Error) {

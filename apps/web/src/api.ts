@@ -27,7 +27,6 @@ import type {
   AdministrativeProvince,
   AdministrativeWard,
   CheckoutPayload,
-  OrderStatusOption,
   OrderResponse,
   PaymentMethod,
   Product,
@@ -231,10 +230,6 @@ export function updateAdminReviewStatus(reviewId: number, status: string, token:
     token,
     { status },
   )
-}
-
-export function getAdminOrderStatuses(token: string) {
-  return getJsonWithToken<{ data: OrderStatusOption[] }>('/api/admin/orders/statuses', token)
 }
 
 export function getAdminOrder(orderId: number, token: string) {

@@ -330,6 +330,17 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
 
     const orderId = insertedOrder.recordset[0].OrderId as number
 
+    await tx()
+      .input('orderId', sql.BigInt, orderId)
+      .input('orderStatusId', sql.TinyInt, orderStatusId)
+      .input('changedByUserId', sql.BigInt, userId)
+      .query(`
+        INSERT INTO dbo.OrderStatusHistory (
+          OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
+        )
+        VALUES (@orderId, NULL, @orderStatusId, @changedByUserId, N'Đặt hàng', SYSDATETIME())
+      `)
+
     if (couponId) {
       await tx()
         .input('orderId', sql.BigInt, orderId)
@@ -444,7 +455,7 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
     const current = await tx()
       .input('orderCode', sql.VarChar(50), orderCode)
       .query(`
-        SELECT TOP (1) so.OrderId, os.StatusCode AS OrderStatusCode, pm.MethodCode
+        SELECT TOP (1) so.OrderId, so.OrderStatusId, os.StatusCode AS OrderStatusCode, pm.MethodCode
         FROM dbo.SalesOrder so WITH (UPDLOCK, ROWLOCK)
         INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
         INNER JOIN dbo.Payment p ON p.OrderId = so.OrderId
@@ -453,19 +464,21 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
         ORDER BY p.PaymentId DESC
       `)
 
-    const order = current.recordset[0] as { OrderId: number; OrderStatusCode: string; MethodCode: string } | undefined
+    const order = current.recordset[0] as { OrderId: number; OrderStatusId: number; OrderStatusCode: string; MethodCode: string } | undefined
     if (!order) throw new Error('Không tìm thấy đơn hàng.')
     if (order.MethodCode === 'COD') throw new Error('COD được đối soát khi giao hàng, không xác nhận online tại bước này.')
+
+    if (order.OrderStatusCode !== 'PendingPayment') throw new Error('Only pending-payment orders can be confirmed as paid.')
 
     const statuses = await tx().query(`
       SELECT
         (SELECT PaymentStatusId FROM dbo.PaymentStatus WHERE StatusCode = 'Success') AS PaymentStatusId,
-        (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Paid') AS PaidOrderStatusId
+        (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Confirmed') AS ConfirmedOrderStatusId
     `)
 
     const paymentStatusId = Number(statuses.recordset[0]?.PaymentStatusId)
-    const paidOrderStatusId = Number(statuses.recordset[0]?.PaidOrderStatusId)
-    if (!paymentStatusId || !paidOrderStatusId) throw new Error('Thiếu cấu hình trạng thái thanh toán.')
+    const confirmedOrderStatusId = Number(statuses.recordset[0]?.ConfirmedOrderStatusId)
+    if (!paymentStatusId || !confirmedOrderStatusId) throw new Error('Missing required payment status configuration.')
 
     await tx()
       .input('orderId', sql.BigInt, order.OrderId)
@@ -482,21 +495,28 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
     await tx()
       .input('orderId', sql.BigInt, order.OrderId)
       .input('paymentStatusId', sql.TinyInt, paymentStatusId)
-      .input('paidOrderStatusId', sql.TinyInt, paidOrderStatusId)
+      .input('confirmedOrderStatusId', sql.TinyInt, confirmedOrderStatusId)
       .query(`
         UPDATE dbo.SalesOrder
         SET PaymentStatusId = @paymentStatusId,
-            OrderStatusId = CASE
-              WHEN OrderStatusId = (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'PendingPayment')
-              THEN @paidOrderStatusId
-              ELSE OrderStatusId
-            END,
+            OrderStatusId = @confirmedOrderStatusId,
             UpdatedAt = SYSDATETIME()
         WHERE OrderId = @orderId
       `)
 
+    await tx()
+      .input('orderId', sql.BigInt, order.OrderId)
+      .input('fromStatusId', sql.TinyInt, order.OrderStatusId)
+      .input('toStatusId', sql.TinyInt, confirmedOrderStatusId)
+      .query(`
+        INSERT INTO dbo.OrderStatusHistory (
+          OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
+        )
+        VALUES (@orderId, @fromStatusId, @toStatusId, NULL, N'Thanh toán online thành công', SYSDATETIME())
+      `)
+
     await transaction.commit()
-    return { orderCode, paymentStatusCode: 'Success', orderStatusCode: 'Paid' }
+    return { orderCode, paymentStatusCode: 'Success', orderStatusCode: 'Confirmed' }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error
