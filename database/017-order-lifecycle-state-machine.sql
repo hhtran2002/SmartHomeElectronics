@@ -16,7 +16,8 @@ IF EXISTS (SELECT 1 FROM dbo.OrderStatus WHERE StatusCode = 'Paid')
 BEGIN
   UPDATE dbo.OrderStatus
   SET StatusCode = 'Confirmed',
-      StatusName = N'Đã xác nhận',
+      StatusName = NCHAR(272) + NCHAR(227) + NCHAR(32) + NCHAR(120) + NCHAR(225)
+        + NCHAR(99) + NCHAR(32) + NCHAR(110) + NCHAR(104) + NCHAR(7853) + NCHAR(110),
       SortOrder = 3
   WHERE StatusCode = 'Paid';
 END;
