@@ -1,26 +1,27 @@
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+import { resolve } from 'node:path'
 import sql from 'mssql/msnodesqlv8.js'
 
-const server = process.env.DB_SERVER ?? 'DESKTOP-A2DR18E\\SQLEXPRESS'
-const database = process.env.DB_NAME ?? 'SmartHomeElectronicsDB'
+loadEnv({
+  path: resolve(__dirname, '../../../../.env'),
+  quiet: true,
+})
 
-const config = {
-  connectionString:
-    `Driver={ODBC Driver 17 for SQL Server};` +
-    `Server=${server};` +
-    `Database=${database};` +
-    `Trusted_Connection=Yes;` +
-    `TrustServerCertificate=Yes;` +
-    `Encrypt=no;`,
-
+const config: sql.config = {
+  server: process.env.DB_SERVER ?? 'localhost\\SQLEXPRESS',
+  database: process.env.DB_NAME ?? 'SmartHomeElectronicsDB',
   driver: 'msnodesqlv8',
-
+  connectionTimeout: 10_000,
+  options: {
+    trustedConnection: process.env.DB_TRUSTED_CONNECTION !== 'false',
+    trustServerCertificate: true,
+  },
   pool: {
     min: 0,
     max: 10,
     idleTimeoutMillis: 30_000,
   },
-} as any
+}
 
 let poolPromise: Promise<sql.ConnectionPool> | undefined
 

@@ -130,7 +130,7 @@ export function ProfilePage({ token, onNameChanged }: Props) {
   }
 
   if (!token) return <main className="profile-page"><div className="status-card error">Bạn cần đăng nhập để xem hồ sơ.</div></main>
-  if (!profile) return <main className="profile-page"><div className="status-card">Đang tải hồ sơ...</div></main>
+  if (!profile) return <main className="profile-page"><div className={`status-card${error ? ' error' : ''}`}>{error || 'Đang tải hồ sơ...'}</div></main>
 
   return (
     <main className="profile-page">
