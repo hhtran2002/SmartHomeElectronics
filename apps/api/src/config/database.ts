@@ -7,13 +7,24 @@ loadEnv({
   quiet: true,
 })
 
+function requireEnv(name: 'DB_SERVER' | 'DB_NAME' | 'DB_TRUSTED_CONNECTION') {
+  const value = process.env[name]?.trim()
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
+  return value
+}
+
+const trustedConnection = requireEnv('DB_TRUSTED_CONNECTION')
+if (trustedConnection !== 'true' && trustedConnection !== 'false') {
+  throw new Error('DB_TRUSTED_CONNECTION must be either "true" or "false".')
+}
+
 const config: sql.config = {
-  server: process.env.DB_SERVER ?? 'localhost\\SQLEXPRESS',
-  database: process.env.DB_NAME ?? 'SmartHomeElectronicsDB',
+  server: requireEnv('DB_SERVER'),
+  database: requireEnv('DB_NAME'),
   driver: 'msnodesqlv8',
   connectionTimeout: 10_000,
   options: {
-    trustedConnection: process.env.DB_TRUSTED_CONNECTION !== 'false',
+    trustedConnection: trustedConnection === 'true',
     trustServerCertificate: true,
   },
   pool: {
