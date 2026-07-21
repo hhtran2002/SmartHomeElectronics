@@ -5,6 +5,7 @@ export type AdminProductInput = {
   categoryId: number
   brandId: number
   description: string
+  highlights: string
   basePrice: number
   warrantyMonths: number
   installRequired: boolean
@@ -33,6 +34,8 @@ export async function getAdminProducts() {
       p.ProductId AS productId,
       p.ProductName AS productName,
       p.Slug AS slug,
+      p.Description AS description,
+      p.Highlights AS highlights,
       p.BasePrice AS basePrice,
       p.WarrantyMonths AS warrantyMonths,
       p.InstallRequired AS installRequired,
@@ -88,17 +91,18 @@ export async function createAdminProduct(input: AdminProductInput) {
       .input('productName', sql.NVarChar(255), input.productName)
       .input('slug', sql.VarChar(255), slug)
       .input('description', sql.NVarChar(sql.MAX), input.description || null)
+      .input('highlights', sql.NVarChar(sql.MAX), input.highlights || null)
       .input('basePrice', sql.Decimal(18, 2), input.basePrice)
       .input('warrantyMonths', sql.Int, input.warrantyMonths)
       .input('installRequired', sql.Bit, input.installRequired)
       .query(`
         INSERT INTO dbo.Product (
-          CategoryId, BrandId, ProductName, Slug, Description,
+          CategoryId, BrandId, ProductName, Slug, Description, Highlights,
           BasePrice, WarrantyMonths, InstallRequired, Status, CreatedAt
         )
         OUTPUT INSERTED.ProductId
         VALUES (
-          @categoryId, @brandId, @productName, @slug, @description,
+          @categoryId, @brandId, @productName, @slug, @description, @highlights,
           @basePrice, @warrantyMonths, @installRequired, 'Active', SYSDATETIME()
         )
       `)
@@ -148,6 +152,7 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
       .input('brandId', sql.BigInt, input.brandId)
       .input('productName', sql.NVarChar(255), input.productName)
       .input('description', sql.NVarChar(sql.MAX), input.description || null)
+      .input('highlights', sql.NVarChar(sql.MAX), input.highlights || null)
       .input('basePrice', sql.Decimal(18, 2), input.basePrice)
       .input('warrantyMonths', sql.Int, input.warrantyMonths)
       .input('installRequired', sql.Bit, input.installRequired)
@@ -157,6 +162,7 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
             BrandId = @brandId,
             ProductName = @productName,
             Description = @description,
+            Highlights = @highlights,
             BasePrice = @basePrice,
             WarrantyMonths = @warrantyMonths,
             InstallRequired = @installRequired,

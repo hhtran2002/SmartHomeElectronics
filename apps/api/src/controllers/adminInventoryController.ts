@@ -5,6 +5,7 @@ import {
   createStockIn,
   createStockOut,
   getInventoryItems,
+  getStockableSkus,
   getReadyOrdersForExport,
   getStockMovements,
   getWarehouses,
@@ -33,6 +34,12 @@ export async function listInventoryItems(_request: AuthRequest, response: Respon
   } catch (error) {
     next(error)
   }
+}
+
+export async function listStockableSkus(_request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    response.json({ data: await getStockableSkus() })
+  } catch (error) { next(error) }
 }
 
 export async function listStockMovements(_request: AuthRequest, response: Response, next: NextFunction) {

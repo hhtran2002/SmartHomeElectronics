@@ -15,7 +15,7 @@ type Props = {
 
 export function AdminProductImages({ productId, token, onChanged }: Props) {
   const [error, setError] = useState('')
-  const [imageUrls, setImageUrls] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [images, setImages] = useState<AdminProductImage[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -37,19 +37,13 @@ export function AdminProductImages({ productId, token, onChanged }: Props) {
   }, [loadImages])
 
   async function addImages() {
-    const urls = imageUrls
-      .split('\n')
-      .map((url) => url.trim())
-      .filter(Boolean)
-
-    if (urls.length === 0) return
+    const url = imageUrl.trim()
+    if (!url) return
     setError('')
 
     try {
-      for (const url of urls) {
-        await addAdminProductImage(productId, url, token)
-      }
-      setImageUrls('')
+      await addAdminProductImage(productId, url, token)
+      setImageUrl('')
       await loadImages()
       onChanged()
     } catch (error) {
@@ -83,15 +77,16 @@ export function AdminProductImages({ productId, token, onChanged }: Props) {
     <section className="admin-image-manager">
       <span className="eyebrow">Thư viện ảnh</span>
       <h3>Ảnh sản phẩm</h3>
-      <p className="form-hint">Có thể dán nhiều URL, mỗi dòng là một ảnh. Ảnh chính sẽ làm thumbnail.</p>
+      <p className="form-hint">Dán một URL rồi thêm ngay. Ảnh đầu tiên là thumbnail mặc định.</p>
 
-      <div className="image-add-row stacked">
-        <textarea
-          placeholder={'Dán URL ảnh mới\nMỗi dòng một ảnh'}
-          value={imageUrls}
-          onChange={(event) => setImageUrls(event.target.value)}
+      <div className="image-add-row">
+        <input
+          placeholder="Dán URL ảnh mới"
+          value={imageUrl}
+          onChange={(event) => setImageUrl(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addImages() } }}
         />
-        <button type="button" onClick={() => void addImages()}>Thêm ảnh</button>
+        <button type="button" disabled={!imageUrl.trim()} onClick={() => void addImages()}>Thêm ảnh</button>
       </div>
 
       {error && <p className="form-error">{error}</p>}

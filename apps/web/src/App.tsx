@@ -23,7 +23,6 @@ import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
-import { AiSearchPage } from './pages/AiSearchPage'
 import type {
   Brand,
   Category,
@@ -191,7 +190,7 @@ function App() {
       .catch(() => setDetailError('Không tải được chi tiết sản phẩm.'))
   }
 
-  let activePage: 'home' | 'products' | 'cart' | 'auth' | 'admin' | 'ai-search' = 'home'
+  let activePage: 'home' | 'products' | 'cart' | 'auth' | 'admin' = 'home'
   let page = (
     <HomePage
       search={filters.search}
@@ -227,16 +226,9 @@ function App() {
         onFiltersChange={setFilters}
         onResetFilters={() => setFilters(initialFilters)}
         onViewDetail={handleViewDetail}
+        token={auth.token}
       />
     )
-  } else if (hash === '#/ai-search') {
-  activePage = 'ai-search'
-  page = (
-    <AiSearchPage
-      onAddToCart={addToCart}
-      onViewDetail={handleViewDetail}
-    />
-  )
   } else if (hash === '#/cart') {
     activePage = 'cart'
     page = (

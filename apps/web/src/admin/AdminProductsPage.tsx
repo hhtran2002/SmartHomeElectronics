@@ -35,6 +35,7 @@ const emptyForm: AdminProductPayload = {
   categoryId: 0,
   brandId: 0,
   description: '',
+  highlights: '',
   basePrice: 0,
   warrantyMonths: 12,
   installRequired: false,
@@ -54,7 +55,8 @@ function toForm(product: AdminProduct): AdminProductPayload {
     productName: product.productName,
     categoryId: product.categoryId,
     brandId: product.brandId,
-    description: '',
+    description: product.description ?? '',
+    highlights: product.highlights ?? '',
     basePrice: Number(product.basePrice),
     warrantyMonths: product.warrantyMonths,
     installRequired: product.installRequired,
@@ -126,6 +128,11 @@ function ProductForm({
         />
       </label>
 
+      <label>
+        Đặc điểm nổi bật
+        <textarea value={form.highlights} placeholder="Mỗi dòng là một điểm nổi bật" onChange={(event) => onChange({ ...form, highlights: event.target.value })} />
+      </label>
+
       <div className="checkout-grid">
         <label>
           Giá tham khảo Product
@@ -194,8 +201,10 @@ function ProductForm({
         />
       </label>
 
-      <button disabled={saving}>{saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Thêm sản phẩm'}</button>
-      {editingId && onCancel && <button type="button" onClick={onCancel}>Hủy sửa</button>}
+      <div className="product-form-actions">
+        <button disabled={saving}>{saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Thêm sản phẩm'}</button>
+        {editingId && onCancel && <button type="button" onClick={onCancel}>Hủy sửa</button>}
+      </div>
     </form>
   )
 }

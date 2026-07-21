@@ -48,6 +48,7 @@ export async function getInventoryItems() {
       i.QuantityReserved AS quantityReserved,
       i.QuantityOnHand - i.QuantityReserved AS availableQuantity,
       i.ReorderLevel AS reorderLevel,
+      i.AverageUnitCost AS averageUnitCost,
       i.UpdatedAt AS updatedAt
     FROM dbo.Inventory i
     INNER JOIN dbo.Warehouse w ON w.WarehouseId = i.WarehouseId
@@ -56,6 +57,18 @@ export async function getInventoryItems() {
     INNER JOIN dbo.Category c ON c.CategoryId = p.CategoryId
     INNER JOIN dbo.Brand b ON b.BrandId = p.BrandId
     ORDER BY availableQuantity ASC, p.ProductName
+  `)
+  return result.recordset
+}
+
+export async function getStockableSkus() {
+  const pool = await getPool()
+  const result = await pool.request().query(`
+    SELECT ps.SkuId AS skuId, ps.SkuCode AS skuCode, p.ProductName AS productName
+    FROM dbo.ProductSku ps
+    INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
+    WHERE ps.Status = 'Active' AND p.Status = 'Active'
+    ORDER BY p.ProductName, ps.SkuCode
   `)
   return result.recordset
 }
@@ -72,6 +85,7 @@ export async function getStockMovements() {
       p.ProductName AS productName,
       sm.MovementType AS movementType,
       sm.QuantityChange AS quantityChange,
+      sm.UnitCost AS unitCost,
       sm.SourceType AS sourceType,
       sm.AdjustmentNote AS adjustmentNote,
       sm.CreatedAt AS createdAt,
@@ -194,6 +208,7 @@ export async function confirmOrderExport(orderId: number, userId: number) {
           i.WarehouseId,
           i.QuantityOnHand,
           i.QuantityReserved,
+          i.AverageUnitCost,
           oir.QuantityReserved - oir.QuantityFulfilled AS QuantityToExport
         FROM dbo.SalesOrderDetail sod
         INNER JOIN dbo.OrderInventoryReservation oir WITH (UPDLOCK, ROWLOCK)
@@ -209,6 +224,7 @@ export async function confirmOrderExport(orderId: number, userId: number) {
     const receiptIds = new Map<number, number>()
     for (const item of allocations.recordset) {
       const quantity = Number(item.QuantityToExport)
+      const unitCost = Number(item.AverageUnitCost)
       if (quantity < 1 || Number(item.QuantityOnHand) < quantity || Number(item.QuantityReserved) < quantity) {
         throw new Error(`Tồn kho của SKU ${item.SkuId} không khớp với lượng đang giữ.`)
       }
@@ -241,10 +257,16 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         .input('orderDetailId', sql.BigInt, item.OrderDetailId)
         .input('skuId', sql.BigInt, item.SkuId)
         .input('quantity', sql.Int, quantity)
+        .input('unitCost', sql.Decimal(18, 2), unitCost)
         .query(`
-          INSERT INTO dbo.StockOutReceiptDetail (StockOutReceiptId, OrderDetailId, SkuId, Quantity)
-          VALUES (@receiptId, @orderDetailId, @skuId, @quantity)
+          INSERT INTO dbo.StockOutReceiptDetail (StockOutReceiptId, OrderDetailId, SkuId, Quantity, UnitCost)
+          VALUES (@receiptId, @orderDetailId, @skuId, @quantity, @unitCost)
         `)
+
+      await tx()
+        .input('orderDetailId', sql.BigInt, item.OrderDetailId)
+        .input('costOfGoodsSold', sql.Decimal(18, 2), unitCost * quantity)
+        .query(`UPDATE dbo.SalesOrderDetail SET CostOfGoodsSold = CostOfGoodsSold + @costOfGoodsSold WHERE OrderDetailId = @orderDetailId`)
 
       await tx()
         .input('inventoryId', sql.BigInt, item.InventoryId)
@@ -271,16 +293,17 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         .input('warehouseId', sql.BigInt, warehouseId)
         .input('skuId', sql.BigInt, item.SkuId)
         .input('quantity', sql.Int, -quantity)
+        .input('unitCost', sql.Decimal(18, 2), unitCost)
         .input('receiptId', sql.BigInt, receiptId)
         .input('userId', sql.BigInt, userId)
         .query(`
           INSERT INTO dbo.StockMovement (
             WarehouseId, SkuId, MovementType, QuantityChange, SourceType,
-            StockOutReceiptId, AdjustmentNote, CreatedByUserId, CreatedAt
+            StockOutReceiptId, UnitCost, AdjustmentNote, CreatedByUserId, CreatedAt
           )
           VALUES (
             @warehouseId, @skuId, 'OUT', @quantity, 'StockOut',
-            @receiptId, N'Xuất theo đơn hàng', @userId, SYSDATETIME()
+            @receiptId, @unitCost, N'Xuất theo đơn hàng', @userId, SYSDATETIME()
           )
         `)
     }
@@ -352,34 +375,50 @@ export async function createStockIn(input: StockInInput) {
         VALUES (@receiptId, @skuId, @quantity, @unitCost)
       `)
 
-    await tx()
+    const currentInventory = await tx()
       .input('warehouseId', sql.BigInt, input.warehouseId)
       .input('skuId', sql.BigInt, input.skuId)
-      .input('quantity', sql.Int, input.quantity)
       .query(`
-        MERGE dbo.Inventory AS target
-        USING (SELECT @warehouseId AS WarehouseId, @skuId AS SkuId) AS source
-        ON target.WarehouseId = source.WarehouseId AND target.SkuId = source.SkuId
-        WHEN MATCHED THEN
-          UPDATE SET QuantityOnHand = QuantityOnHand + @quantity, UpdatedAt = SYSDATETIME()
-        WHEN NOT MATCHED THEN
-          INSERT (WarehouseId, SkuId, QuantityOnHand, QuantityReserved, ReorderLevel, UpdatedAt)
-          VALUES (@warehouseId, @skuId, @quantity, 0, 3, SYSDATETIME());
+        SELECT TOP (1) InventoryId, QuantityOnHand, AverageUnitCost
+        FROM dbo.Inventory WITH (UPDLOCK, HOLDLOCK)
+        WHERE WarehouseId = @warehouseId AND SkuId = @skuId
       `)
+
+    const current = currentInventory.recordset[0]
+    let averageUnitCost = input.unitCost
+
+    if (current) {
+      const oldQuantity = Number(current.QuantityOnHand)
+      const oldAverage = Number(current.AverageUnitCost)
+      averageUnitCost = ((oldQuantity * oldAverage) + (input.quantity * input.unitCost)) / (oldQuantity + input.quantity)
+      await tx()
+        .input('inventoryId', sql.BigInt, current.InventoryId)
+        .input('quantity', sql.Int, input.quantity)
+        .input('averageUnitCost', sql.Decimal(18, 2), averageUnitCost)
+        .query(`UPDATE dbo.Inventory SET QuantityOnHand = QuantityOnHand + @quantity, AverageUnitCost = @averageUnitCost, UpdatedAt = SYSDATETIME() WHERE InventoryId = @inventoryId`)
+    } else {
+      await tx()
+        .input('warehouseId', sql.BigInt, input.warehouseId)
+        .input('skuId', sql.BigInt, input.skuId)
+        .input('quantity', sql.Int, input.quantity)
+        .input('averageUnitCost', sql.Decimal(18, 2), averageUnitCost)
+        .query(`INSERT INTO dbo.Inventory (WarehouseId, SkuId, QuantityOnHand, QuantityReserved, ReorderLevel, AverageUnitCost, UpdatedAt) VALUES (@warehouseId, @skuId, @quantity, 0, 3, @averageUnitCost, SYSDATETIME())`)
+    }
 
     await tx()
       .input('warehouseId', sql.BigInt, input.warehouseId)
       .input('skuId', sql.BigInt, input.skuId)
       .input('quantity', sql.Int, input.quantity)
+      .input('unitCost', sql.Decimal(18, 2), input.unitCost)
       .input('receiptId', sql.BigInt, receiptId)
       .input('note', sql.NVarChar(500), input.note)
       .input('userId', sql.BigInt, input.userId)
       .query(`
         INSERT INTO dbo.StockMovement (
           WarehouseId, SkuId, MovementType, QuantityChange, SourceType,
-          StockInReceiptId, AdjustmentNote, CreatedByUserId, CreatedAt
+          StockInReceiptId, UnitCost, AdjustmentNote, CreatedByUserId, CreatedAt
         )
-        VALUES (@warehouseId, @skuId, 'IN', @quantity, 'StockIn', @receiptId, @note, @userId, SYSDATETIME())
+        VALUES (@warehouseId, @skuId, 'IN', @quantity, 'StockIn', @receiptId, @unitCost, @note, @userId, SYSDATETIME())
       `)
 
     await transaction.commit()
@@ -402,7 +441,7 @@ export async function createStockOut(input: StockOutInput) {
       .input('warehouseId', sql.BigInt, input.warehouseId)
       .input('skuId', sql.BigInt, input.skuId)
       .query(`
-        SELECT TOP (1) InventoryId, QuantityOnHand, QuantityReserved
+        SELECT TOP (1) InventoryId, QuantityOnHand, QuantityReserved, AverageUnitCost
         FROM dbo.Inventory WITH (UPDLOCK, ROWLOCK)
         WHERE WarehouseId = @warehouseId AND SkuId = @skuId
       `)
@@ -413,6 +452,7 @@ export async function createStockOut(input: StockOutInput) {
     }
 
     const receiptCode = makeReceiptCode('OUT')
+    const unitCost = Number(current.AverageUnitCost)
     const receipt = await tx()
       .input('receiptCode', sql.VarChar(50), receiptCode)
       .input('warehouseId', sql.BigInt, input.warehouseId)
@@ -431,9 +471,10 @@ export async function createStockOut(input: StockOutInput) {
       .input('receiptId', sql.BigInt, receiptId)
       .input('skuId', sql.BigInt, input.skuId)
       .input('quantity', sql.Int, input.quantity)
+      .input('unitCost', sql.Decimal(18, 2), unitCost)
       .query(`
-        INSERT INTO dbo.StockOutReceiptDetail (StockOutReceiptId, OrderDetailId, SkuId, Quantity)
-        VALUES (@receiptId, NULL, @skuId, @quantity)
+        INSERT INTO dbo.StockOutReceiptDetail (StockOutReceiptId, OrderDetailId, SkuId, Quantity, UnitCost)
+        VALUES (@receiptId, NULL, @skuId, @quantity, @unitCost)
       `)
 
     await tx()
@@ -450,15 +491,16 @@ export async function createStockOut(input: StockOutInput) {
       .input('warehouseId', sql.BigInt, input.warehouseId)
       .input('skuId', sql.BigInt, input.skuId)
       .input('quantity', sql.Int, -input.quantity)
+      .input('unitCost', sql.Decimal(18, 2), unitCost)
       .input('receiptId', sql.BigInt, receiptId)
       .input('note', sql.NVarChar(500), input.note)
       .input('userId', sql.BigInt, input.userId)
       .query(`
         INSERT INTO dbo.StockMovement (
           WarehouseId, SkuId, MovementType, QuantityChange, SourceType,
-          StockOutReceiptId, AdjustmentNote, CreatedByUserId, CreatedAt
+          StockOutReceiptId, UnitCost, AdjustmentNote, CreatedByUserId, CreatedAt
         )
-        VALUES (@warehouseId, @skuId, 'OUT', @quantity, 'StockOut', @receiptId, @note, @userId, SYSDATETIME())
+        VALUES (@warehouseId, @skuId, 'OUT', @quantity, 'StockOut', @receiptId, @unitCost, @note, @userId, SYSDATETIME())
       `)
 
     await transaction.commit()

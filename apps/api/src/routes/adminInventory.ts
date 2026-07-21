@@ -5,6 +5,7 @@ import {
   createStockInReceipt,
   createStockOutReceipt,
   listInventoryItems,
+  listStockableSkus,
   listReadyOrdersForExport,
   listStockMovements,
   listWarehouses,
@@ -16,6 +17,7 @@ adminInventoryRouter.use(requireAuth, requireRoles(['WarehouseStaff', 'SystemAdm
 
 adminInventoryRouter.get('/warehouses', listWarehouses)
 adminInventoryRouter.get('/', listInventoryItems)
+adminInventoryRouter.get('/skus', listStockableSkus)
 adminInventoryRouter.get('/movements', listStockMovements)
 adminInventoryRouter.get('/ready-orders', listReadyOrdersForExport)
 adminInventoryRouter.post('/ready-orders/:orderId/confirm-export', confirmReadyOrderExport)

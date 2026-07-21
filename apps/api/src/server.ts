@@ -3,6 +3,8 @@ import cors from 'cors'
 import express from 'express'
 import { getPool } from './config/database.js'
 import { adminDashboardRouter } from './routes/adminDashboard.js'
+import { adminAiRouter } from './routes/adminAi.js'
+import { aiAssistantRouter } from './routes/aiAssistant.js'
 import { adminInventoryRouter } from './routes/adminInventory.js'
 import { adminOrdersRouter } from './routes/adminOrders.js'
 import { adminProductsRouter } from './routes/adminProducts.js'
@@ -18,7 +20,6 @@ import { paymentMethodsRouter } from './routes/paymentMethods.js'
 import { productsRouter } from './routes/products.js'
 import { customerProfileRouter } from './routes/customerProfile.js'
 import { locationsRouter } from './routes/locations.js'
-import { aiSearchRouter } from './routes/aiSearch.js'
 
 const app = express()
 const port = Number(process.env.PORT ?? 3000)
@@ -43,7 +44,7 @@ app.get('/api/health', async (_request, response, next) => {
 })
 
 app.use('/api/products', productsRouter)
-app.use('/api/ai-search', aiSearchRouter)
+app.use('/api/ai', aiAssistantRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/brands', brandsRouter)
 app.use('/api/orders', ordersRouter)
@@ -52,6 +53,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/profile', customerProfileRouter)
 app.use('/api/locations', locationsRouter)
 app.use('/api/admin/dashboard', adminDashboardRouter)
+app.use('/api/admin/ai', adminAiRouter)
 app.use('/api/admin/inventory', adminInventoryRouter)
 app.use('/api/admin/orders', adminOrdersRouter)
 app.use('/api/admin/products', adminProductsRouter)

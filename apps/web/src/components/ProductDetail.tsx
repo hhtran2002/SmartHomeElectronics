@@ -32,6 +32,9 @@ function buildFallbackSpecs(product: Product) {
 }
 
 function buildHighlights(product: Product, attributes: ProductAttribute[]) {
+  const savedHighlights = String(product.highlights ?? '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+  if (savedHighlights.length > 0) return savedHighlights
+
   const attributeHighlights = attributes
     .filter((attribute) => String(attribute.value ?? '').trim())
     .slice(0, 4)

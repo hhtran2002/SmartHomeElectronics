@@ -10,6 +10,18 @@ import {
   updateAdminProductStatus,
   type AdminProductInput,
 } from '../services/adminProductService.js'
+import { indexProduct, removeProductFromIndex } from '../services/ragIndexService.js'
+
+async function syncProductIndex(productId: number, isActive = true) {
+  try {
+    if (isActive) await indexProduct(productId)
+    else await removeProductFromIndex(productId)
+    return true
+  } catch (error) {
+    console.error(`Could not synchronize product ${productId} to the RAG index.`, error)
+    return false
+  }
+}
 
 function readText(value: unknown) {
   return String(value ?? '').trim()
@@ -25,6 +37,7 @@ function readProductInput(request: Request): AdminProductInput {
     categoryId: Number(request.body.categoryId),
     brandId: Number(request.body.brandId),
     description: readText(request.body.description),
+    highlights: readText(request.body.highlights),
     basePrice: Number(request.body.basePrice),
     warrantyMonths: Number(request.body.warrantyMonths ?? 12),
     installRequired: Boolean(request.body.installRequired),
@@ -63,7 +76,9 @@ export async function createProduct(request: Request, response: Response, next: 
   }
 
   try {
-    response.status(201).json({ data: await createAdminProduct(input) })
+    const data = await createAdminProduct(input)
+    const ragIndexed = await syncProductIndex(data.productId)
+    response.status(201).json({ data: { ...data, ragIndexed } })
   } catch (error) {
     next(error)
   }
@@ -79,7 +94,9 @@ export async function updateProduct(request: Request, response: Response, next: 
   }
 
   try {
-    response.json({ data: await updateAdminProduct(productId, input) })
+    const data = await updateAdminProduct(productId, input)
+    const ragIndexed = await syncProductIndex(productId)
+    response.json({ data: { ...data, ragIndexed } })
   } catch (error) {
     next(error)
   }
@@ -140,7 +157,9 @@ export async function changeProductStatus(request: Request, response: Response, 
   }
 
   try {
-    response.json({ data: await updateAdminProductStatus(productId, status) })
+    const data = await updateAdminProductStatus(productId, status)
+    const ragIndexed = await syncProductIndex(productId, status === 'Active')
+    response.json({ data: { ...data, ragIndexed } })
   } catch (error) {
     next(error)
   }

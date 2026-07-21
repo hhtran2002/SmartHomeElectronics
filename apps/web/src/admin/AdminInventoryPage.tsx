@@ -4,10 +4,11 @@ import {
   createAdminStockIn,
   createAdminStockOut,
   getAdminInventory,
+  getAdminStockableSkus,
   getAdminStockMovements,
   getAdminWarehouses,
 } from '../api'
-import type { AdminInventoryItem, AdminStockMovement, AdminWarehouse } from '../types'
+import type { AdminInventoryItem, AdminStockMovement, AdminStockableSku, AdminWarehouse } from '../types'
 import { WarehouseReadyOrders } from './WarehouseReadyOrders'
 
 type Props = {
@@ -38,6 +39,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
   const [mode, setMode] = useState<FormMode>('in')
   const [movements, setMovements] = useState<AdminStockMovement[]>([])
   const [saving, setSaving] = useState(false)
+  const [stockableSkus, setStockableSkus] = useState<AdminStockableSku[]>([])
   const [success, setSuccess] = useState('')
   const [warehouses, setWarehouses] = useState<AdminWarehouse[]>([])
 
@@ -50,14 +52,16 @@ export function AdminInventoryPage({ roles, token }: Props) {
     setLoading(true)
     setError('')
     try {
-      const [warehousePayload, inventoryPayload, movementPayload] = await Promise.all([
+      const [warehousePayload, inventoryPayload, movementPayload, skuPayload] = await Promise.all([
         getAdminWarehouses(token),
         getAdminInventory(token),
         getAdminStockMovements(token),
+        getAdminStockableSkus(token),
       ])
       setWarehouses(warehousePayload.data)
       setInventory(inventoryPayload.data)
       setMovements(movementPayload.data)
+      setStockableSkus(skuPayload.data)
 
       const firstItem = inventoryPayload.data[0]
       if (firstItem && form.warehouseId === 0 && form.skuId === 0) {
@@ -220,8 +224,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
                 onChange={(event) => setForm({ ...form, skuId: Number(event.target.value) })}
               >
                 <option value={0}>Chọn SKU</option>
-                {inventory.map((item) => (
-                  <option key={`${item.warehouseId}-${item.skuId}`} value={item.skuId}>
+                {(mode === 'in' ? stockableSkus : inventory).map((item) => (
+                  <option key={item.skuId} value={item.skuId}>
                     {item.skuCode} · {item.productName}
                   </option>
                 ))}
@@ -233,6 +237,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
                 <span>Tồn thực tế: <strong>{selectedItem.quantityOnHand}</strong></span>
                 <span>Đang giữ: <strong>{selectedItem.quantityReserved}</strong></span>
                 <span>Khả dụng: <strong>{selectedItem.availableQuantity}</strong></span>
+                <span>Giá vốn bình quân: <strong>{selectedItem.averageUnitCost.toLocaleString('vi-VN')}đ</strong></span>
               </div>
             )}
 

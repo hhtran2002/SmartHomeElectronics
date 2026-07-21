@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   AdminDashboard,
   AdminInventoryItem,
+  AdminStockableSku,
   AdminOrder,
   AdminOrderDetail,
   AdminProduct,
@@ -32,7 +33,7 @@ import type {
   Product,
   ProductFilters,
   ProductListResponse,
-  AiSearchResponse,
+  AiChatResponse,
 } from './types'
 
 const pageSize = 12
@@ -145,19 +146,8 @@ export function getProduct(slug: string) {
   return getJson<{ data: Product }>(`/api/products/${encodeURIComponent(slug)}`)
 }
 
-export function semanticAiSearch(query: string) {
-  const params = new URLSearchParams()
-  params.set('q', query)
-  params.set('limit', String(pageSize))
-
-  return getJson<AiSearchResponse>(`/api/ai-search/semantic?${params.toString()}`)
-}
-
-export function imageAiSearch(imageBase64: string) {
-  return postJson<AiSearchResponse>('/api/ai-search/image', {
-    imageBase64,
-    limit: pageSize,
-  })
+export function askAiAboutProducts(query: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, contextProductIds: number[], token: string) {
+  return postJsonWithToken<AiChatResponse>('/api/ai/chat', token, { query, history, contextProductIds })
 }
 
 export function submitProductReview(slug: string, token: string, payload: {
@@ -327,6 +317,10 @@ export function getAdminWarehouses(token: string) {
 
 export function getAdminInventory(token: string) {
   return getJsonWithToken<{ data: AdminInventoryItem[] }>('/api/admin/inventory', token)
+}
+
+export function getAdminStockableSkus(token: string) {
+  return getJsonWithToken<{ data: AdminStockableSku[] }>('/api/admin/inventory/skus', token)
 }
 
 export function getAdminStockMovements(token: string) {

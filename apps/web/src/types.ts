@@ -3,6 +3,7 @@ export type Product = {
   name: string
   slug: string
   description: string | null
+  highlights?: string | null
   basePrice: number
   categoryName: string
   categorySlug: string
@@ -106,9 +107,14 @@ export type ProductListResponse = {
   pageSize: number
 }
 
-export type AiSearchResponse = {
-  data: Product[]
-  total: number
+export type AiChatResponse = {
+  data: {
+    decision: 'recommend' | 'need_clarification' | 'no_match' | 'out_of_scope'
+    answer: string
+    productIds: number[]
+    products: Array<{ slug: string }>
+    quota: { limit: number; remaining: number }
+  }
 }
 
 export type CartItem = {
@@ -295,6 +301,8 @@ export type AdminProduct = {
   productId: number
   productName: string
   slug: string
+  description: string | null
+  highlights: string | null
   basePrice: number
   warrantyMonths: number
   installRequired: boolean
@@ -317,6 +325,7 @@ export type AdminProductPayload = {
   categoryId: number
   brandId: number
   description: string
+  highlights: string
   basePrice: number
   warrantyMonths: number
   installRequired: boolean
@@ -381,7 +390,14 @@ export type AdminInventoryItem = {
   quantityReserved: number
   availableQuantity: number
   reorderLevel: number
+  averageUnitCost: number
   updatedAt: string
+}
+
+export type AdminStockableSku = {
+  skuId: number
+  skuCode: string
+  productName: string
 }
 
 export type AdminStockMovement = {
@@ -393,6 +409,7 @@ export type AdminStockMovement = {
   productName: string
   movementType: string
   quantityChange: number
+  unitCost: number | null
   sourceType: string
   adjustmentNote: string | null
   createdAt: string

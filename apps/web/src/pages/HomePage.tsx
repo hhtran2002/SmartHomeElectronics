@@ -136,21 +136,6 @@ export function HomePage({ search, onSearchChange, onSubmit }: Props) {
         </div>
       </section>
 
-      <section className="ai-search-banner">
-        <div>
-          <span className="eyebrow">Tìm kiếm AI</span>
-          <h2>Tìm sản phẩm bằng cách mô tả nhu cầu của bạn</h2>
-          <p>
-            Ví dụ: “Tôi cần máy lọc không khí cho phòng ngủ 30m², chạy êm và tiết kiệm điện”.
-            Hệ thống sẽ gợi ý sản phẩm phù hợp hơn so với tìm kiếm thông thường.
-          </p>
-        </div>
-
-        <a className="primary-link light" href="#/ai-search">
-          Thử tìm kiếm AI
-        </a>
-      </section>
-
       <section className="customer-section">
         <div className="section-heading section-heading-row">
           <div>
