@@ -281,17 +281,36 @@ Backend tạo lại embedding, giữ các ứng viên trước và đối chiế
 
 Không tạo bảng lưu ảnh hoặc phiên tìm kiếm cho phạm vi đồ án.
 
-## Giao diện
+## Giao diện và hội thoại đa phương thức
 
-Trang Sản phẩm có khu vực **Tìm bằng hình ảnh**:
+Trang Sản phẩm dùng chung một khu vực **Tìm kiếm và tư vấn bằng AI** cho cả text
+và hình ảnh:
 
-- chọn file hoặc mở camera sau trên thiết bị hỗ trợ;
-- preview ảnh;
-- kiểm tra JPEG/PNG và 8 MB ở client;
-- hiển thị trạng thái quyết định;
-- hiển thị đặc điểm nhìn thấy và lý do chưa chắc chắn;
-- hiện ô trả lời khi AI cần hỏi thêm;
-- dùng lại `ProductGrid` để hiển thị sản phẩm đối chiếu.
+- nút camera nằm ngay trong thanh nhập;
+- trên thiết bị hỗ trợ, nút camera có thể mở camera sau; trên desktop, nút mở
+  trình chọn file;
+- preview ảnh đính kèm trước khi gửi;
+- có thể gửi riêng ảnh hoặc gửi ảnh kèm mô tả;
+- kiểm tra JPEG/PNG và giới hạn 8 MB ở client;
+- kết quả nhận diện, đặc điểm nhìn thấy và lý do chưa chắc chắn được hiển thị
+  thành một tin nhắn AI trong cùng lịch sử hội thoại;
+- dùng chung `ProductGrid` để hiển thị sản phẩm AI đang tư vấn.
+
+Sau khi image search trả về `productIds`, frontend chuyển các ID này sang
+`contextProductIds` của text chat. Người dùng có thể bỏ ảnh và hỏi tiếp:
+
+```text
+Người dùng gửi ảnh
+→ image-search nhận diện ProductId 43
+→ frontend lưu contextProductIds: [43]
+→ người dùng hỏi "Mẫu này còn hàng không?"
+→ text chat đọc ProductId 43 từ SQL và trả lời theo tồn kho hiện tại
+```
+
+Ảnh không cần gửi lại ở các câu text sau. Nếu image search trả
+`need_clarification`, frontend giữ ảnh đính kèm và dùng câu trả lời tiếp theo làm
+`clarification`; khi đã xác định xong, ảnh được gỡ khỏi ô nhập để tiếp tục chat
+text bình thường.
 
 ## Kiểm thử thực tế
 
