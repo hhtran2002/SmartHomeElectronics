@@ -38,6 +38,16 @@ exact_match / similar_matches / need_clarification / no_match
 
 SQL Server vẫn là nguồn dữ liệu thật của tên, giá, tồn kho, bảo hành và thông số. Qdrant chỉ giữ vector cùng các khóa tra cứu.
 
+Model sinh câu trả lời và phân tích ảnh mặc định là `gemini-3.5-flash-lite`.
+Model embedding vẫn là `gemini-embedding-2`; đổi chat model không yêu cầu index
+lại catalog.
+
+Ngày 2026-07-30, project đã thử `gemini-2.5-flash` nhưng Gemini API trả `404`
+vì model này không còn cấp cho project/người dùng mới. `gemini-3.5-flash-lite`
+đã được kiểm thử thành công với cả structured text response và image response:
+câu hỏi đổi thương hiệu vẫn trả đúng nhóm tủ lạnh, còn ảnh catalog Toshiba trả
+`exact_match` cho ProductId 43.
+
 ## Collection ảnh
 
 Collection mới:

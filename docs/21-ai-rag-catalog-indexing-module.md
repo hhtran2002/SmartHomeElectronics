@@ -195,7 +195,7 @@ Qdrant tìm tối đa 5 ProductId theo nghĩa
 ↓
 SQL Server đọc lại tên, mô tả, giá, tồn kho, bảo hành, thông số thật
 ↓
-Gemini 3.5 Flash chỉ nhận danh sách tối đa 5 sản phẩm này làm context
+Gemini 3.5 Flash-Lite chỉ nhận danh sách tối đa 5 sản phẩm này làm context
 ↓
 Gemini trả JSON: decision + answer + productIds
 ↓

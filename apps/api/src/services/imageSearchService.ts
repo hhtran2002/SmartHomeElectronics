@@ -602,7 +602,7 @@ function fallbackClarifyingQuestion(observed: {
 
 async function inspectUploadedImage(buffer: Buffer, mimeType: SupportedImageMime) {
   const result = await getGeminiClient().models.generateContent({
-    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash',
+    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
     contents: [
       {
         text: [
@@ -680,7 +680,7 @@ async function analyzeImageCandidates(input: {
   observationUncertaintyReasons: string[]
 }) {
   const result = await getGeminiClient().models.generateContent({
-    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash',
+    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
     contents: [
       {
         text: [
