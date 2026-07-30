@@ -226,6 +226,7 @@ function App() {
         onFiltersChange={setFilters}
         onResetFilters={() => setFilters(initialFilters)}
         onViewDetail={handleViewDetail}
+        roles={auth.user?.roles ?? []}
         token={auth.token}
       />
     )

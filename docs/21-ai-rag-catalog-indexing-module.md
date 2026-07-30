@@ -261,7 +261,9 @@ Khung lịch sử có chiều cao giới hạn tương đương khoảng ba tin 
 
 ### Quota tư vấn theo tài khoản (cập nhật 2026-07-21)
 
-`POST /api/ai/chat` bắt buộc đăng nhập. Backend giới hạn mỗi `UserAccount` tối đa 4 câu hỏi hợp lệ mỗi ngày theo múi giờ `Asia/Ho_Chi_Minh`.
+`POST /api/ai/chat` bắt buộc đăng nhập. Backend giới hạn tài khoản thông
+thường tối đa 4 câu hỏi hợp lệ mỗi ngày theo múi giờ `Asia/Ho_Chi_Minh`.
+Tài khoản có role `SystemAdmin` được bỏ qua quota hằng ngày để kiểm thử AI.
 
 ```text
 Client gửi Bearer token
@@ -272,12 +274,16 @@ requireAuth xác thực tài khoản
 ↓
 Kiểm tra câu hỏi hợp lệ, không phải prompt injection/code/toán
 ↓
-AiDailyUsage khóa theo UserId + UsageDate, tăng MessageCount nếu còn dưới 4
+Nếu có role SystemAdmin: trả quota unlimited, không ghi AiDailyUsage
+Nếu không: AiDailyUsage khóa theo UserId + UsageDate, tăng MessageCount nếu còn dưới 4
 ↓
 RAG + Gemini
 ```
 
-Quota được lưu trong SQL Server (`dbo.AiDailyUsage`), nên không mất khi API restart. `database/023-ai-daily-message-quota.sql` tạo bảng này. Sau này có thể thêm `UserTier`/bảng quyền hạn để thay số 4 bằng quota theo hạng tài khoản.
+Quota của tài khoản thông thường được lưu trong SQL Server
+(`dbo.AiDailyUsage`), nên không mất khi API restart.
+`database/023-ai-daily-message-quota.sql` tạo bảng này. Lượt hỏi của
+`SystemAdmin` không được tăng vào bảng do tài khoản này có quota không giới hạn.
 
 ```text
 User hỏi lượt 1

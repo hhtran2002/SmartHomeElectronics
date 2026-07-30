@@ -174,7 +174,8 @@ contextProductIds   JSON array, tối đa 5 ProductId
 Endpoint dùng chung:
 
 - rate limit 12 request/phút/IP;
-- quota 4 lượt AI/người dùng/ngày;
+- quota 4 lượt AI/người dùng/ngày đối với tài khoản thông thường;
+- không giới hạn quota hằng ngày đối với role `SystemAdmin` để kiểm thử;
 - xác thực JWT.
 
 ## Hai bước phân tích để tránh AI tự suy diễn model
@@ -260,8 +261,19 @@ Ví dụ response:
   ],
   "quota": {
     "limit": 4,
-    "remaining": 3
+    "remaining": 3,
+    "unlimited": false
   }
+}
+```
+
+Với `SystemAdmin`, quota trả về:
+
+```json
+{
+  "limit": null,
+  "remaining": null,
+  "unlimited": true
 }
 ```
 

@@ -1,6 +1,7 @@
 import { getPool, sql } from '../config/database.js'
 
 const dailyMessageLimit = 4
+const unlimitedRoleCodes = new Set(['SystemAdmin'])
 
 export class AiDailyQuotaExceededError extends Error {
   constructor() {
@@ -16,7 +17,15 @@ function vietnamDate() {
   return `${value('year')}-${value('month')}-${value('day')}`
 }
 
-export async function consumeAiDailyMessage(userId: number) {
+export async function consumeAiDailyMessage(userId: number, roles: string[] = []) {
+  if (roles.some((role) => unlimitedRoleCodes.has(role))) {
+    return {
+      limit: null,
+      remaining: null,
+      unlimited: true,
+    }
+  }
+
   const pool = await getPool()
   const transaction = new sql.Transaction(pool)
   const usageDate = vietnamDate()
@@ -50,7 +59,11 @@ export async function consumeAiDailyMessage(userId: number) {
     }
 
     await transaction.commit()
-    return { limit: dailyMessageLimit, remaining: dailyMessageLimit - used - 1 }
+    return {
+      limit: dailyMessageLimit,
+      remaining: dailyMessageLimit - used - 1,
+      unlimited: false,
+    }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error

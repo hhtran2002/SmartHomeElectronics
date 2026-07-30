@@ -4,6 +4,7 @@ import { ProductFilters } from '../components/ProductFilters'
 import { ProductGrid } from '../components/ProductGrid'
 import type {
   AiImageSearchResponse,
+  AiQuota,
   Brand,
   Category,
   Product,
@@ -22,6 +23,7 @@ type Props = {
   onFiltersChange: (filters: Filters) => void
   onResetFilters: () => void
   onViewDetail: (slug: string) => void
+  roles: string[]
   token: string
 }
 
@@ -51,6 +53,7 @@ export function ProductsPage({
   onFiltersChange,
   onResetFilters,
   onViewDetail,
+  roles,
   token,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / 12))
@@ -59,13 +62,15 @@ export function ProductsPage({
   const [aiProducts, setAiProducts] = useState<Product[]>([])
   const [aiContextProductIds, setAiContextProductIds] = useState<number[]>([])
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiQuotaRemaining, setAiQuotaRemaining] = useState<number | null>(null)
+  const [aiQuota, setAiQuota] = useState<AiQuota | null>(null)
   const [aiStatus, setAiStatus] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
   const [pendingImageQuestion, setPendingImageQuestion] = useState('')
   const chatHistoryRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const aiQuotaUnlimited = roles.includes('SystemAdmin') || aiQuota?.unlimited === true
+  const aiQuotaExhausted = !aiQuotaUnlimited && aiQuota?.remaining === 0
 
   useEffect(() => {
     chatHistoryRef.current?.scrollTo({ top: chatHistoryRef.current.scrollHeight, behavior: 'smooth' })
@@ -97,7 +102,7 @@ export function ProductsPage({
       setAiStatus('Bạn cần đăng nhập để dùng tư vấn AI.')
       return
     }
-    if (aiQuotaRemaining === 0) {
+    if (aiQuotaExhausted) {
       setAiStatus('Bạn đã dùng hết 4 lượt tư vấn AI hôm nay.')
       return
     }
@@ -130,7 +135,7 @@ export function ProductsPage({
           imageResult: result.data,
         }])
         setAiContextProductIds(result.data.productIds)
-        setAiQuotaRemaining(result.data.quota.remaining)
+        setAiQuota(result.data.quota)
         const details = await Promise.all(result.data.products.map((product) => getProduct(product.slug)))
         setAiProducts(details.map((item) => item.data))
 
@@ -148,7 +153,7 @@ export function ProductsPage({
         if (answer.data.productIds.length > 0) {
           setAiContextProductIds(answer.data.productIds)
         }
-        setAiQuotaRemaining(answer.data.quota.remaining)
+        setAiQuota(answer.data.quota)
         const details = await Promise.all(answer.data.products.map((product) => getProduct(product.slug)))
         if (details.length > 0) setAiProducts(details.map((item) => item.data))
       }
@@ -283,7 +288,7 @@ export function ProductsPage({
               type="button"
               aria-label="Chụp hoặc chọn ảnh sản phẩm"
               title="Chụp hoặc chọn ảnh"
-              disabled={aiLoading || aiQuotaRemaining === 0}
+              disabled={aiLoading || aiQuotaExhausted}
               onClick={() => imageInputRef.current?.click()}
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -295,7 +300,7 @@ export function ProductsPage({
               className="ai-send-button"
               disabled={
                 aiLoading
-                || aiQuotaRemaining === 0
+                || aiQuotaExhausted
                 || (!aiQuery.trim() && !imageFile)
               }
             >
@@ -304,9 +309,11 @@ export function ProductsPage({
           </div>
 
           <small className="ai-quota">
-            {aiQuotaRemaining === null
-              ? 'Tối đa 4 lượt AI mỗi ngày. Hỗ trợ JPEG/PNG tối đa 8 MB.'
-              : `Bạn còn ${aiQuotaRemaining}/4 lượt AI hôm nay.`}
+            {aiQuotaUnlimited
+              ? 'Tài khoản quản trị được sử dụng AI không giới hạn để kiểm thử.'
+              : aiQuota === null
+                ? 'Tối đa 4 lượt AI mỗi ngày. Hỗ trợ JPEG/PNG tối đa 8 MB.'
+                : `Bạn còn ${aiQuota.remaining}/${aiQuota.limit} lượt AI hôm nay.`}
           </small>
           {aiStatus && <p className="ai-chat-status">{aiStatus}</p>}
         </form>

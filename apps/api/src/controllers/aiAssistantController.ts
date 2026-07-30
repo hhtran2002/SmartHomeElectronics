@@ -14,12 +14,20 @@ export async function chatAboutProducts(request: AuthRequest, response: Response
   const query = String(request.body?.query ?? '').trim()
   if (!query) return void response.status(400).json({ message: 'Vui lòng nhập câu hỏi về sản phẩm.' })
   if (query.length > maxQueryLength) return void response.status(413).json({ message: `Câu hỏi chỉ được dài tối đa ${maxQueryLength} ký tự.` })
-  if (isClearlyOutOfScope(query)) {
-    response.json({ data: { decision: 'out_of_scope', answer: 'Trợ lý chỉ hỗ trợ tìm kiếm, so sánh và tư vấn sản phẩm trong cửa hàng.', productIds: [], products: [] } })
-    return
-  }
   try {
-    const quota = await consumeAiDailyMessage(request.user!.userId)
+    const quota = await consumeAiDailyMessage(request.user!.userId, request.user!.roles)
+    if (isClearlyOutOfScope(query)) {
+      response.json({
+        data: {
+          decision: 'out_of_scope',
+          answer: 'Trợ lý chỉ hỗ trợ tìm kiếm, so sánh và tư vấn sản phẩm trong cửa hàng.',
+          productIds: [],
+          products: [],
+          quota,
+        },
+      })
+      return
+    }
     const history = Array.isArray(request.body?.history)
       ? request.body.history.slice(-4).map((item: unknown) => {
         const message = item as { role?: unknown; content?: unknown }
@@ -97,7 +105,7 @@ export async function findProductsByImage(request: AuthRequest, response: Respon
   }
 
   try {
-    const quota = await consumeAiDailyMessage(request.user!.userId)
+    const quota = await consumeAiDailyMessage(request.user!.userId, request.user!.roles)
     const data = await searchCatalogByImage({
       buffer: request.file.buffer,
       mimeType,

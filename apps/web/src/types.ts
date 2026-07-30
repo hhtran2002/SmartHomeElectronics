@@ -113,7 +113,7 @@ export type AiChatResponse = {
     answer: string
     productIds: number[]
     products: Array<{ slug: string }>
-    quota: { limit: number; remaining: number }
+    quota: AiQuota
   }
 }
 
@@ -132,8 +132,14 @@ export type AiImageSearchResponse = {
     uncertaintyReasons: string[]
     productIds: number[]
     products: Array<{ productId: number; slug: string }>
-    quota: { limit: number; remaining: number }
+    quota: AiQuota
   }
+}
+
+export type AiQuota = {
+  limit: number | null
+  remaining: number | null
+  unlimited: boolean
 }
 
 export type CartItem = {
