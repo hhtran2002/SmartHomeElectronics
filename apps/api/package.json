@@ -6,6 +6,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "rag:index": "tsx src/scripts/indexCatalog.ts",
+    "rag:index-images": "tsx src/scripts/indexCatalogImages.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {
@@ -17,13 +18,16 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "msnodesqlv8": "^5.1.2",
-    "mssql": "^12.6.0"
+    "mssql": "^12.6.0",
+    "multer": "^2.2.0",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mssql": "^9.1.9",
+    "@types/multer": "^2.2.0",
     "@types/node": "^24.10.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

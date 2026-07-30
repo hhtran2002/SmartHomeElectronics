@@ -10,6 +10,10 @@ import {
   updateAdminProductStatus,
   type AdminProductInput,
 } from '../services/adminProductService.js'
+import {
+  indexProductImages,
+  removeProductImagesFromIndex,
+} from '../services/imageSearchService.js'
 import { indexProduct, removeProductFromIndex } from '../services/ragIndexService.js'
 
 async function syncProductIndex(productId: number, isActive = true) {
@@ -19,6 +23,17 @@ async function syncProductIndex(productId: number, isActive = true) {
     return true
   } catch (error) {
     console.error(`Could not synchronize product ${productId} to the RAG index.`, error)
+    return false
+  }
+}
+
+async function syncProductImageIndex(productId: number, isActive = true) {
+  try {
+    if (isActive) await indexProductImages(productId)
+    else await removeProductImagesFromIndex(productId)
+    return true
+  } catch (error) {
+    console.error(`Could not synchronize product ${productId} to the image index.`, error)
     return false
   }
 }
@@ -77,8 +92,11 @@ export async function createProduct(request: Request, response: Response, next: 
 
   try {
     const data = await createAdminProduct(input)
-    const ragIndexed = await syncProductIndex(data.productId)
-    response.status(201).json({ data: { ...data, ragIndexed } })
+    const [ragIndexed, imageRagIndexed] = await Promise.all([
+      syncProductIndex(data.productId),
+      syncProductImageIndex(data.productId),
+    ])
+    response.status(201).json({ data: { ...data, ragIndexed, imageRagIndexed } })
   } catch (error) {
     next(error)
   }
@@ -95,8 +113,11 @@ export async function updateProduct(request: Request, response: Response, next: 
 
   try {
     const data = await updateAdminProduct(productId, input)
-    const ragIndexed = await syncProductIndex(productId)
-    response.json({ data: { ...data, ragIndexed } })
+    const [ragIndexed, imageRagIndexed] = await Promise.all([
+      syncProductIndex(productId),
+      syncProductImageIndex(productId),
+    ])
+    response.json({ data: { ...data, ragIndexed, imageRagIndexed } })
   } catch (error) {
     next(error)
   }
@@ -121,7 +142,9 @@ export async function addProductImage(request: Request, response: Response, next
   }
 
   try {
-    response.status(201).json({ data: await addAdminProductImage(productId, imageUrl, altText) })
+    const data = await addAdminProductImage(productId, imageUrl, altText)
+    const imageRagIndexed = await syncProductImageIndex(productId)
+    response.status(201).json({ data: { ...data, imageRagIndexed } })
   } catch (error) {
     next(error)
   }
@@ -139,8 +162,12 @@ export async function setPrimaryImage(request: Request, response: Response, next
 
 export async function deleteProductImage(request: Request, response: Response, next: NextFunction) {
   try {
+    const productId = Number(request.params.productId)
     response.json({
-      data: await deleteAdminProductImage(Number(request.params.productId), Number(request.params.imageId)),
+      data: {
+        ...await deleteAdminProductImage(productId, Number(request.params.imageId)),
+        imageRagIndexed: await syncProductImageIndex(productId),
+      },
     })
   } catch (error) {
     next(error)
@@ -158,8 +185,11 @@ export async function changeProductStatus(request: Request, response: Response, 
 
   try {
     const data = await updateAdminProductStatus(productId, status)
-    const ragIndexed = await syncProductIndex(productId, status === 'Active')
-    response.json({ data: { ...data, ragIndexed } })
+    const [ragIndexed, imageRagIndexed] = await Promise.all([
+      syncProductIndex(productId, status === 'Active'),
+      syncProductImageIndex(productId, status === 'Active'),
+    ])
+    response.json({ data: { ...data, ragIndexed, imageRagIndexed } })
   } catch (error) {
     next(error)
   }

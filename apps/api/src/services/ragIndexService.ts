@@ -154,7 +154,6 @@ async function createDocumentEmbeddings(documents: string[]) {
       model: embeddingModel,
       contents: document,
       config: {
-        taskType: 'RETRIEVAL_DOCUMENT',
         outputDimensionality: vectorSize,
       },
     })
@@ -176,7 +175,6 @@ async function createQueryEmbedding(query: string) {
     model: embeddingModel,
     contents: query,
     config: {
-      taskType: 'RETRIEVAL_QUERY',
       outputDimensionality: vectorSize,
     },
   })

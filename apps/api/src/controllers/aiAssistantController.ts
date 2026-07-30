@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import type { AuthRequest } from '../auth.js'
+import { detectSupportedImageMime, searchCatalogByImage } from '../services/imageSearchService.js'
 import { answerCatalogQuestion, findCatalogCandidates } from '../services/ragIndexService.js'
 import { AiDailyQuotaExceededError, consumeAiDailyMessage } from '../services/aiUsageService.js'
 
@@ -58,6 +59,57 @@ export async function findProductsByMeaning(request: Request, response: Response
     const candidates = await findCatalogCandidates(query, Number(request.body?.limit ?? 5))
     response.json({ data: candidates, total: candidates.length })
   } catch (error) {
+    next(error)
+  }
+}
+
+function readContextProductIds(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return []
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0)
+      .slice(0, 5)
+  } catch {
+    return []
+  }
+}
+
+export async function findProductsByImage(request: AuthRequest, response: Response, next: NextFunction) {
+  if (!request.file?.buffer?.length) {
+    response.status(400).json({ message: 'Vui lòng chọn một ảnh JPEG hoặc PNG.' })
+    return
+  }
+
+  const mimeType = detectSupportedImageMime(request.file.buffer)
+  if (!mimeType) {
+    response.status(415).json({ message: 'Ảnh tải lên không phải file JPEG hoặc PNG hợp lệ.' })
+    return
+  }
+
+  const clarification = String(request.body?.clarification ?? '').trim()
+  if (clarification.length > 300) {
+    response.status(413).json({ message: 'Câu trả lời bổ sung chỉ được dài tối đa 300 ký tự.' })
+    return
+  }
+
+  try {
+    const quota = await consumeAiDailyMessage(request.user!.userId)
+    const data = await searchCatalogByImage({
+      buffer: request.file.buffer,
+      mimeType,
+      clarification,
+      contextProductIds: readContextProductIds(request.body?.contextProductIds),
+    })
+    response.json({ data: { ...data, quota } })
+  } catch (error) {
+    if (error instanceof AiDailyQuotaExceededError) {
+      response.status(429).json({ message: error.message })
+      return
+    }
     next(error)
   }
 }

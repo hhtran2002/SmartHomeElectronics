@@ -117,6 +117,25 @@ export type AiChatResponse = {
   }
 }
 
+export type AiImageSearchResponse = {
+  data: {
+    decision: 'exact_match' | 'similar_matches' | 'need_clarification' | 'no_match'
+    observed: {
+      category: string
+      brand: string
+      modelText: string
+      color: string
+      visibleFeatures: string[]
+    }
+    answer: string
+    clarifyingQuestion: string
+    uncertaintyReasons: string[]
+    productIds: number[]
+    products: Array<{ productId: number; slug: string }>
+    quota: { limit: number; remaining: number }
+  }
+}
+
 export type CartItem = {
   skuId: number
   skuCode: string

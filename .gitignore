@@ -7,4 +7,6 @@ dist/
 .DS_Store
 __pycache__/
 .venv/
-docs/
+docs/*
+!docs/21-ai-rag-catalog-indexing-module.md
+!docs/22-ai-image-search-module.md

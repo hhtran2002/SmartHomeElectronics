@@ -689,6 +689,240 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .ai-result-section { margin-bottom: 28px; }
 .ai-result-section h3 { color: var(--slate-700); }
 
+.image-search-panel {
+  margin: 0 0 28px;
+  padding: 22px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(56, 189, 248, 0.13), transparent 32%),
+    #fff;
+}
+
+.image-search-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.image-search-heading h3 {
+  margin: 6px 0 8px;
+  color: var(--slate-700);
+  font-size: 1.25rem;
+}
+
+.image-search-heading p {
+  margin: 0;
+  color: var(--slate-500);
+  line-height: 1.6;
+}
+
+.privacy-note {
+  flex: 0 0 auto;
+  max-width: 250px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #087443;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.image-search-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 18px;
+}
+
+.image-upload-box {
+  position: relative;
+  display: grid;
+  min-height: 190px;
+  place-items: center;
+  overflow: hidden;
+  border: 2px dashed #7dd3fc;
+  border-radius: 18px;
+  background: #f0faff;
+  color: var(--slate-700);
+  cursor: pointer;
+  text-align: center;
+}
+
+.image-upload-box:hover {
+  border-color: var(--blue-600);
+  background: #e8f7ff;
+}
+
+.image-upload-box span {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.image-upload-box small {
+  color: var(--slate-500);
+  font-weight: 600;
+}
+
+.image-upload-box input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.image-upload-box.has-image {
+  border-style: solid;
+  background: #fff;
+}
+
+.image-upload-box img {
+  width: 100%;
+  height: 100%;
+  max-height: 280px;
+  object-fit: contain;
+}
+
+.image-search-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+}
+
+.image-search-controls label {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--slate-700);
+  font-weight: 800;
+}
+
+.image-search-controls input {
+  width: 100%;
+  border: 1px solid var(--blue-100);
+  border-radius: 12px;
+  padding: 12px;
+  color: var(--slate-700);
+}
+
+.image-search-controls button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue-600);
+  color: #fff;
+  font-weight: 800;
+  padding: 0 18px;
+}
+
+.image-search-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.image-search-controls > small {
+  color: var(--slate-500);
+}
+
+.image-search-result {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #f8fbff;
+}
+
+.image-search-result.need_clarification {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.image-search-result.no_match {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.image-search-result p {
+  margin: 10px 0 0;
+  color: var(--slate-700);
+  line-height: 1.6;
+}
+
+.image-decision-badge {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #075985;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.image-search-result.need_clarification .image-decision-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.image-search-result.no_match .image-decision-badge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.image-observations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.image-observations span {
+  padding: 6px 9px;
+  border-radius: 9px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.clarifying-question {
+  font-weight: 800;
+}
+
+.uncertainty-note {
+  display: block;
+  margin-top: 10px;
+  color: var(--slate-500);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .image-search-heading {
+    flex-direction: column;
+  }
+
+  .privacy-note {
+    max-width: none;
+  }
+
+  .image-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .image-upload-box {
+    min-height: 220px;
+  }
+
+  .image-search-controls button {
+    width: 100%;
+  }
+}
+
 .section-heading h2,
 .customer-cta h2 {
   margin: 0;

@@ -34,6 +34,7 @@ import type {
   ProductFilters,
   ProductListResponse,
   AiChatResponse,
+  AiImageSearchResponse,
 } from './types'
 
 const pageSize = 12
@@ -148,6 +149,31 @@ export function getProduct(slug: string) {
 
 export function askAiAboutProducts(query: string, history: Array<{ role: 'user' | 'assistant'; content: string }>, contextProductIds: number[], token: string) {
   return postJsonWithToken<AiChatResponse>('/api/ai/chat', token, { query, history, contextProductIds })
+}
+
+export async function searchProductsByImage(
+  image: File,
+  clarification: string,
+  contextProductIds: number[],
+  token: string,
+) {
+  const formData = new FormData()
+  formData.append('image', image)
+  if (clarification.trim()) formData.append('clarification', clarification.trim())
+  formData.append('contextProductIds', JSON.stringify(contextProductIds))
+
+  const response = await fetch('/api/ai/image-search', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<AiImageSearchResponse>
 }
 
 export function submitProductReview(slug: string, token: string, payload: {
