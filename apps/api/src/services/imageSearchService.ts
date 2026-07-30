@@ -4,6 +4,7 @@ import sharp from 'sharp'
 import { getPool } from '../config/database.js'
 
 const imageCollectionName = 'product_images'
+const productIdPayloadField = 'productId'
 const vectorSize = 768
 const embeddingModel = 'gemini-embedding-2'
 const maxCatalogImageBytes = 8 * 1024 * 1024
@@ -290,6 +291,23 @@ async function ensureImageCollection(client: QdrantClient) {
       vectors: { size: vectorSize, distance: 'Cosine' },
     })
   }
+
+  const collection = await client.getCollection(imageCollectionName)
+  const productIdIndex = collection.payload_schema?.[productIdPayloadField]
+
+  if (productIdIndex && productIdIndex.data_type !== 'integer') {
+    throw new Error(
+      `Qdrant payload index ${imageCollectionName}.${productIdPayloadField} must use the integer type.`,
+    )
+  }
+
+  if (!productIdIndex) {
+    await client.createPayloadIndex(imageCollectionName, {
+      wait: true,
+      field_name: productIdPayloadField,
+      field_schema: 'integer',
+    })
+  }
 }
 
 function toQdrantPoint(item: { image: ProductImageForIndex; vector: number[] }) {
@@ -320,6 +338,8 @@ export async function getImageIndexStatus() {
     collectionName: imageCollectionName,
     ready: true,
     indexedImages: collection.points_count ?? 0,
+    productIdPayloadIndexed:
+      collection.payload_schema?.[productIdPayloadField]?.data_type === 'integer',
     vectorSize,
   }
 }
@@ -346,6 +366,7 @@ export async function indexProductImageCatalog() {
   await qdrant.recreateCollection(imageCollectionName, {
     vectors: { size: vectorSize, distance: 'Cosine' },
   })
+  await ensureImageCollection(qdrant)
   await qdrant.upsert(imageCollectionName, {
     wait: true,
     points: indexed.map(toQdrantPoint),

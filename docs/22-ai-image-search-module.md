@@ -73,6 +73,12 @@ Lệnh:
 npm run rag:index-images -w api
 ```
 
+Index lại ảnh của riêng một sản phẩm:
+
+```text
+npm run rag:index-images -w api -- <productId>
+```
+
 Luồng:
 
 ```text
@@ -86,7 +92,11 @@ Sharp xoay đúng chiều, resize tối đa 1600 x 1600, bỏ metadata, đổi s
 ↓
 Gemini tạo embedding 768 chiều
 ↓
-Tạo lại collection product_images và upsert các ảnh thành công
+Tạo lại collection product_images
+↓
+Tạo payload index kiểu integer cho productId
+↓
+Upsert các ảnh thành công
 ```
 
 Nếu không ảnh nào tạo được embedding, collection cũ được giữ nguyên. Nếu chỉ một số ảnh lỗi, kết quả trả danh sách `failedImages`.
@@ -124,6 +134,11 @@ Admin chuyển Product Active/Inactive
 ```
 
 Nếu Gemini, host ảnh hoặc Qdrant lỗi sau khi SQL Server đã commit, dữ liệu sản phẩm vẫn được giữ. API ghi lỗi và trả `imageRagIndexed: false`. Admin có thể chạy lại index toàn bộ.
+
+Collection phải có payload index kiểu `integer` cho trường `productId`. Index này được
+tự động kiểm tra và tạo khi đồng bộ một sản phẩm, đồng thời được tạo lại sau thao tác
+recreate collection. Nhờ đó các thao tác xóa vector cũ theo `productId` hoạt động trên
+Qdrant Cloud có bật strict mode.
 
 ## API quản trị
 
