@@ -22,19 +22,70 @@ export async function getAdminReports(range: ReportRange) {
       ISNULL(SUM(CASE WHEN ps.StatusCode = 'Success' THEN so.TotalAmount ELSE 0 END), 0) AS paidRevenue,
       ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.ShippingFee ELSE 0 END), 0) AS shippingFee,
       ISNULL(AVG(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount END), 0) AS averageOrderValue,
-      SUM(CASE WHEN os.StatusCode = 'Cancelled' THEN 1 ELSE 0 END) AS cancelledOrders
+      ISNULL(SUM(CASE WHEN os.StatusCode = 'Cancelled' THEN 1 ELSE 0 END), 0) AS cancelledOrders,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+        ELSE 0
+      END), 0) AS fulfilledRevenue,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN ISNULL(orderCost.costOfGoodsSold, 0)
+        ELSE 0
+      END), 0) AS costOfGoodsSold,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed')
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+        ELSE 0
+      END), 0) AS grossProfit,
+      CAST(CASE
+        WHEN SUM(CASE
+          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+          ELSE 0
+        END) > 0
+        THEN SUM(CASE
+          WHEN os.StatusCode IN ('Shipping', 'Completed')
+            THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+          ELSE 0
+        END) * 100.0 / SUM(CASE
+          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+          ELSE 0
+        END)
+        ELSE 0
+      END AS DECIMAL(9,2)) AS grossMarginPercentage
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
     INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
+    OUTER APPLY (
+      SELECT SUM(sod.CostOfGoodsSold) AS costOfGoodsSold
+      FROM dbo.SalesOrderDetail sod
+      WHERE sod.OrderId = so.OrderId
+    ) orderCost
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate);
 
     SELECT
       CONVERT(varchar(10), so.CreatedAt, 23) AS reportDate,
       COUNT(*) AS orderCount,
-      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS revenue
+      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS revenue,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+        ELSE 0
+      END), 0) AS fulfilledRevenue,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN ISNULL(orderCost.costOfGoodsSold, 0)
+        ELSE 0
+      END), 0) AS costOfGoodsSold,
+      ISNULL(SUM(CASE
+        WHEN os.StatusCode IN ('Shipping', 'Completed')
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+        ELSE 0
+      END), 0) AS grossProfit
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+    OUTER APPLY (
+      SELECT SUM(sod.CostOfGoodsSold) AS costOfGoodsSold
+      FROM dbo.SalesOrderDetail sod
+      WHERE sod.OrderId = so.OrderId
+    ) orderCost
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate)
     GROUP BY CONVERT(varchar(10), so.CreatedAt, 23)

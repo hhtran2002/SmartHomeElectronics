@@ -6,7 +6,7 @@ const allowedOrderTransitions: Record<string, string[]> = {
   Confirmed: ['Processing', 'Cancelled'],
   Processing: ['ReadyToShip', 'Cancelled'],
   ReadyToShip: ['Cancelled'],
-  Shipping: ['Completed'],
+  Shipping: [],
 }
 
 function getAllowedTargetStatusCodes(currentStatusCode: string) {

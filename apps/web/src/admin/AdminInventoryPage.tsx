@@ -9,7 +9,6 @@ import {
   getAdminWarehouses,
 } from '../api'
 import type { AdminInventoryItem, AdminStockMovement, AdminStockableSku, AdminWarehouse } from '../types'
-import { WarehouseReadyOrders } from './WarehouseReadyOrders'
 
 type Props = {
   roles: string[]
@@ -150,8 +149,6 @@ export function AdminInventoryPage({ roles, token }: Props) {
 
       {error && <div className="status-card error">{error}</div>}
       {success && <div className="status-card success">{success}</div>}
-
-      <WarehouseReadyOrders token={token} onExported={loadData} />
 
       <section className="admin-inventory-layout">
         <div className="admin-inventory-list">

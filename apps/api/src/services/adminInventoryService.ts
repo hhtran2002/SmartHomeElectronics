@@ -117,13 +117,26 @@ export async function getReadyOrdersForExport() {
       sod.Quantity AS quantity,
       w.WarehouseId AS warehouseId,
       w.WarehouseName AS warehouseName,
-      oir.QuantityReserved - oir.QuantityFulfilled AS quantityWaiting
+      oir.QuantityReserved - oir.QuantityFulfilled AS quantityWaiting,
+      shipment.ShipmentId AS shipmentId,
+      shipment.ShippingStatus AS shipmentStatus,
+      shipment.DeliveryStaffId AS deliveryStaffId,
+      deliveryStaff.FullName AS deliveryStaffName,
+      shipment.VehicleId AS vehicleId,
+      vehicle.VehicleCode AS vehicleCode,
+      vehicle.LicensePlate AS licensePlate,
+      shipment.EstimatedDeliveryAt AS estimatedDeliveryAt
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
     INNER JOIN dbo.SalesOrderDetail sod ON sod.OrderId = so.OrderId
     INNER JOIN dbo.OrderInventoryReservation oir ON oir.OrderDetailId = sod.OrderDetailId
     INNER JOIN dbo.Inventory i ON i.InventoryId = oir.InventoryId
     INNER JOIN dbo.Warehouse w ON w.WarehouseId = i.WarehouseId
+    LEFT JOIN dbo.Shipment shipment
+      ON shipment.OrderId = so.OrderId
+      AND shipment.WarehouseId = w.WarehouseId
+    LEFT JOIN dbo.UserAccount deliveryStaff ON deliveryStaff.UserId = shipment.DeliveryStaffId
+    LEFT JOIN dbo.DeliveryVehicle vehicle ON vehicle.VehicleId = shipment.VehicleId
     WHERE os.StatusCode = 'ReadyToShip'
       AND oir.QuantityReserved > oir.QuantityFulfilled
     ORDER BY so.UpdatedAt, so.OrderId, sod.OrderDetailId
@@ -136,6 +149,14 @@ export async function getReadyOrdersForExport() {
     receiverPhone: string
     shippingAddress: string
     readyAt: string
+    shipmentId: number | null
+    shipmentStatus: string | null
+    deliveryStaffId: number | null
+    deliveryStaffName: string | null
+    vehicleId: number | null
+    vehicleCode: string | null
+    licensePlate: string | null
+    estimatedDeliveryAt: string | null
     items: unknown[]
   }>()
 
@@ -149,6 +170,14 @@ export async function getReadyOrdersForExport() {
         receiverPhone: row.receiverPhone,
         shippingAddress: row.shippingAddress,
         readyAt: row.readyAt,
+        shipmentId: row.shipmentId ? Number(row.shipmentId) : null,
+        shipmentStatus: row.shipmentStatus,
+        deliveryStaffId: row.deliveryStaffId ? Number(row.deliveryStaffId) : null,
+        deliveryStaffName: row.deliveryStaffName,
+        vehicleId: row.vehicleId ? Number(row.vehicleId) : null,
+        vehicleCode: row.vehicleCode,
+        licensePlate: row.licensePlate,
+        estimatedDeliveryAt: row.estimatedDeliveryAt,
         items: [],
       })
     }
@@ -218,8 +247,33 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         WHERE sod.OrderId = @orderId
           AND oir.QuantityReserved > oir.QuantityFulfilled
         ORDER BY i.WarehouseId, sod.OrderDetailId
-      `)
+    `)
     if (!allocations.recordset.length) throw new Error('Đơn không còn hàng đang giữ để xuất.')
+
+    const warehouseIds = [...new Set(allocations.recordset.map((item) => Number(item.WarehouseId)))]
+    if (warehouseIds.length !== 1) throw new Error('Luồng giao nội bộ hiện yêu cầu toàn bộ đơn được lấy từ đúng một kho.')
+
+    const shipmentResult = await tx()
+      .input('orderId', sql.BigInt, orderId)
+      .input('warehouseId', sql.BigInt, warehouseIds[0])
+      .query(`
+        SELECT
+          shipment.ShipmentId,
+          shipment.ShippingStatus,
+          shipment.DeliveryStaffId,
+          shipment.VehicleId,
+          deliveryStaff.FullName AS DeliveryStaffName,
+          vehicle.VehicleCode,
+          vehicle.LicensePlate
+        FROM dbo.Shipment shipment WITH (UPDLOCK, ROWLOCK)
+        LEFT JOIN dbo.UserAccount deliveryStaff ON deliveryStaff.UserId = shipment.DeliveryStaffId
+        LEFT JOIN dbo.DeliveryVehicle vehicle ON vehicle.VehicleId = shipment.VehicleId
+        WHERE shipment.OrderId = @orderId AND shipment.WarehouseId = @warehouseId
+      `)
+    const shipment = shipmentResult.recordset[0]
+    if (!shipment || shipment.ShippingStatus !== 'Picking' || !shipment.DeliveryStaffId || !shipment.VehicleId) {
+      throw new Error('Đơn phải được phân công shipper và phương tiện trước khi bàn giao xuất kho.')
+    }
 
     const receiptIds = new Map<number, number>()
     for (const item of allocations.recordset) {
@@ -269,6 +323,15 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         .query(`UPDATE dbo.SalesOrderDetail SET CostOfGoodsSold = CostOfGoodsSold + @costOfGoodsSold WHERE OrderDetailId = @orderDetailId`)
 
       await tx()
+        .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+        .input('orderDetailId', sql.BigInt, item.OrderDetailId)
+        .input('quantity', sql.Int, quantity)
+        .query(`
+          INSERT INTO dbo.ShipmentItem (ShipmentId, OrderDetailId, Quantity)
+          VALUES (@shipmentId, @orderDetailId, @quantity)
+        `)
+
+      await tx()
         .input('inventoryId', sql.BigInt, item.InventoryId)
         .input('quantity', sql.Int, quantity)
         .query(`
@@ -309,6 +372,29 @@ export async function confirmOrderExport(orderId: number, userId: number) {
     }
 
     await tx()
+      .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+      .query(`
+        UPDATE dbo.Shipment
+        SET ShippingStatus = 'Shipping',
+            HandedOverAt = SYSDATETIME(),
+            UpdatedAt = SYSDATETIME()
+        WHERE ShipmentId = @shipmentId
+      `)
+
+    await tx()
+      .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+      .input('changedByUserId', sql.BigInt, userId)
+      .input(
+        'note',
+        sql.NVarChar(500),
+        `Kho bàn giao cho ${shipment.DeliveryStaffName}; xe ${shipment.VehicleCode}${shipment.LicensePlate ? ` (${shipment.LicensePlate})` : ''}.`,
+      )
+      .query(`
+        INSERT INTO dbo.ShipmentStatusHistory (ShipmentId, Status, ChangedByUserId, Note, ChangedAt)
+        VALUES (@shipmentId, 'Shipping', @changedByUserId, @note, SYSDATETIME())
+      `)
+
+    await tx()
       .input('orderId', sql.BigInt, orderId)
       .query(`
         UPDATE dbo.SalesOrder
@@ -330,13 +416,20 @@ export async function confirmOrderExport(orderId: number, userId: number) {
           @fromStatusId,
           (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Shipping'),
           @changedByUserId,
-          N'Kho xác nhận xuất hàng',
+          N'Kho bàn giao hàng cho shipper và xác nhận xuất kho',
           SYSDATETIME()
         )
       `)
 
     await transaction.commit()
-    return { orderId, orderCode: order.OrderCode, receiptIds: [...receiptIds.values()] }
+    return {
+      orderId,
+      orderCode: order.OrderCode,
+      shipmentId: Number(shipment.ShipmentId),
+      deliveryStaffName: shipment.DeliveryStaffName,
+      vehicleCode: shipment.VehicleCode,
+      receiptIds: [...receiptIds.values()],
+    }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error

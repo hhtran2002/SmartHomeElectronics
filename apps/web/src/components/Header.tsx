@@ -71,6 +71,14 @@ function LogoutIcon() {
 }
 
 export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: HeaderProps) {
+  const userAreaHref = user?.roles.includes('SystemAdmin')
+    ? '#/admin/dashboard'
+    : user?.roles.includes('WarehouseStaff')
+      ? '#/warehouse'
+      : user?.roles.includes('DeliveryStaff')
+        ? '#/shipper'
+        : '#/profile'
+
   return (
     <header className="header">
       <div className="header-inner">
@@ -97,7 +105,7 @@ export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: H
 
           {user ? (
             <>
-              <a className="auth-chip user-chip" href="#/profile">
+              <a className="auth-chip user-chip" href={userAreaHref}>
                 <span className="button-icon">
                   <UserIcon />
                 </span>

@@ -96,12 +96,20 @@ export function AdminReportsPage({ roles, token }: Props) {
             <div><span>Đơn huỷ</span><strong>{reports.summary.cancelledOrders}</strong></div>
           </section>
 
+          <section className="admin-metrics profit-metrics">
+            <div><span>Doanh thu hàng đã xuất</span><strong>{formatPrice(reports.summary.fulfilledRevenue)}</strong></div>
+            <div><span>Giá vốn hàng đã xuất</span><strong>{formatPrice(reports.summary.costOfGoodsSold)}</strong></div>
+            <div><span>Lãi gộp</span><strong>{formatPrice(reports.summary.grossProfit)}</strong></div>
+            <div><span>Biên lãi gộp</span><strong>{reports.summary.grossMarginPercentage.toLocaleString('vi-VN')}%</strong></div>
+          </section>
+          <p className="financial-note">Lãi gộp chỉ ghi nhận đơn đã xuất kho, không gồm phí vận chuyển và chi phí vận hành.</p>
+
           <section className="reports-grid">
             <article className="admin-panel-card">
               <div className="section-heading compact">
                 <div>
                   <span className="eyebrow">Theo thời gian</span>
-                  <h3>Doanh thu theo ngày</h3>
+                  <h3>Doanh thu và lãi theo ngày</h3>
                 </div>
               </div>
               <div className="report-table">
@@ -110,8 +118,14 @@ export function AdminReportsPage({ roles, token }: Props) {
                 ) : reports.salesByDay.map((row) => (
                   <div key={row.reportDate}>
                     <span>{row.reportDate}</span>
-                    <span>{row.orderCount} đơn</span>
-                    <strong>{formatPrice(row.revenue)}</strong>
+                    <span>
+                      {row.orderCount} đơn
+                      <small>Giá vốn {formatPrice(row.costOfGoodsSold)}</small>
+                    </span>
+                    <span className="report-profit-value">
+                      <small>Doanh thu xuất {formatPrice(row.fulfilledRevenue)}</small>
+                      <strong>Lãi {formatPrice(row.grossProfit)}</strong>
+                    </span>
                   </div>
                 ))}
               </div>

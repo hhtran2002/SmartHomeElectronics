@@ -35,6 +35,10 @@ import type {
   ProductListResponse,
   AiChatResponse,
   AiImageSearchResponse,
+  DeliveryStaffOption,
+  DeliveryVehicle,
+  ShipperShipment,
+  WarehouseReturnShipment,
 } from './types'
 
 const pageSize = 12
@@ -389,6 +393,91 @@ export function confirmWarehouseOrderExport(orderId: number, token: string) {
   return postJsonWithToken<{
     data: { orderId: number; orderCode: string; receiptIds: number[] }
   }>(`/api/admin/inventory/ready-orders/${orderId}/confirm-export`, token, {})
+}
+
+export function getWarehouseDeliveryOptions(token: string) {
+  return getJsonWithToken<{
+    data: { deliveryStaff: DeliveryStaffOption[]; vehicles: DeliveryVehicle[] }
+  }>('/api/warehouse/deliveries/options', token)
+}
+
+export function createDeliveryVehicle(payload: {
+  vehicleCode: string
+  licensePlate: string
+  vehicleType: string
+  note: string
+}, token: string) {
+  return postJsonWithToken<{ data: { vehicleId: number } }>('/api/warehouse/deliveries/vehicles', token, payload)
+}
+
+export function updateDeliveryVehicleStatus(vehicleId: number, status: DeliveryVehicle['status'], token: string) {
+  return patchJsonWithToken<{ data: { vehicleId: number; status: string } }>(
+    `/api/warehouse/deliveries/vehicles/${vehicleId}/status`, token, { status },
+  )
+}
+
+export function assignWarehouseDelivery(orderId: number, payload: {
+  deliveryStaffId: number
+  vehicleId: number
+  estimatedDeliveryAt: string
+  note: string
+}, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; orderId: number; orderCode: string } }>(
+    `/api/warehouse/deliveries/orders/${orderId}/assign`, token, payload,
+  )
+}
+
+export function handOverWarehouseDelivery(orderId: number, token: string) {
+  return postJsonWithToken<{
+    data: { orderId: number; orderCode: string; shipmentId: number; deliveryStaffName: string; vehicleCode: string }
+  }>(`/api/warehouse/deliveries/orders/${orderId}/handover`, token, {})
+}
+
+export function getWarehousePendingReturns(token: string) {
+  return getJsonWithToken<{ data: WarehouseReturnShipment[] }>('/api/warehouse/deliveries/returns', token)
+}
+
+export function confirmWarehouseShipmentReturn(shipmentId: number, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; orderId: number; orderCode: string; receiptCode: string } }>(
+    `/api/warehouse/deliveries/shipments/${shipmentId}/confirm-return`, token, {},
+  )
+}
+
+export function getShipperShipments(token: string) {
+  return getJsonWithToken<{ data: ShipperShipment[] }>('/api/shipper/shipments', token)
+}
+
+export function completeShipperDelivery(shipmentId: number, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; orderId: number; orderCode: string; paymentCollected: boolean } }>(
+    `/api/shipper/shipments/${shipmentId}/delivered`, token, {},
+  )
+}
+
+export function failShipperDelivery(shipmentId: number, reason: string, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; shippingStatus: string } }>(
+    `/api/shipper/shipments/${shipmentId}/failed`, token, { reason },
+  )
+}
+
+export function rescheduleShipperDelivery(shipmentId: number, payload: {
+  estimatedDeliveryAt: string
+  note: string
+}, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; shippingStatus: string } }>(
+    `/api/shipper/shipments/${shipmentId}/reschedule`, token, payload,
+  )
+}
+
+export function retryShipperDelivery(shipmentId: number, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; shippingStatus: string } }>(
+    `/api/shipper/shipments/${shipmentId}/retry`, token, {},
+  )
+}
+
+export function requestShipperReturn(shipmentId: number, reason: string, token: string) {
+  return postJsonWithToken<{ data: { shipmentId: number; shippingStatus: string } }>(
+    `/api/shipper/shipments/${shipmentId}/request-return`, token, { reason },
+  )
 }
 
 export function getAdminUsers(token: string) {

@@ -23,6 +23,10 @@ import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ShipperLayout } from './shipper/ShipperLayout'
+import { ShipperPage } from './shipper/ShipperPage'
+import { WarehouseDeliveriesPage } from './warehouse/WarehouseDeliveriesPage'
+import { WarehouseLayout } from './warehouse/WarehouseLayout'
 import type {
   Brand,
   Category,
@@ -52,6 +56,13 @@ const initialCheckoutForm = {
   streetAddress: '',
   note: '',
   couponCode: '',
+}
+
+function defaultAuthenticatedRoute(roles: string[]) {
+  if (roles.includes('SystemAdmin')) return '#/admin/dashboard'
+  if (roles.includes('WarehouseStaff')) return '#/warehouse'
+  if (roles.includes('DeliveryStaff')) return '#/shipper'
+  return '#/profile'
 }
 
 function App() {
@@ -275,6 +286,7 @@ function App() {
       <LoginPage
         onLoginSuccess={(user, token) => {
           auth.signIn(user, token)
+          window.location.hash = defaultAuthenticatedRoute(user.roles)
         }}
       />
     )
@@ -321,12 +333,26 @@ function App() {
         />
       </AdminLayout>
     )
-  } else if (hash === '#/admin/inventory') {
+  } else if (hash === '#/admin/inventory' || hash === '#/warehouse' || hash === '#/warehouse/inventory') {
     activePage = 'admin'
     page = (
-      <AdminLayout active="inventory" user={auth.user}>
+      <WarehouseLayout active="inventory" user={auth.user}>
         <AdminInventoryPage roles={auth.user?.roles ?? []} token={auth.token} />
-      </AdminLayout>
+      </WarehouseLayout>
+    )
+  } else if (hash === '#/warehouse/deliveries') {
+    activePage = 'admin'
+    page = (
+      <WarehouseLayout active="deliveries" user={auth.user}>
+        <WarehouseDeliveriesPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </WarehouseLayout>
+    )
+  } else if (hash === '#/shipper') {
+    activePage = 'admin'
+    page = (
+      <ShipperLayout user={auth.user}>
+        <ShipperPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </ShipperLayout>
     )
   } else if (hash === '#/admin/promotions') {
     activePage = 'admin'

@@ -325,6 +325,9 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .report-filter-card input { border: 1px solid var(--blue-100); border-radius: 14px; font: inherit; padding: 12px; }
 .report-filter-card button { background: var(--blue-600); border: 0; border-radius: 999px; color: white; font-weight: 900; padding: 13px 18px; }
 .report-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.profit-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dashboard-financial-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.financial-note { color: var(--muted); font-size: 12px; margin: 10px 2px 0; }
 .report-table, .report-list { display: grid; gap: 10px; margin-top: 18px; }
 .report-table div, .report-list div {
   align-items: center; background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 16px;
@@ -334,6 +337,8 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .report-table span, .report-list span, .report-list strong, .report-list small { display: block; }
 .report-table span, .report-list small { color: var(--muted); }
 .report-table strong, .report-list strong { color: var(--blue-900); }
+.report-table small { display: block; font-size: 11px; margin-top: 4px; }
+.report-profit-value { text-align: right; }
 .admin-users-side { display: grid; gap: 16px; }
 .admin-users-toolbar { align-items: center; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 16px; }
 .admin-users-toolbar input { border: 1px solid var(--blue-100); border-radius: 14px; flex: 1; padding: 12px 14px; }
@@ -365,6 +370,76 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .warehouse-pick-list > div + div { border-top: 1px solid var(--blue-50); }
 .warehouse-pick-list strong, .warehouse-pick-list small { display: block; }
 .warehouse-pick-list small { color: var(--muted); margin-top: 3px; }
+.operations-shell { min-height: 720px; }
+.warehouse-sidebar { background: linear-gradient(180deg, #0c4a6e, #075985); }
+.delivery-assignment-grid {
+  background: #f8fcff; border-top: 1px solid var(--blue-100); display: grid; gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 15px;
+}
+.delivery-assignment-grid label, .shipper-action-panel label {
+  color: var(--ink); display: grid; font-size: 12px; font-weight: 800; gap: 6px;
+}
+.delivery-assignment-grid input, .delivery-assignment-grid select, .shipper-action-panel input {
+  border: 1px solid var(--blue-100); border-radius: 11px; font: inherit; min-width: 0; padding: 10px;
+}
+.assignment-summary { color: var(--muted); margin: 0; padding: 12px 15px 0; }
+.delivery-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 15px; }
+.delivery-actions button, .shipper-action-panel button, .vehicle-list button {
+  background: var(--blue-600); border: 0; border-radius: 12px; color: white; font-weight: 850; padding: 10px 14px;
+}
+.success-action { background: #059669 !important; }
+.danger-action { background: #dc2626 !important; }
+.muted-action { background: #64748b !important; }
+.delivery-status { border-radius: 999px; display: inline-flex; font-size: 11px; font-weight: 900; padding: 7px 10px; }
+.delivery-status.pending, .delivery-status.picking { background: #fef3c7; color: #92400e; }
+.delivery-status.shipping, .delivery-status.rescheduled { background: #dbeafe; color: #1d4ed8; }
+.delivery-status.delivered { background: #dcfce7; color: #166534; }
+.delivery-status.failed, .delivery-status.returnpending, .delivery-status.cancelled { background: #fee2e2; color: #991b1b; }
+.delivery-management-grid { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 360px; }
+.vehicle-form { margin-top: 24px; }
+.vehicle-list { display: grid; gap: 10px; margin-top: 16px; }
+.vehicle-list > div { align-items: center; background: var(--blue-50); border-radius: 14px; display: flex; gap: 12px; justify-content: space-between; padding: 12px; }
+.vehicle-list strong, .vehicle-list small { display: block; }
+.vehicle-list small { color: var(--muted); margin-top: 3px; }
+.warehouse-returns { margin: 24px 0; }
+
+.shipper-shell { align-items: start; display: grid; gap: 24px; grid-template-columns: 250px minmax(0, 1fr); padding: 32px min(4vw, 56px) 64px; }
+.shipper-sidebar {
+  background: linear-gradient(180deg, #064e3b, #065f46); border-radius: 26px; color: white; padding: 22px;
+  position: sticky; top: 104px;
+}
+.shipper-sidebar h2 { color: white; font-size: 25px; margin: 7px 0; }
+.shipper-sidebar p { color: #a7f3d0; margin: 0; }
+.shipper-sidebar .admin-nav { margin-top: 24px; }
+.shipper-content { min-width: 0; }
+.shipper-heading { margin-bottom: 24px; }
+.shipper-heading h1 { color: var(--ink); font-size: clamp(34px, 5vw, 54px); letter-spacing: -.04em; margin: 8px 0; }
+.shipper-heading p { color: var(--muted); margin: 0; }
+.shipper-group { display: grid; gap: 14px; margin-top: 26px; }
+.shipper-group-title { align-items: center; display: flex; justify-content: space-between; }
+.shipper-group-title h2 { font-size: 25px; margin: 0; }
+.shipper-group-title span { background: var(--blue-100); border-radius: 999px; color: var(--blue-900); font-weight: 900; padding: 6px 11px; }
+.shipper-card { background: white; border: 1px solid var(--blue-100); border-radius: 22px; box-shadow: 0 8px 28px rgba(14,165,233,.06); overflow: hidden; }
+.shipper-card > header { align-items: start; background: var(--blue-50); display: flex; gap: 18px; justify-content: space-between; padding: 16px 18px; }
+.shipper-card > header h3 { font-size: 21px; margin: 8px 0 2px; }
+.shipper-card > header small { color: var(--muted); }
+.shipper-card > header > strong { color: var(--blue-900); font-size: 20px; }
+.shipper-destination { padding: 16px 18px 8px; }
+.shipper-destination strong, .shipper-destination a { display: block; }
+.shipper-destination a { color: var(--blue-700); font-weight: 850; margin-top: 4px; }
+.shipper-destination p { color: var(--muted); margin: 7px 0 0; }
+.shipper-meta { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 10px 18px; }
+.shipper-meta span { background: #f8fafc; border-radius: 12px; padding: 10px; }
+.shipper-meta small, .shipper-meta strong { display: block; }
+.shipper-meta small { color: var(--muted); }
+.shipper-meta strong { margin-top: 4px; }
+.shipper-items { display: grid; padding: 8px 18px 16px; }
+.shipper-items > div { align-items: center; border-top: 1px solid var(--blue-50); display: flex; gap: 16px; justify-content: space-between; padding: 10px 0; }
+.shipper-items strong, .shipper-items small { display: block; }
+.shipper-items small { color: var(--muted); margin-top: 3px; }
+.shipment-note { background: #fffbeb; color: #92400e; margin: 0; padding: 12px 18px; }
+.shipper-action-panel { align-items: end; background: #f8fafc; border-top: 1px solid var(--blue-100); display: grid; gap: 10px; grid-template-columns: auto minmax(220px, 1fr) auto; padding: 14px 18px; }
+.shipper-action-panel.retry-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .admin-metrics { display: grid; gap: 16px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 28px; }
 .admin-metrics div {
   background: white; border: 1px solid var(--blue-100); border-radius: 22px; box-shadow: 0 8px 30px rgba(14,165,233,.05); padding: 20px;
@@ -672,6 +747,18 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 
 .section-heading {
   max-width: 780px;
+}
+
+@media (max-width: 900px) {
+  .shipper-shell, .delivery-management-grid { grid-template-columns: 1fr; }
+  .shipper-sidebar { position: static; }
+  .delivery-assignment-grid, .shipper-meta, .shipper-action-panel, .shipper-action-panel.retry-panel { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .shipper-shell { padding: 22px 14px 48px; }
+  .warehouse-order-card header, .shipper-card > header, .delivery-actions, .vehicle-list > div { align-items: stretch; flex-direction: column; }
+  .delivery-actions button { width: 100%; }
 }
 .image-add-row button:disabled { cursor: not-allowed; opacity: .55; }
 

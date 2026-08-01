@@ -259,7 +259,11 @@ export type AdminDashboard = {
     totalOrders: number
     pendingOrders: number
     todayRevenue: number
+    todayCostOfGoodsSold: number
+    todayGrossProfit: number
     monthRevenue: number
+    monthCostOfGoodsSold: number
+    monthGrossProfit: number
     lowStockCount: number
   }
   recentOrders: Array<{
@@ -284,11 +288,18 @@ export type AdminReports = {
     shippingFee: number
     averageOrderValue: number
     cancelledOrders: number
+    fulfilledRevenue: number
+    costOfGoodsSold: number
+    grossProfit: number
+    grossMarginPercentage: number
   }
   salesByDay: Array<{
     reportDate: string
     orderCount: number
     revenue: number
+    fulfilledRevenue: number
+    costOfGoodsSold: number
+    grossProfit: number
   }>
   topProducts: Array<{
     skuId: number
@@ -467,6 +478,14 @@ export type WarehouseReadyOrder = {
   receiverPhone: string
   shippingAddress: string
   readyAt: string
+  shipmentId: number | null
+  shipmentStatus: string | null
+  deliveryStaffId: number | null
+  deliveryStaffName: string | null
+  vehicleId: number | null
+  vehicleCode: string | null
+  licensePlate: string | null
+  estimatedDeliveryAt: string | null
   items: Array<{
     orderDetailId: number
     skuId: number
@@ -476,6 +495,89 @@ export type WarehouseReadyOrder = {
     warehouseId: number
     warehouseName: string
     quantityWaiting: number
+  }>
+}
+
+export type DeliveryStaffOption = {
+  userId: number
+  fullName: string
+  phone: string | null
+}
+
+export type DeliveryVehicle = {
+  vehicleId: number
+  vehicleCode: string
+  licensePlate: string | null
+  vehicleType: string
+  status: 'Active' | 'Maintenance' | 'Inactive'
+  note: string | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+export type WarehouseReturnShipment = {
+  shipmentId: number
+  trackingCode: string
+  requestedAt: string
+  returnReason: string | null
+  orderId: number
+  orderCode: string
+  receiverName: string
+  deliveryStaffName: string | null
+  vehicleCode: string | null
+  licensePlate: string | null
+  warehouseName: string
+  items: Array<{
+    orderDetailId: number
+    productName: string
+    skuCode: string
+    quantity: number
+  }>
+}
+
+export type ShipperShipmentStatus =
+  | 'Pending'
+  | 'Picking'
+  | 'Shipping'
+  | 'Delivered'
+  | 'Failed'
+  | 'Rescheduled'
+  | 'ReturnPending'
+  | 'Cancelled'
+
+export type ShipperShipment = {
+  shipmentId: number
+  trackingCode: string
+  shippingStatus: ShipperShipmentStatus
+  estimatedDeliveryAt: string | null
+  assignedAt: string | null
+  handedOverAt: string | null
+  deliveredAt: string | null
+  note: string | null
+  deliveryStaffId: number | null
+  deliveryStaffName: string | null
+  vehicleId: number | null
+  vehicleCode: string | null
+  licensePlate: string | null
+  vehicleType: string | null
+  warehouseName: string
+  warehouseAddress: string | null
+  orderId: number
+  orderCode: string
+  receiverName: string
+  receiverPhone: string
+  shippingAddress: string
+  totalAmount: number
+  orderStatusCode: string
+  paymentMethodCode: string
+  paymentMethodName: string
+  paymentStatusCode: string
+  codAmount: number
+  items: Array<{
+    orderDetailId: number
+    productName: string
+    skuCode: string
+    quantity: number
   }>
 }
 

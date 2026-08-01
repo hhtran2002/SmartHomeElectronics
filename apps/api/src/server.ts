@@ -20,6 +20,8 @@ import { paymentMethodsRouter } from './routes/paymentMethods.js'
 import { productsRouter } from './routes/products.js'
 import { customerProfileRouter } from './routes/customerProfile.js'
 import { locationsRouter } from './routes/locations.js'
+import { shipperRouter } from './routes/shipper.js'
+import { warehouseDeliveriesRouter } from './routes/warehouseDeliveries.js'
 
 const app = express()
 const port = Number(process.env.PORT ?? 3000)
@@ -52,6 +54,8 @@ app.use('/api/payment-methods', paymentMethodsRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/profile', customerProfileRouter)
 app.use('/api/locations', locationsRouter)
+app.use('/api/shipper', shipperRouter)
+app.use('/api/warehouse/deliveries', warehouseDeliveriesRouter)
 app.use('/api/admin/dashboard', adminDashboardRouter)
 app.use('/api/admin/ai', adminAiRouter)
 app.use('/api/admin/inventory', adminInventoryRouter)
