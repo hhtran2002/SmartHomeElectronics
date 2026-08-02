@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "test:employee-workflow": "tsx src/scripts/testEmployeeWorkflow.ts",
     "rag:index": "tsx src/scripts/indexCatalog.ts",
     "rag:index-images": "tsx src/scripts/indexCatalogImages.ts",
     "start": "node dist/server.js"

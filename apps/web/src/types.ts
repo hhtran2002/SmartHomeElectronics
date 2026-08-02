@@ -457,10 +457,54 @@ export type AdminUser = {
   fullName: string
   email: string | null
   phone: string | null
-  status: 'Active' | 'Locked' | 'Disabled'
+  status: 'Pending' | 'Active' | 'Locked' | 'Disabled'
   createdAt: string
   updatedAt: string | null
   roles: string[]
+  employeeProfile: AdminEmployeeProfile | null
+}
+
+export type EmployeeGender = 'Male' | 'Female' | 'Other'
+
+export type EmployeeApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
+
+export type AdminEmployeeProfile = {
+  employeeId: number
+  employeeCode: string
+  position: string
+  department: string
+  dateOfBirth: string
+  gender: EmployeeGender
+  provinceCode: string
+  provinceName: string
+  wardCode: string
+  wardName: string
+  streetAddress: string
+  hireDate: string
+  approvalStatus: EmployeeApprovalStatus
+  createdByUserId: number | null
+  createdByName: string | null
+  approvedByUserId: number | null
+  approvedByName: string | null
+  approvedAt: string | null
+  rejectionReason: string | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+export type AdminEmployeePayload = {
+  fullName: string
+  email: string
+  phone: string
+  roleIds: number[]
+  position: string
+  department: string
+  dateOfBirth: string
+  gender: EmployeeGender | ''
+  provinceCode: string
+  wardCode: string
+  streetAddress: string
+  hireDate: string
 }
 
 export type AdminRole = {

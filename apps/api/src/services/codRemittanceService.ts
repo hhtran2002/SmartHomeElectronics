@@ -405,7 +405,10 @@ export async function getAdminCodOverview(filters: AdminCodFilters) {
     FROM dbo.UserAccount userAccount
     INNER JOIN dbo.UserRole userRole ON userRole.UserId = userAccount.UserId
     INNER JOIN dbo.Role role ON role.RoleId = userRole.RoleId
-    WHERE role.RoleCode = 'DeliveryStaff' AND userAccount.Status = 'Active'
+    INNER JOIN dbo.EmployeeProfile employeeProfile ON employeeProfile.UserId = userAccount.UserId
+    WHERE role.RoleCode = 'DeliveryStaff'
+      AND userAccount.Status = 'Active'
+      AND employeeProfile.ApprovalStatus = 'Approved'
     ORDER BY userAccount.FullName;
   `)
   const recordsets = result.recordsets as unknown as Array<Array<Record<string, unknown>>>

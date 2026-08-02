@@ -26,8 +26,10 @@ export async function getWarehouseDeliveryOptions() {
     FROM dbo.UserAccount userAccount
     INNER JOIN dbo.UserRole userRole ON userRole.UserId = userAccount.UserId
     INNER JOIN dbo.Role role ON role.RoleId = userRole.RoleId
+    INNER JOIN dbo.EmployeeProfile employeeProfile ON employeeProfile.UserId = userAccount.UserId
     WHERE role.RoleCode = 'DeliveryStaff'
       AND userAccount.Status = 'Active'
+      AND employeeProfile.ApprovalStatus = 'Approved'
     ORDER BY userAccount.FullName;
 
     SELECT
@@ -129,12 +131,14 @@ export async function assignOrderShipment(input: AssignShipmentInput) {
         FROM dbo.UserAccount userAccount
         INNER JOIN dbo.UserRole userRole ON userRole.UserId = userAccount.UserId
         INNER JOIN dbo.Role role ON role.RoleId = userRole.RoleId
+        INNER JOIN dbo.EmployeeProfile employeeProfile ON employeeProfile.UserId = userAccount.UserId
         WHERE userAccount.UserId = @deliveryStaffId
           AND userAccount.Status = 'Active'
           AND role.RoleCode = 'DeliveryStaff'
+          AND employeeProfile.ApprovalStatus = 'Approved'
       `)
     const deliveryStaff = staffResult.recordset[0]
-    if (!deliveryStaff) throw new Error('Nhân viên được chọn không có quyền DeliveryStaff hoặc không hoạt động.')
+    if (!deliveryStaff) throw new Error('Shipper phải có role DeliveryStaff, tài khoản Active và hồ sơ đã được duyệt.')
 
     const vehicleResult = await tx()
       .input('vehicleId', sql.BigInt, input.vehicleId)

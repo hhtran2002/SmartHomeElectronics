@@ -546,8 +546,47 @@ export function createAdminUser(payload: {
   phone: string
   password: string
   roleIds: number[]
+  position: string
+  department: string
+  dateOfBirth: string
+  gender: string
+  provinceCode: string
+  wardCode: string
+  streetAddress: string
+  hireDate: string
 }, token: string) {
-  return postJsonWithToken<{ data: { userId: number } }>('/api/admin/users', token, payload)
+  return postJsonWithToken<{ data: { userId: number; employeeCode: string; status: string; approvalStatus: string } }>(
+    '/api/admin/users', token, payload,
+  )
+}
+
+export function saveAdminEmployeeProfile(userId: number, payload: {
+  fullName: string
+  email: string
+  phone: string
+  roleIds: number[]
+  position: string
+  department: string
+  dateOfBirth: string
+  gender: string
+  provinceCode: string
+  wardCode: string
+  streetAddress: string
+  hireDate: string
+}, token: string) {
+  return putJsonWithToken<{ data: { userId: number; employeeCode: string } }>(
+    `/api/admin/users/${userId}/employee-profile`, token, payload,
+  )
+}
+
+export function reviewAdminEmployee(
+  userId: number,
+  payload: { action: 'Approved' | 'Rejected'; rejectionReason?: string },
+  token: string,
+) {
+  return patchJsonWithToken<{ data: { userId: number; approvalStatus: string } }>(
+    `/api/admin/users/${userId}/approval`, token, payload,
+  )
 }
 
 export function updateAdminUserRoles(userId: number, roleIds: number[], token: string) {

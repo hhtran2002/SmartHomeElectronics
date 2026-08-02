@@ -342,6 +342,7 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .admin-users-side { display: grid; gap: 16px; }
 .admin-users-toolbar { align-items: center; display: flex; gap: 14px; justify-content: space-between; margin-bottom: 16px; }
 .admin-users-toolbar input { border: 1px solid var(--blue-100); border-radius: 14px; flex: 1; padding: 12px 14px; }
+.admin-users-toolbar select { border: 1px solid var(--blue-100); border-radius: 14px; padding: 12px 14px; }
 .admin-users-list { display: grid; gap: 10px; }
 .admin-user-row { align-items: center; background: white; border: 1px solid var(--blue-100); border-radius: 16px; cursor: pointer; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) auto; padding: 14px; text-align: left; }
 .admin-user-row:hover, .admin-user-row.active { border-color: var(--blue-600); box-shadow: 0 8px 24px rgba(14,165,233,.1); }
@@ -350,12 +351,20 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .admin-user-roles { display: flex; flex-wrap: wrap; gap: 6px; }
 .admin-user-roles span, .user-status { background: var(--blue-50); border-radius: 999px; color: var(--blue-900); font-size: 11px; font-weight: 800; padding: 6px 9px; }
 .user-status.locked, .user-status.disabled { background: #fee2e2; color: #991b1b; }
+.user-status.pending, .approval-status.pending { background: #fef3c7 !important; color: #92400e !important; }
+.approval-status.approved { background: #dcfce7 !important; color: #166534 !important; }
+.approval-status.rejected, .approval-status.missing { background: #fee2e2 !important; color: #991b1b !important; }
 .role-picker { border: 1px solid var(--blue-100); border-radius: 16px; display: grid; gap: 9px; margin: 0; padding: 14px; }
 .role-picker legend { color: var(--ink); font-size: 13px; font-weight: 800; padding: 0 6px; }
 .role-picker label { align-items: start; display: grid; gap: 10px; grid-template-columns: auto 1fr; }
 .role-picker input { margin-top: 3px; }
 .role-picker strong, .role-picker small { display: block; }
 .role-picker small { color: var(--muted); font-weight: 500; line-height: 1.35; margin-top: 3px; }
+.employee-form { max-height: none; }
+.employee-review-actions { border-top: 1px solid var(--blue-100); display: grid; gap: 10px; margin-top: 6px; padding-top: 16px; }
+.employee-review-actions textarea { min-height: 76px; resize: vertical; }
+.employee-review-actions .danger-button { background: #b91c1c; }
+.employee-audit-note { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; color: #166534; font-size: 13px; line-height: 1.5; padding: 12px; }
 .admin-status-actions { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
 .admin-status-actions button { background: white; border: 1px solid var(--blue-200); border-radius: 12px; color: var(--blue-900); font-weight: 800; padding: 10px; }
 .warehouse-orders { margin: 24px 0; }
