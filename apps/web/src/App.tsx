@@ -7,6 +7,7 @@ import { Header } from './components/Header'
 import { useAuth } from './hooks/useAuth'
 import { useCart } from './hooks/useCart'
 import { AdminDashboardPage } from './admin/AdminDashboardPage'
+import { AdminCodRemittancesPage } from './admin/AdminCodRemittancesPage'
 import { AdminInventoryPage } from './admin/AdminInventoryPage'
 import { AdminLayout } from './admin/AdminLayout'
 import { AdminProductsPage } from './admin/AdminProductsPage'
@@ -24,6 +25,7 @@ import { ProductsPage } from './pages/ProductsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ShipperLayout } from './shipper/ShipperLayout'
+import { ShipperCodPage } from './shipper/ShipperCodPage'
 import { ShipperPage } from './shipper/ShipperPage'
 import { WarehouseDeliveriesPage } from './warehouse/WarehouseDeliveriesPage'
 import { WarehouseLayout } from './warehouse/WarehouseLayout'
@@ -350,9 +352,23 @@ function App() {
   } else if (hash === '#/shipper') {
     activePage = 'admin'
     page = (
-      <ShipperLayout user={auth.user}>
+      <ShipperLayout active="shipments" user={auth.user}>
         <ShipperPage roles={auth.user?.roles ?? []} token={auth.token} />
       </ShipperLayout>
+    )
+  } else if (hash === '#/shipper/cod') {
+    activePage = 'admin'
+    page = (
+      <ShipperLayout active="cod" user={auth.user}>
+        <ShipperCodPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </ShipperLayout>
+    )
+  } else if (hash === '#/admin/cod-remittances') {
+    activePage = 'admin'
+    page = (
+      <AdminLayout active="cod" user={auth.user}>
+        <AdminCodRemittancesPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </AdminLayout>
     )
   } else if (hash === '#/admin/promotions') {
     activePage = 'admin'

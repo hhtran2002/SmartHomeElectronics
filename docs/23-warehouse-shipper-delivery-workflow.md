@@ -1,5 +1,7 @@
 # Module 23 - Phân công shipper, bàn giao kho và giao hàng
 
+> Sau bước giao COD thành công, hệ thống còn phát sinh trách nhiệm nộp tiền của shipper. Xem tiếp `docs/24-cod-collection-remittance-workflow.md`.
+
 Tài liệu này dùng để học luồng chạy thật của chức năng. Mỗi phần đều trả lời bốn câu hỏi:
 
 1. Người dùng thao tác ở component nào?
@@ -49,6 +51,7 @@ Shipper giao hàng
         │     Shipment = Delivered
         │     SalesOrder = Completed
         │     COD → PaymentStatus = Success
+        │     COD → CodCollection = Outstanding
         │
         └── Thất bại
               Shipment = Failed

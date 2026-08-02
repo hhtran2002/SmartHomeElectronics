@@ -138,7 +138,8 @@ export async function completeShipmentDelivery(
         SELECT TOP (1)
           shipment.ShipmentId, shipment.OrderId, shipment.DeliveryStaffId, shipment.ShippingStatus,
           salesOrder.OrderCode, salesOrder.OrderStatusId, orderStatus.StatusCode AS OrderStatusCode,
-          payment.PaymentId, payment.PaymentStatusId, paymentStatus.StatusCode AS PaymentStatusCode,
+          payment.PaymentId, payment.PaymentStatusId, payment.Amount AS PaymentAmount,
+          paymentStatus.StatusCode AS PaymentStatusCode,
           paymentMethod.MethodCode AS PaymentMethodCode
         FROM dbo.Shipment shipment WITH (UPDLOCK, ROWLOCK)
         INNER JOIN dbo.SalesOrder salesOrder WITH (UPDLOCK, ROWLOCK) ON salesOrder.OrderId = shipment.OrderId
@@ -158,6 +159,20 @@ export async function completeShipmentDelivery(
     if (current.PaymentMethodCode !== 'COD' && current.PaymentStatusCode !== 'Success') {
       throw new Error('Đơn thanh toán online chưa được thanh toán thành công.')
     }
+    if (current.PaymentMethodCode === 'COD' && !current.DeliveryStaffId) {
+      throw new Error('Đơn COD chưa có shipper chịu trách nhiệm thu tiền.')
+    }
+
+    const delivered = await tx()
+      .input('shipmentId', sql.BigInt, shipmentId)
+      .query(`
+        UPDATE dbo.Shipment
+        SET ShippingStatus = 'Delivered', DeliveredAt = SYSDATETIME(), UpdatedAt = SYSDATETIME()
+        OUTPUT INSERTED.DeliveredAt
+        WHERE ShipmentId = @shipmentId
+      `)
+    const deliveredAt = delivered.recordset[0]?.DeliveredAt
+    if (!deliveredAt) throw new Error('Không ghi nhận được thời điểm giao hàng thành công.')
 
     let successPaymentStatusId: number | null = null
     if (current.PaymentMethodCode === 'COD') {
@@ -168,22 +183,33 @@ export async function completeShipmentDelivery(
         .input('paymentId', sql.BigInt, current.PaymentId)
         .input('paymentStatusId', sql.TinyInt, successPaymentStatusId)
         .input('transactionCode', sql.VarChar(255), `COD-${current.OrderCode}`)
+        .input('paidAt', sql.DateTime2, deliveredAt)
         .query(`
           UPDATE dbo.Payment
           SET PaymentStatusId = @paymentStatusId,
               TransactionCode = COALESCE(TransactionCode, @transactionCode),
-              PaidAt = COALESCE(PaidAt, SYSDATETIME())
+              PaidAt = COALESCE(PaidAt, @paidAt)
           WHERE PaymentId = @paymentId
         `)
-    }
 
-    await tx()
-      .input('shipmentId', sql.BigInt, shipmentId)
-      .query(`
-        UPDATE dbo.Shipment
-        SET ShippingStatus = 'Delivered', DeliveredAt = SYSDATETIME(), UpdatedAt = SYSDATETIME()
-        WHERE ShipmentId = @shipmentId
-      `)
+      await tx()
+        .input('paymentId', sql.BigInt, current.PaymentId)
+        .input('shipmentId', sql.BigInt, shipmentId)
+        .input('orderId', sql.BigInt, current.OrderId)
+        .input('deliveryStaffId', sql.BigInt, current.DeliveryStaffId)
+        .input('collectedAmount', sql.Decimal(18, 2), current.PaymentAmount)
+        .input('collectedAt', sql.DateTime2, deliveredAt)
+        .query(`
+          INSERT INTO dbo.CodCollection (
+            PaymentId, ShipmentId, OrderId, DeliveryStaffId,
+            CollectedAmount, CollectedAt, Status, CreatedAt
+          )
+          VALUES (
+            @paymentId, @shipmentId, @orderId, @deliveryStaffId,
+            @collectedAmount, @collectedAt, 'Outstanding', SYSDATETIME()
+          )
+        `)
+    }
     await tx()
       .input('shipmentId', sql.BigInt, shipmentId)
       .input('userId', sql.BigInt, userId)

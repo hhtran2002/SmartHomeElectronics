@@ -4,6 +4,7 @@ import express from 'express'
 import { getPool } from './config/database.js'
 import { adminDashboardRouter } from './routes/adminDashboard.js'
 import { adminAiRouter } from './routes/adminAi.js'
+import { adminCodRemittancesRouter } from './routes/adminCodRemittances.js'
 import { aiAssistantRouter } from './routes/aiAssistant.js'
 import { adminInventoryRouter } from './routes/adminInventory.js'
 import { adminOrdersRouter } from './routes/adminOrders.js'
@@ -58,6 +59,7 @@ app.use('/api/shipper', shipperRouter)
 app.use('/api/warehouse/deliveries', warehouseDeliveriesRouter)
 app.use('/api/admin/dashboard', adminDashboardRouter)
 app.use('/api/admin/ai', adminAiRouter)
+app.use('/api/admin/cod-remittances', adminCodRemittancesRouter)
 app.use('/api/admin/inventory', adminInventoryRouter)
 app.use('/api/admin/orders', adminOrdersRouter)
 app.use('/api/admin/products', adminProductsRouter)

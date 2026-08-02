@@ -581,6 +581,86 @@ export type ShipperShipment = {
   }>
 }
 
+export type CodCollectionStatus =
+  | 'Outstanding'
+  | 'AwaitingConfirmation'
+  | 'PartiallyRemitted'
+  | 'Settled'
+
+export type CodRemittanceStatus = 'Submitted' | 'Confirmed' | 'Rejected' | 'Cancelled'
+export type CodRemittanceMethod = 'Cash' | 'BankTransfer'
+
+export type CodCollection = {
+  codCollectionId: number
+  paymentId: number
+  shipmentId: number
+  orderId: number
+  deliveryStaffId: number
+  deliveryStaffName: string
+  orderCode: string
+  collectedAmount: number
+  collectedAt: string
+  storedStatus: 'Outstanding' | 'PartiallyRemitted' | 'Settled'
+  remittedAmount: number
+  pendingAmount: number
+  outstandingAmount: number
+  availableToSubmit: number
+  status: CodCollectionStatus
+}
+
+export type CodRemittance = {
+  codRemittanceId: number
+  remittanceCode: string
+  deliveryStaffId: number
+  deliveryStaffName?: string
+  declaredAmount: number
+  method: CodRemittanceMethod
+  status: CodRemittanceStatus
+  submittedAt: string
+  reviewedAt: string | null
+  referenceCode: string | null
+  note: string | null
+  reviewNote: string | null
+  reviewedByName: string | null
+  itemCount: number
+  orderCodes: string | null
+}
+
+export type ShipperCodAccount = {
+  summary: {
+    totalCollected: number
+    collectedToday: number
+    totalRemitted: number
+    pendingConfirmation: number
+    outstandingAmount: number
+    availableToSubmit: number
+  }
+  collections: CodCollection[]
+  remittances: CodRemittance[]
+}
+
+export type AdminCodOverview = {
+  summary: {
+    totalCollected: number
+    totalRemitted: number
+    pendingConfirmation: number
+    outstandingAmount: number
+  }
+  shipperBalances: Array<{
+    deliveryStaffId: number
+    deliveryStaffName: string
+    phone: string | null
+    collectionCount: number
+    collectedAmount: number
+    remittedAmount: number
+    pendingAmount: number
+    outstandingAmount: number
+  }>
+  collections: CodCollection[]
+  remittances: CodRemittance[]
+  deliveryStaff: Array<{ userId: number; fullName: string }>
+}
+
 export type CustomerProfile = {
   userId: number
   fullName: string

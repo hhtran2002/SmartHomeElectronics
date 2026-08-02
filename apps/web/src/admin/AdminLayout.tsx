@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AuthUser } from '../types'
 
-type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'inventory' | 'shipper' | 'users' | 'reports'
+type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'inventory' | 'shipper' | 'cod' | 'users' | 'reports'
 
 type Props = {
   active: AdminMenuKey
@@ -17,6 +17,7 @@ const menu: Array<{ key: AdminMenuKey; label: string; href: string }> = [
   { key: 'reviews', label: 'Đánh giá', href: '#/admin/reviews' },
   { key: 'inventory', label: 'Kho hàng', href: '#/warehouse' },
   { key: 'shipper', label: 'Giao hàng', href: '#/shipper' },
+  { key: 'cod', label: 'Đối soát COD', href: '#/admin/cod-remittances' },
   { key: 'users', label: 'Nhân viên', href: '#/admin/users' },
   { key: 'reports', label: 'Báo cáo', href: '#/admin/reports' },
 ]

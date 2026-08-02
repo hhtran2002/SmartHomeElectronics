@@ -1,359 +1,188 @@
-# 15. Module hoàn tất đơn hàng và đối soát COD
+# 15. Hoàn tất đơn hàng và ý nghĩa thanh toán COD
 
-> Cập nhật module 23: `OrderAdmin` không còn xác nhận `Shipping → Completed`. Shipper được phân công xác nhận tại `#/shipper`; transaction đồng thời chuyển shipment sang `Delivered`, đơn sang `Completed` và COD sang `Success`. Xem `docs/23-warehouse-shipper-delivery-workflow.md`.
+> Tài liệu này mô tả trạng thái đơn/thanh toán. Phần tiền COD shipper phải nộp được trình bày đầy đủ tại `docs/24-cod-collection-remittance-workflow.md`.
 
-Mục tiêu module này:
+## 1. Ba trạng thái không được trộn lẫn
 
-- Đơn chỉ được hoàn thành khi đang ở trạng thái giao hàng.
-- COD khi giao thành công thì mới ghi nhận đã thanh toán.
-- Thanh toán online phải thành công trước thì đơn mới được hoàn thành.
+Một đơn COD giao thành công liên quan đến ba sự kiện khác nhau:
+
+```txt
+Shipment = Delivered
+→ Khách đã nhận kiện
+
+Payment = Success
+→ Khách đã trả tiền cho shipper
+
+CodCollection = Settled
+→ Shop đã xác nhận nhận lại đủ tiền từ shipper
+```
+
+`Payment = Success` không có nghĩa là tiền mặt đã nằm trong quỹ của shop.
 
 ---
 
-## 1. Trạng thái liên quan
+## 2. Ai được hoàn tất đơn?
+
+`OrderAdmin` không được chuyển trực tiếp `Shipping → Completed`.
+
+Người được phân công trên `Shipment.DeliveryStaffId` đăng nhập trang:
 
 ```txt
-OrderStatus
-↓
-Shipping = Đang giao hàng
-Completed = Hoàn thành
+#/shipper
 ```
 
+và bấm:
+
 ```txt
-PaymentStatus
-↓
-Pending = Chờ thanh toán
-Success = Thanh toán thành công
+Đã giao thành công
 ```
 
+Frontend:
+
 ```txt
-PaymentMethod
-↓
-COD = Thanh toán khi nhận hàng
-BANK_TRANSFER / CREDIT_CARD / VNPAY / MOMO = thanh toán trước / online
+apps/web/src/shipper/ShipperPage.tsx
+→ completeShipperDelivery(shipmentId, token)
 ```
 
----
-
-## 2. Luồng hoàn tất đơn COD
+HTTP client:
 
 ```txt
-Admin mở trang Đơn hàng
-↓
-apps/web/src/pages/AdminOrdersPage.tsx
-```
-
-Admin chọn đơn đang giao:
-
-```txt
-OrderStatus = Shipping
-PaymentMethod = COD
-PaymentStatus = Pending
-```
-
-Admin đổi trạng thái sang Hoàn thành:
-
-```txt
-AdminOrdersPage.tsx
-↓
-changeStatus(orderStatusId)
-↓
 apps/web/src/api.ts
-↓
-updateAdminOrderStatus(orderId, orderStatusId, token)
-↓
-PATCH /api/admin/orders/:orderId/status
+→ POST /api/shipper/shipments/:shipmentId/delivered
 ```
 
-Backend nhận request:
+Backend:
 
 ```txt
 apps/api/src/server.ts
-↓
-app.use('/api/admin/orders', adminOrdersRouter)
-↓
-apps/api/src/routes/adminOrders.ts
-↓
-adminOrdersRouter.patch('/:orderId/status', changeAdminOrderStatus)
-↓
-apps/api/src/controllers/adminOrderController.ts
-↓
-changeAdminOrderStatus()
-↓
-apps/api/src/services/adminOrderService.ts
-↓
-updateAdminOrderStatus({ orderId, orderStatusId })
+→ app.use('/api/shipper', shipperRouter)
+
+apps/api/src/routes/shipper.ts
+→ POST /shipments/:shipmentId/delivered
+
+apps/api/src/controllers/shipperController.ts
+→ completeDelivery(...)
+
+apps/api/src/services/shipperService.ts
+→ completeShipmentDelivery(...)
 ```
 
-Backend hỏi DB:
+---
+
+## 3. Điều kiện trước khi hoàn tất
+
+Transaction khóa `Shipment`, `SalesOrder` và `Payment`, sau đó kiểm tra:
 
 ```txt
-SalesOrder
-↓
-OrderStatus hiện tại là gì?
-PaymentStatus hiện tại là gì?
+Shipment.ShippingStatus = Shipping
+SalesOrder.OrderStatus = Shipping
+Shipment.DeliveryStaffId = user đang thao tác
 ```
 
+Riêng đơn thanh toán trước:
+
 ```txt
+Payment.MethodCode != COD
+Payment.StatusCode bắt buộc = Success
+```
+
+Nếu thanh toán online chưa thành công thì shipper không thể hoàn tất đơn.
+
+---
+
+## 4. Transaction của đơn COD
+
+Khi đơn COD hợp lệ được đánh dấu giao thành công:
+
+```txt
+Shipment
+  ShippingStatus = Delivered
+  DeliveredAt = thời điểm hiện tại
+
 Payment
-↓
-Đơn dùng phương thức thanh toán nào?
-```
+  PaymentStatus = Success
+  PaidAt = Shipment.DeliveredAt
+  TransactionCode = COD-{OrderCode}
 
-```txt
-PaymentMethod
-↓
-MethodCode có phải COD không?
-```
+CodCollection
+  PaymentId = payment vừa thành công
+  ShipmentId = chuyến vừa giao
+  DeliveryStaffId = shipper được phân công
+  CollectedAmount = Payment.Amount
+  Status = Outstanding
 
-Điều kiện hợp lệ:
-
-```txt
-Current OrderStatus phải là Shipping
-Target OrderStatus phải là Completed
-PaymentMethod phải là COD
-```
-
-Backend cập nhật:
-
-```txt
-Payment
-↓
-PaymentStatusId = Success
-TransactionCode = COD-{OrderCode}
-PaidAt = thời gian hiện tại
-```
-
-Sau đó cập nhật:
-
-```txt
 SalesOrder
-↓
-OrderStatusId = Completed
-PaymentStatusId = Success
-UpdatedAt = thời gian hiện tại
+  OrderStatus = Completed
+  PaymentStatus = Success
 ```
 
-Kết quả:
-
-```txt
-Đơn từ:
-Shipping · COD · Pending
-
-thành:
-Completed · COD · Success
-```
+Tất cả nằm trong một database transaction. Nếu không tạo được `CodCollection`, toàn bộ việc hoàn tất đơn cũng rollback.
 
 ---
 
-## 3. Vì sao COD không Success ngay từ lúc đặt hàng?
-
-Vì COD là trả tiền sau:
+## 5. Transaction của đơn thanh toán trước
 
 ```txt
-Khách đặt hàng
-↓
-Chưa trả tiền
-↓
-PaymentStatus = Pending
+Payment đã Success từ trước
+        ↓
+Shipper giao thành công
+        ↓
+Shipment = Delivered
+SalesOrder = Completed
+        ↓
+Không tạo CodCollection
 ```
 
-Khi kho xuất hàng:
-
-```txt
-Hàng rời kho
-↓
-OrderStatus = Shipping
-↓
-Vẫn chưa chắc thu được tiền
-```
-
-Khi giao thành công:
-
-```txt
-Shipper thu tiền từ khách
-↓
-Admin xác nhận hoàn thành
-↓
-PaymentStatus = Success
-```
-
-Nói ngắn:
-
-```txt
-COD chỉ được tính là đã thanh toán khi giao hàng thành công.
-```
+Shipper không thu và không phải nộp tiền cho đơn này.
 
 ---
 
-## 4. Luồng hoàn tất đơn thanh toán online
+## 6. Vì sao COD tạo công nợ ngay?
 
-Ví dụ:
-
-```txt
-BANK_TRANSFER
-CREDIT_CARD
-VNPAY
-MOMO
-```
-
-Đơn online phải có tiền trước:
+Theo quy tắc nghiệp vụ của dự án:
 
 ```txt
-PaymentStatus = Success
+Shipper bấm giao thành công
+→ hệ thống mặc định khách đã trả đủ Payment.Amount
 ```
 
-Nếu admin cố hoàn tất khi chưa thanh toán:
-
-```txt
-AdminOrdersPage.tsx
-↓
-PATCH /api/admin/orders/:orderId/status
-↓
-adminOrders.ts kiểm tra
-↓
-PaymentMethod không phải COD
-PaymentStatus chưa Success
-↓
-Backend từ chối
-```
-
-Lý do:
-
-```txt
-Không thể hoàn thành đơn thanh toán trước nếu cổng thanh toán/ngân hàng chưa xác nhận tiền về.
-```
-
-Luồng đúng:
-
-```txt
-Khách đặt đơn online
-↓
-OrderStatus = PendingPayment
-PaymentStatus = Pending
-↓
-Webhook ngân hàng/cổng thanh toán xác nhận
-↓
-OrderStatus = Paid
-PaymentStatus = Success
-↓
-Admin xử lý đơn
-↓
-ReadyToShip
-↓
-Kho xác nhận xuất
-↓
-Shipping
-↓
-Admin xác nhận giao thành công
-↓
-Completed
-```
+Hệ thống không cố đoán shipper có quên thu, thu thiếu hay làm rơi tiền hay không. Shipper đã xác nhận giao thành công thì chịu trách nhiệm nộp đủ số được chụp trong `CodCollection.CollectedAmount`.
 
 ---
 
-## 5. Điều kiện chặn sai nghiệp vụ
+## 7. Trường tiền dùng để làm gì?
 
-### Không cho hoàn tất nếu đơn chưa giao
-
-```txt
-Nếu CurrentStatus != Shipping
-↓
-Backend báo lỗi:
-"Chỉ đơn đang giao hàng mới được xác nhận hoàn thành."
-```
-
-Vì:
-
-```txt
-PendingConfirmation / Processing / ReadyToShip
-↓
-Hàng chưa giao tới khách
-↓
-Không thể coi là hoàn thành
-```
-
-### Không cho hoàn tất đơn online nếu chưa paid
-
-```txt
-PaymentMethod != COD
-PaymentStatus != Success
-↓
-Backend báo lỗi
-```
-
-Vì:
-
-```txt
-Online payment phải có xác nhận từ ngân hàng/cổng thanh toán trước.
-```
-
-### Không cho admin chuyển thẳng sang Shipping
-
-Luồng này vẫn giữ nguyên:
-
-```txt
-AdminOrdersPage.tsx
-↓
-Nếu chọn Shipping thì backend chặn
-```
-
-Vì:
-
-```txt
-Shipping phải do nhân viên kho xác nhận xuất kho
-↓
-apps/web/src/admin/WarehouseReadyOrders.tsx
-↓
-apps/api/src/routes/adminInventory.ts
-```
+| Trường | Ý nghĩa |
+|---|---|
+| `Payment.Amount` | Tổng khách phải trả, bao gồm phí giao nếu có |
+| `Payment.PaidAt` | Lúc khách trả cho shipper đối với COD |
+| `CodCollection.CollectedAmount` | Số tiền đóng băng thành trách nhiệm của shipper |
+| Tổng remittance `Confirmed` | Tiền shop đã thực nhận |
+| Công nợ COD | CollectedAmount trừ tổng đã Confirmed |
 
 ---
 
-## 6. Tóm tắt toàn bộ vòng đời COD
+## 8. Checklist
+
+### COD
 
 ```txt
-Khách đặt COD
-↓
-PendingConfirmation · Payment Pending
-↓
-Admin xác nhận đơn
-↓
-ReadyToShip · Payment Pending
-↓
-Kho xuất hàng
-↓
-Shipping · Payment Pending
-↓
-Giao thành công
-↓
-Admin chuyển Completed
-↓
-Completed · Payment Success
+1. Payment đang Pending
+2. Shipment đang Shipping và có DeliveryStaffId
+3. Shipper bấm giao thành công
+4. Payment thành Success
+5. Shipment thành Delivered
+6. SalesOrder thành Completed
+7. Có đúng một CodCollection
+8. CodCollection đúng Payment.Amount và đúng DeliveryStaffId
 ```
 
----
-
-## 7. Tóm tắt toàn bộ vòng đời online/QR/thẻ
+### Thanh toán trước
 
 ```txt
-Khách đặt online
-↓
-PendingPayment · Payment Pending
-↓
-Ngân hàng/cổng thanh toán xác nhận
-↓
-Paid · Payment Success
-↓
-Admin xử lý
-↓
-ReadyToShip
-↓
-Kho xuất hàng
-↓
-Shipping
-↓
-Giao thành công
-↓
-Completed · Payment Success
+1. Payment đã Success
+2. Shipper bấm giao thành công
+3. Shipment thành Delivered
+4. SalesOrder thành Completed
+5. Không có CodCollection
 ```

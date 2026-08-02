@@ -440,6 +440,78 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .shipment-note { background: #fffbeb; color: #92400e; margin: 0; padding: 12px 18px; }
 .shipper-action-panel { align-items: end; background: #f8fafc; border-top: 1px solid var(--blue-100); display: grid; gap: 10px; grid-template-columns: auto minmax(220px, 1fr) auto; padding: 14px 18px; }
 .shipper-action-panel.retry-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cod-alert { margin: 14px 0; padding: 16px 18px; text-align: left; }
+.cod-metrics { display: grid; gap: 14px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 22px 0; }
+.cod-metrics > div {
+  background: white; border: 1px solid var(--blue-100); border-radius: 20px; box-shadow: 0 8px 28px rgba(14,165,233,.05); padding: 18px;
+}
+.cod-metrics span, .cod-metrics strong { display: block; }
+.cod-metrics span { color: var(--muted); font-size: 12px; font-weight: 800; }
+.cod-metrics strong { color: var(--blue-900); font-size: 21px; margin-top: 8px; }
+.cod-metrics .cod-debt { background: #fff7ed; border-color: #fed7aa; }
+.cod-metrics .cod-debt strong { color: #c2410c; }
+.cod-workspace { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 340px; }
+.cod-collection-panel { min-width: 0; }
+.text-action { background: transparent; border: 0; color: var(--blue-700); font-weight: 850; }
+.cod-collection-list { display: grid; gap: 9px; margin-top: 18px; }
+.cod-collection-row {
+  align-items: center; background: #f8fafc; border: 1px solid var(--blue-100); border-radius: 15px; display: grid; gap: 10px;
+  grid-template-columns: auto minmax(160px, 1fr) repeat(3, minmax(100px, .7fr)) auto; padding: 12px;
+}
+.cod-collection-row > input { height: 17px; width: 17px; }
+.cod-collection-row strong, .cod-collection-row small { display: block; }
+.cod-collection-row small { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+.cod-status { border-radius: 999px; display: inline-flex; font-size: 11px; font-style: normal; font-weight: 900; padding: 7px 10px; width: fit-content; }
+.cod-status.outstanding, .cod-status.partiallyremitted { background: #ffedd5; color: #9a3412; }
+.cod-status.awaitingconfirmation, .cod-status.submitted { background: #fef3c7; color: #92400e; }
+.cod-status.settled, .cod-status.confirmed { background: #dcfce7; color: #166534; }
+.cod-status.rejected, .cod-status.cancelled { background: #fee2e2; color: #991b1b; }
+.cod-submit-card { display: grid; gap: 13px; position: sticky; top: 90px; }
+.cod-submit-card h3 { color: #c2410c; font-size: 30px; margin: 0; }
+.cod-submit-card p { color: var(--muted); line-height: 1.5; margin: 0; }
+.cod-submit-card label, .cod-review-actions label, .cod-admin-filters label {
+  color: var(--ink); display: grid; font-size: 12px; font-weight: 800; gap: 7px;
+}
+.cod-submit-card input, .cod-submit-card select, .cod-submit-card textarea,
+.cod-review-actions input, .cod-admin-filters input, .cod-admin-filters select {
+  border: 1px solid var(--blue-100); border-radius: 12px; font: inherit; min-width: 0; padding: 11px;
+}
+.cod-submit-card textarea { min-height: 84px; resize: vertical; }
+.cod-submit-card > button { background: #059669; border: 0; border-radius: 13px; color: white; font-weight: 900; padding: 12px; }
+.cod-submit-card > button:disabled { opacity: .55; }
+.cod-remittance-list, .admin-cod-remittances, .cod-shipper-balances, .admin-cod-collections { display: grid; gap: 10px; margin-top: 18px; }
+.cod-remittance-list > article {
+  align-items: center; background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 15px; display: grid; gap: 14px;
+  grid-template-columns: minmax(220px, 1fr) 150px 170px auto; padding: 13px;
+}
+.cod-remittance-list strong, .cod-remittance-list small { display: block; }
+.cod-remittance-list small { color: var(--muted); margin-top: 4px; }
+.danger-outline { background: white; border: 1px solid #fca5a5; border-radius: 11px; color: #b91c1c; font-weight: 850; padding: 9px 12px; }
+.cod-admin-filters {
+  align-items: end; background: white; border: 1px solid var(--blue-100); border-radius: 20px; display: grid; gap: 12px;
+  grid-template-columns: 1fr 1fr 150px 150px auto; margin-top: 22px; padding: 16px;
+}
+.cod-admin-filters > button { background: var(--blue-600); border: 0; border-radius: 12px; color: white; font-weight: 900; padding: 12px 15px; }
+.admin-cod-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cod-shipper-balances > article, .admin-cod-collections > article {
+  align-items: center; background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 15px; display: grid; gap: 12px;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(110px, .7fr)); padding: 13px;
+}
+.cod-shipper-balances strong, .cod-shipper-balances small, .admin-cod-collections strong, .admin-cod-collections small { display: block; }
+.cod-shipper-balances small, .admin-cod-collections small { color: var(--muted); margin-bottom: 3px; }
+.balance-debt strong { color: #c2410c; }
+.admin-cod-remittances > article { border: 1px solid var(--blue-100); border-radius: 18px; overflow: hidden; }
+.admin-cod-remittances header { align-items: start; background: var(--blue-50); display: flex; justify-content: space-between; padding: 15px; }
+.admin-cod-remittances header h4 { font-size: 18px; margin: 8px 0 3px; }
+.admin-cod-remittances header small { color: var(--muted); }
+.admin-cod-remittances header > strong { color: var(--blue-900); font-size: 21px; }
+.cod-remittance-detail { display: grid; gap: 10px; grid-template-columns: 1.5fr repeat(3, 1fr); padding: 14px 15px; }
+.cod-remittance-detail span { background: #f8fafc; border-radius: 11px; padding: 10px; }
+.cod-remittance-detail small, .cod-remittance-detail strong { display: block; }
+.cod-remittance-detail small { color: var(--muted); margin-bottom: 4px; }
+.cod-note { background: #fffbeb; color: #92400e; margin: 0; padding: 10px 15px; }
+.cod-review-actions { align-items: end; background: #f8fafc; border-top: 1px solid var(--blue-100); display: grid; gap: 10px; grid-template-columns: minmax(240px, 1fr) auto auto; padding: 14px 15px; }
+.cod-review-actions button { border: 0; border-radius: 11px; color: white; font-weight: 850; padding: 11px 13px; }
 .admin-metrics { display: grid; gap: 16px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 28px; }
 .admin-metrics div {
   background: white; border: 1px solid var(--blue-100); border-radius: 22px; box-shadow: 0 8px 30px rgba(14,165,233,.05); padding: 20px;
@@ -750,15 +822,20 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 }
 
 @media (max-width: 900px) {
-  .shipper-shell, .delivery-management-grid { grid-template-columns: 1fr; }
-  .shipper-sidebar { position: static; }
-  .delivery-assignment-grid, .shipper-meta, .shipper-action-panel, .shipper-action-panel.retry-panel { grid-template-columns: 1fr; }
+  .shipper-shell, .delivery-management-grid, .cod-workspace { grid-template-columns: 1fr; }
+  .shipper-sidebar, .cod-submit-card { position: static; }
+  .delivery-assignment-grid, .shipper-meta, .shipper-action-panel, .shipper-action-panel.retry-panel,
+  .cod-admin-filters, .cod-remittance-detail, .cod-review-actions { grid-template-columns: 1fr; }
+  .cod-metrics, .admin-cod-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cod-collection-row, .cod-remittance-list > article, .cod-shipper-balances > article, .admin-cod-collections > article { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 560px) {
   .shipper-shell { padding: 22px 14px 48px; }
   .warehouse-order-card header, .shipper-card > header, .delivery-actions, .vehicle-list > div { align-items: stretch; flex-direction: column; }
   .delivery-actions button { width: 100%; }
+  .cod-metrics, .admin-cod-metrics, .cod-collection-row, .cod-remittance-list > article,
+  .cod-shipper-balances > article, .admin-cod-collections > article { grid-template-columns: 1fr; }
 }
 .image-add-row button:disabled { cursor: not-allowed; opacity: .55; }
 

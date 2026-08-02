@@ -37,6 +37,9 @@ import type {
   AiImageSearchResponse,
   DeliveryStaffOption,
   DeliveryVehicle,
+  AdminCodOverview,
+  CodRemittanceMethod,
+  ShipperCodAccount,
   ShipperShipment,
   WarehouseReturnShipment,
 } from './types'
@@ -477,6 +480,55 @@ export function retryShipperDelivery(shipmentId: number, token: string) {
 export function requestShipperReturn(shipmentId: number, reason: string, token: string) {
   return postJsonWithToken<{ data: { shipmentId: number; shippingStatus: string } }>(
     `/api/shipper/shipments/${shipmentId}/request-return`, token, { reason },
+  )
+}
+
+export function getShipperCodAccount(token: string) {
+  return getJsonWithToken<{ data: ShipperCodAccount }>('/api/shipper/cod', token)
+}
+
+export function createShipperCodRemittance(payload: {
+  collectionIds: number[]
+  method: CodRemittanceMethod
+  referenceCode: string
+  note: string
+}, token: string) {
+  return postJsonWithToken<{
+    data: { codRemittanceId: number; remittanceCode: string; declaredAmount: number; status: string }
+  }>('/api/shipper/cod/remittances', token, payload)
+}
+
+export function cancelShipperCodRemittance(codRemittanceId: number, token: string) {
+  return postJsonWithToken<{ data: { codRemittanceId: number; status: string } }>(
+    `/api/shipper/cod/remittances/${codRemittanceId}/cancel`, token, {},
+  )
+}
+
+export function getAdminCodOverview(token: string, filters: {
+  deliveryStaffId: string
+  status: string
+  fromDate: string
+  toDate: string
+}) {
+  const params = new URLSearchParams()
+  if (filters.deliveryStaffId) params.set('deliveryStaffId', filters.deliveryStaffId)
+  if (filters.status) params.set('status', filters.status)
+  if (filters.fromDate) params.set('from', filters.fromDate)
+  if (filters.toDate) params.set('to', filters.toDate)
+  return getJsonWithToken<{ data: AdminCodOverview }>(
+    `/api/admin/cod-remittances?${params.toString()}`, token,
+  )
+}
+
+export function confirmAdminCodRemittance(codRemittanceId: number, reviewNote: string, token: string) {
+  return postJsonWithToken<{ data: { codRemittanceId: number; status: string } }>(
+    `/api/admin/cod-remittances/${codRemittanceId}/confirm`, token, { reviewNote },
+  )
+}
+
+export function rejectAdminCodRemittance(codRemittanceId: number, reviewNote: string, token: string) {
+  return postJsonWithToken<{ data: { codRemittanceId: number; status: string } }>(
+    `/api/admin/cod-remittances/${codRemittanceId}/reject`, token, { reviewNote },
   )
 }
 

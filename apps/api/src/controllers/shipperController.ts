@@ -1,6 +1,11 @@
 import type { NextFunction, Response } from 'express'
 import type { AuthRequest } from '../auth.js'
 import {
+  cancelMyCodRemittance,
+  createCodRemittance,
+  getMyCodAccount,
+} from '../services/codRemittanceService.js'
+import {
   completeShipmentDelivery,
   failShipmentDelivery,
   getShipperShipments,
@@ -13,6 +18,8 @@ function shipmentIdFrom(value: unknown) {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
+
+const positiveId = shipmentIdFrom
 
 function text(value: unknown) {
   return String(value ?? '').trim()
@@ -35,6 +42,53 @@ export async function listMyShipments(request: AuthRequest, response: Response, 
     response.json({ data: await getShipperShipments(request.user!.userId, isAdmin(request)) })
   } catch (error) {
     next(error)
+  }
+}
+
+export async function getMyCodSummary(request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    response.json({ data: await getMyCodAccount(request.user!.userId) })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function submitCodRemittance(request: AuthRequest, response: Response, next: NextFunction) {
+  const collectionIds = Array.isArray(request.body.collectionIds)
+    ? request.body.collectionIds.map(positiveId).filter((value: number | null): value is number => value !== null)
+    : []
+  const method = text(request.body.method)
+  if (!collectionIds.length || !['Cash', 'BankTransfer'].includes(method)) {
+    response.status(400).json({ message: 'Vui lòng chọn khoản COD và phương thức nộp tiền.' })
+    return
+  }
+  try {
+    response.status(201).json({
+      data: await createCodRemittance({
+        deliveryStaffId: request.user!.userId,
+        collectionIds,
+        method: method as 'Cash' | 'BankTransfer',
+        referenceCode: text(request.body.referenceCode),
+        note: text(request.body.note),
+      }),
+    })
+  } catch (error) {
+    businessError(error, response, next)
+  }
+}
+
+export async function cancelCodRemittance(request: AuthRequest, response: Response, next: NextFunction) {
+  const codRemittanceId = positiveId(request.params.codRemittanceId)
+  if (!codRemittanceId) {
+    response.status(400).json({ message: 'Phiếu nộp tiền COD không hợp lệ.' })
+    return
+  }
+  try {
+    response.json({
+      data: await cancelMyCodRemittance(codRemittanceId, request.user!.userId),
+    })
+  } catch (error) {
+    businessError(error, response, next)
   }
 }
 

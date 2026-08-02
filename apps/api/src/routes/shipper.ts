@@ -1,12 +1,15 @@
 import { Router } from 'express'
 import { requireAuth, requireRoles } from '../auth.js'
 import {
+  cancelCodRemittance,
   completeDelivery,
   failDelivery,
+  getMyCodSummary,
   listMyShipments,
   requestReturn,
   rescheduleDelivery,
   retryDelivery,
+  submitCodRemittance,
 } from '../controllers/shipperController.js'
 
 export const shipperRouter = Router()
@@ -14,6 +17,9 @@ export const shipperRouter = Router()
 shipperRouter.use(requireAuth, requireRoles(['DeliveryStaff', 'SystemAdmin']))
 
 shipperRouter.get('/shipments', listMyShipments)
+shipperRouter.get('/cod', getMyCodSummary)
+shipperRouter.post('/cod/remittances', submitCodRemittance)
+shipperRouter.post('/cod/remittances/:codRemittanceId/cancel', cancelCodRemittance)
 shipperRouter.post('/shipments/:shipmentId/delivered', completeDelivery)
 shipperRouter.post('/shipments/:shipmentId/failed', failDelivery)
 shipperRouter.post('/shipments/:shipmentId/reschedule', rescheduleDelivery)
