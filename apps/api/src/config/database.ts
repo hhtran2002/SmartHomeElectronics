@@ -21,7 +21,7 @@ if (trustedConnection !== 'true' && trustedConnection !== 'false') {
 const config: sql.config = {
   server: requireEnv('DB_SERVER'),
   database: requireEnv('DB_NAME'),
-  driver: 'msnodesqlv8',
+  driver: process.env.DB_DRIVER?.trim() || 'ODBC Driver 18 for SQL Server',
   connectionTimeout: 10_000,
   options: {
     trustedConnection: trustedConnection === 'true',

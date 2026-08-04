@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import { QdrantClient } from '@qdrant/js-client-rest'
 import sharp from 'sharp'
 import { getPool } from '../config/database.js'
+import { retryGeminiOperation, runWithChatModelFallback } from './geminiResilience.js'
 
 const imageCollectionName = 'product_images'
 const productIdPayloadField = 'productId'
@@ -209,7 +210,7 @@ async function downloadCatalogImage(value: string, redirectCount = 0): Promise<{
 }
 
 async function createImageEmbedding(buffer: Buffer, mimeType: SupportedImageMime) {
-  const result = await getGeminiClient().models.embedContent({
+  const result = await retryGeminiOperation(() => getGeminiClient().models.embedContent({
     model: embeddingModel,
     contents: [{
       inlineData: {
@@ -220,7 +221,7 @@ async function createImageEmbedding(buffer: Buffer, mimeType: SupportedImageMime
     config: {
       outputDimensionality: vectorSize,
     },
-  })
+  }))
   const vector = result.embeddings?.[0]?.values ?? []
 
   if (vector.length !== vectorSize) {
@@ -601,8 +602,9 @@ function fallbackClarifyingQuestion(observed: {
 }
 
 async function inspectUploadedImage(buffer: Buffer, mimeType: SupportedImageMime) {
-  const result = await getGeminiClient().models.generateContent({
-    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
+  const gemini = getGeminiClient()
+  const result = await runWithChatModelFallback((model) => gemini.models.generateContent({
+    model,
     contents: [
       {
         text: [
@@ -655,7 +657,7 @@ async function inspectUploadedImage(buffer: Buffer, mimeType: SupportedImageMime
         },
       },
     },
-  })
+  }))
 
   const parsed = JSON.parse(result.text || '{}') as ParsedVisualAnswer
   return {
@@ -679,8 +681,9 @@ async function analyzeImageCandidates(input: {
   observed: VisualObservation
   observationUncertaintyReasons: string[]
 }) {
-  const result = await getGeminiClient().models.generateContent({
-    model: process.env.GEMINI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
+  const gemini = getGeminiClient()
+  const result = await runWithChatModelFallback((model) => gemini.models.generateContent({
+    model,
     contents: [
       {
         text: [
@@ -736,7 +739,7 @@ async function analyzeImageCandidates(input: {
         },
       },
     },
-  })
+  }))
 
   const parsed = JSON.parse(result.text || '{}') as ParsedVisualAnswer
   const allowedIds = new Set(input.products.map((product) => product.productId))

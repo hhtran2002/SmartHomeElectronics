@@ -2,12 +2,33 @@ import type { NextFunction, Request, Response } from 'express'
 import type { AuthRequest } from '../auth.js'
 import { detectSupportedImageMime, searchCatalogByImage } from '../services/imageSearchService.js'
 import { answerCatalogQuestion, findCatalogCandidates } from '../services/ragIndexService.js'
-import { AiDailyQuotaExceededError, consumeAiDailyMessage } from '../services/aiUsageService.js'
+import { AiDailyQuotaExceededError, consumeAiDailyMessage, refundAiDailyMessage } from '../services/aiUsageService.js'
+import { AiServiceUnavailableError } from '../services/geminiResilience.js'
 
 const maxQueryLength = 400
 
 function isClearlyOutOfScope(query: string) {
   return /ignore previous|system prompt|viết code|console\.log|function\s*\(|giải phương trình|tính đạo hàm|làm bài toán/i.test(query)
+}
+
+async function refundFailedAiRequest(request: AuthRequest) {
+  try {
+    await refundAiDailyMessage(request.user!.userId, request.user!.roles)
+  } catch (error) {
+    console.error('Could not refund failed AI request quota.', error)
+  }
+}
+
+function handleAiError(error: unknown, response: Response, next: NextFunction) {
+  if (error instanceof AiDailyQuotaExceededError) {
+    response.status(429).json({ message: error.message })
+    return
+  }
+  if (error instanceof AiServiceUnavailableError) {
+    response.status(503).json({ message: error.message })
+    return
+  }
+  next(error)
 }
 
 export async function chatAboutProducts(request: AuthRequest, response: Response, next: NextFunction) {
@@ -40,13 +61,14 @@ export async function chatAboutProducts(request: AuthRequest, response: Response
     const contextProductIds = Array.isArray(request.body?.contextProductIds)
       ? request.body.contextProductIds.map(Number).filter((id: number) => Number.isInteger(id) && id > 0).slice(0, 5)
       : []
-    response.json({ data: { ...await answerCatalogQuestion(query, history, contextProductIds), quota } })
-  } catch (error) {
-    if (error instanceof AiDailyQuotaExceededError) {
-      response.status(429).json({ message: error.message })
-      return
+    try {
+      response.json({ data: { ...await answerCatalogQuestion(query, history, contextProductIds), quota } })
+    } catch (error) {
+      await refundFailedAiRequest(request)
+      throw error
     }
-    next(error)
+  } catch (error) {
+    handleAiError(error, response, next)
   }
 }
 
@@ -67,7 +89,7 @@ export async function findProductsByMeaning(request: Request, response: Response
     const candidates = await findCatalogCandidates(query, Number(request.body?.limit ?? 5))
     response.json({ data: candidates, total: candidates.length })
   } catch (error) {
-    next(error)
+    handleAiError(error, response, next)
   }
 }
 
@@ -106,18 +128,19 @@ export async function findProductsByImage(request: AuthRequest, response: Respon
 
   try {
     const quota = await consumeAiDailyMessage(request.user!.userId, request.user!.roles)
-    const data = await searchCatalogByImage({
-      buffer: request.file.buffer,
-      mimeType,
-      clarification,
-      contextProductIds: readContextProductIds(request.body?.contextProductIds),
-    })
-    response.json({ data: { ...data, quota } })
-  } catch (error) {
-    if (error instanceof AiDailyQuotaExceededError) {
-      response.status(429).json({ message: error.message })
-      return
+    try {
+      const data = await searchCatalogByImage({
+        buffer: request.file.buffer,
+        mimeType,
+        clarification,
+        contextProductIds: readContextProductIds(request.body?.contextProductIds),
+      })
+      response.json({ data: { ...data, quota } })
+    } catch (error) {
+      await refundFailedAiRequest(request)
+      throw error
     }
-    next(error)
+  } catch (error) {
+    handleAiError(error, response, next)
   }
 }
