@@ -10,12 +10,12 @@
 
 | Thành viên | Nhiệm vụ |
 | --- | --- |
-| **Đinh Văn Hưng** | **Trưởng nhóm, phụ trách chính:** phân tích yêu cầu, thiết kế kiến trúc và cơ sở dữ liệu, phát triển Web/API, tích hợp hệ thống và kiểm thử tổng thể. |
-| Hứa Trung Kiên | Hỗ trợ xây dựng giao diện, kiểm tra trải nghiệm và luồng mua hàng của khách hàng. |
-| Nguyễn Đức Lộc | Hỗ trợ chuẩn bị dữ liệu sản phẩm, kiểm thử chức năng giỏ hàng và đơn hàng. |
-| Mai Vũ Tuấn Minh | Hỗ trợ tài liệu, báo cáo và tổng hợp các kịch bản nghiệp vụ. |
-| Nguyễn Huỳnh Đăng Nguyên | Hỗ trợ kiểm thử phân quyền, quản lý kho và quy trình giao nhận. |
-| Nguyễn Văn Hiệu | Hỗ trợ rà soát dữ liệu, kiểm thử hệ thống và chuẩn bị nội dung thuyết trình. |
+| **Đinh Văn Hưng** | **Trưởng nhóm:** phân tích yêu cầu, thiết kế kiến trúc và cơ sở dữ liệu, phát triển các chức năng chính, tích hợp và kiểm thử tổng thể. |
+| Hứa Trung Kiên | Phát triển giao diện và hoàn thiện trải nghiệm, luồng mua hàng của khách hàng. |
+| Nguyễn Đức Lộc | Xây dựng dữ liệu sản phẩm, tham gia phát triển chức năng giỏ hàng và đơn hàng. |
+| Mai Vũ Tuấn Minh | Phân tích nghiệp vụ, xây dựng tài liệu và tổng hợp báo cáo của dự án. |
+| Nguyễn Huỳnh Đăng Nguyên | Phụ trách các kịch bản phân quyền, quản lý kho và quy trình giao nhận. |
+| Nguyễn Văn Hiệu | Rà soát dữ liệu, kiểm thử hệ thống và xây dựng nội dung thuyết trình. |
 
 ## Dự án là gì?
 
