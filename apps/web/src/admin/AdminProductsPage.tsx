@@ -284,27 +284,33 @@ function ProductForm({
             style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
           />
           {categoryDropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 100,
-              maxHeight: '220px',
-              overflowY: 'auto',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '12px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
-              marginTop: '4px'
-            }}>
+            <div
+              onMouseDown={(e) => e.preventDefault()}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                maxHeight: '220px',
+                overflowY: 'auto',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
+                marginTop: '4px'
+              }}
+            >
               {filteredCategories.length === 0 ? (
                 <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>Không tìm thấy danh mục nào</span>
                   <button
                     type="button"
                     disabled={creatingCategory}
-                    onMouseDown={handleCreateCategoryInline}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      void handleCreateCategoryInline()
+                    }}
                     style={{
                       background: 'var(--blue-600)',
                       color: 'white',
@@ -324,7 +330,8 @@ function ProductForm({
                   <button
                     key={cat.id}
                     type="button"
-                    onMouseDown={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault()
                       onChange({ ...form, categoryId: cat.id })
                       setCategoryDropdownOpen(false)
                     }}
@@ -366,27 +373,33 @@ function ProductForm({
             style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
           />
           {brandDropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              zIndex: 100,
-              maxHeight: '220px',
-              overflowY: 'auto',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '12px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
-              marginTop: '4px'
-            }}>
+            <div
+              onMouseDown={(e) => e.preventDefault()}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                maxHeight: '220px',
+                overflowY: 'auto',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
+                marginTop: '4px'
+              }}
+            >
               {filteredBrands.length === 0 ? (
                 <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>Không tìm thấy thương hiệu nào</span>
                   <button
                     type="button"
                     disabled={creatingBrand}
-                    onMouseDown={handleCreateBrandInline}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      void handleCreateBrandInline()
+                    }}
                     style={{
                       background: 'var(--blue-600)',
                       color: 'white',
@@ -406,7 +419,8 @@ function ProductForm({
                   <button
                     key={brand.id}
                     type="button"
-                    onMouseDown={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault()
                       onChange({ ...form, brandId: brand.id })
                       setBrandDropdownOpen(false)
                     }}

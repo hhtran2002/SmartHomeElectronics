@@ -352,20 +352,23 @@ export function AdminInventoryPage({ roles, token }: Props) {
                   style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
                 />
                 {skuDropdownOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    maxHeight: '220px',
-                    overflowY: 'auto',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
-                    marginTop: '4px'
-                  }}>
+                  <div
+                    onMouseDown={(e) => e.preventDefault()}
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 100,
+                      maxHeight: '220px',
+                      overflowY: 'auto',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
+                      marginTop: '4px'
+                    }}
+                  >
                     {filteredSkusForSelect.length === 0 ? (
                       <div style={{ padding: '10px 14px', color: '#64748b', fontSize: '13px' }}>Không tìm thấy SKU nào</div>
                     ) : (
@@ -373,7 +376,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
                         <button
                           key={item.skuId}
                           type="button"
-                          onMouseDown={() => {
+                          onMouseDown={(e) => {
+                            e.preventDefault()
                             setForm({ ...form, skuId: item.skuId })
                             setSkuDropdownOpen(false)
                           }}
