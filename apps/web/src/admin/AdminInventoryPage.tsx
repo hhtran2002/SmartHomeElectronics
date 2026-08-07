@@ -89,19 +89,6 @@ export function AdminInventoryPage({ roles, token }: Props) {
     if (movementsPage > totalMovementPages) setMovementsPage(totalMovementPages)
   }, [movementsPage, totalMovementPages])
 
-  const selectedSkuObj = useMemo(() => {
-    const list = mode === 'in' ? stockableSkus : inventory
-    return list.find(item => item.skuId === Number(form.skuId))
-  }, [mode, stockableSkus, inventory, form.skuId])
-
-  useEffect(() => {
-    if (selectedSkuObj) {
-      setSkuSearchQuery(`${selectedSkuObj.skuCode} · ${selectedSkuObj.productName}`)
-    } else {
-      setSkuSearchQuery('')
-    }
-  }, [form.skuId, selectedSkuObj])
-
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
@@ -115,14 +102,15 @@ export function AdminInventoryPage({ roles, token }: Props) {
 
   const filteredSkusForSelect = useMemo(() => {
     const list = mode === 'in' ? stockableSkus : inventory
-    const selectedText = selectedSkuObj ? `${selectedSkuObj.skuCode} · ${selectedSkuObj.productName}` : ''
+    const activeSku = list.find(item => Number(item.skuId) === Number(form.skuId))
+    const selectedText = activeSku ? `${activeSku.skuCode} · ${activeSku.productName}` : ''
     if (!skuSearchQuery.trim() || selectedText === skuSearchQuery) return list
     const query = skuSearchQuery.toLowerCase()
     return list.filter(item => 
       item.skuCode.toLowerCase().includes(query) || 
       item.productName.toLowerCase().includes(query)
     )
-  }, [mode, stockableSkus, inventory, skuSearchQuery, selectedSkuObj])
+  }, [mode, stockableSkus, inventory, skuSearchQuery, form.skuId])
 
   async function loadData() {
     setLoading(true)
@@ -147,6 +135,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
           skuId: firstItem.skuId,
           unitCost: 0,
         }))
+        setSkuSearchQuery(`${firstItem.skuCode} · ${firstItem.productName}`)
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không tải được dữ liệu kho.')
@@ -204,6 +193,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
       skuId: item.skuId,
       unitCost: 0,
     }))
+    setSkuSearchQuery(`${item.skuCode} · ${item.productName}`)
   }
 
   if (!token) {
@@ -318,10 +308,26 @@ export function AdminInventoryPage({ roles, token }: Props) {
 
         <aside className="admin-stock-card">
           <div className="mode-tabs">
-            <button className={mode === 'in' ? 'active' : ''} type="button" onClick={() => setMode('in')}>
+            <button
+              className={mode === 'in' ? 'active' : ''}
+              type="button"
+              onClick={() => {
+                setMode('in')
+                setForm((current) => ({ ...current, skuId: 0 }))
+                setSkuSearchQuery('')
+              }}
+            >
               Nhập kho
             </button>
-            <button className={mode === 'out' ? 'active' : ''} type="button" onClick={() => setMode('out')}>
+            <button
+              className={mode === 'out' ? 'active' : ''}
+              type="button"
+              onClick={() => {
+                setMode('out')
+                setForm((current) => ({ ...current, skuId: 0 }))
+                setSkuSearchQuery('')
+              }}
+            >
               Xuất kho
             </button>
           </div>
@@ -389,6 +395,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
                           onMouseDown={(e) => {
                             e.preventDefault()
                             setForm({ ...form, skuId: item.skuId })
+                            setSkuSearchQuery(`${item.skuCode} · ${item.productName}`)
                             setSkuDropdownOpen(false)
                           }}
                           style={{
