@@ -1,33 +1,9 @@
-// import type { FormEvent } from 'react'
-// import { Hero } from '../components/Hero'
-
-// type Props = {
-//   search: string
-//   onSearchChange: (search: string) => void
-//   onSubmit: (event: FormEvent) => void
-// }
-
-// export function HomePage({ search, onSearchChange, onSubmit }: Props) {
-//   return (
-//     <main>
-//       <Hero search={search} onSearchChange={onSearchChange} onSubmit={onSubmit} />
-//       <section className="home-modules">
-//         <div>
-//           <span className="eyebrow">Module đã sẵn sàng</span>
-//           <h2>Trang chủ là mặt tiền, sản phẩm là quầy hàng.</h2>
-//           <p>
-//             Trang này dùng để giới thiệu hệ thống, điều hướng người dùng vào danh sách sản phẩm,
-//             tìm kiếm AI, giỏ hàng và khu vực quản trị khi các module đó được hoàn thiện.
-//           </p>
-//         </div>
-//         <a className="primary-link" href="#/products">Vào trang sản phẩm</a>
-//       </section>
-//     </main>
-//   )
-// }
-
 import type { FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Hero } from '../components/Hero'
+import type { Product } from '../types'
+import { getProducts } from '../api'
+import { formatPrice } from '../utils'
 
 type Props = {
   search: string
@@ -73,24 +49,6 @@ const categories = [
   },
 ]
 
-const featuredProducts = [
-  {
-    name: 'Máy lọc không khí thông minh',
-    desc: 'Phù hợp phòng ngủ, phòng khách nhỏ.',
-    price: 'Từ 2.990.000đ',
-  },
-  {
-    name: 'Robot hút bụi tự động',
-    desc: 'Làm sạch thông minh, điều khiển dễ dàng.',
-    price: 'Từ 4.590.000đ',
-  },
-  {
-    name: 'Tivi thông minh 4K',
-    desc: 'Hình ảnh sắc nét, kết nối tiện lợi.',
-    price: 'Từ 6.990.000đ',
-  },
-]
-
 const buyingSteps = [
   'Tìm sản phẩm phù hợp',
   'Thêm vào giỏ hàng',
@@ -99,6 +57,22 @@ const buyingSteps = [
 ]
 
 export function HomePage({ search, onSearchChange, onSubmit }: Props) {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getProducts({ search: '', category: '', brand: '', minPrice: '', maxPrice: '', page: 1 })
+      .then((res) => {
+        setProducts(res.data.slice(0, 3))
+      })
+      .catch((err) => {
+        console.error('Failed to load home products:', err)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
+
   return (
     <main className="home-page">
       <Hero search={search} onSearchChange={onSearchChange} onSubmit={onSubmit} />
@@ -150,17 +124,38 @@ export function HomePage({ search, onSearchChange, onSubmit }: Props) {
         </div>
 
         <div className="product-preview-grid">
-          {featuredProducts.map((product) => (
-            <article className="product-preview-card" key={product.name}>
-              <div className="product-preview-image"></div>
-              <div className="product-preview-content">
-                <h3>{product.name}</h3>
-                <p>{product.desc}</p>
-                <strong>{product.price}</strong>
-                <a href="#/products">Xem chi tiết</a>
-              </div>
-            </article>
-          ))}
+          {loading ? (
+            <div className="status-card" style={{ gridColumn: 'span 3', padding: '30px' }}>
+              Đang tải sản phẩm nổi bật...
+            </div>
+          ) : products.length === 0 ? (
+            <div className="status-card" style={{ gridColumn: 'span 3', padding: '30px' }}>
+              Chưa có sản phẩm nổi bật.
+            </div>
+          ) : (
+            products.map((product) => {
+              const displayPrice = product.finalPrice ?? product.price ?? product.basePrice
+              return (
+                <article className="product-preview-card" key={product.id}>
+                  <div className="product-preview-image">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '48px', color: '#0ea5e9' }}>⌂</span>
+                    )}
+                  </div>
+                  <div className="product-preview-content">
+                    <h3>{product.name}</h3>
+                    <p style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {product.description ?? 'Thiết bị gia dụng thông minh dành cho ngôi nhà hiện đại.'}
+                    </p>
+                    <strong>{formatPrice(displayPrice)}</strong>
+                    <a href={`#/products/${encodeURIComponent(product.slug)}`}>Xem chi tiết</a>
+                  </div>
+                </article>
+              )
+            })
+          )}
         </div>
       </section>
 

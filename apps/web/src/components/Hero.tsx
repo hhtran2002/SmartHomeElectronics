@@ -108,16 +108,16 @@ export function Hero({ search, onSearchChange, onSubmit }: HeroProps) {
             />
           ))}
         </div>
-
-        <form className="search hero-search" onSubmit={onSubmit}>
-          <input
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Bạn đang tìm thiết bị gì?"
-          />
-          <button type="submit">Tìm sản phẩm</button>
-        </form>
       </div>
+
+      <form className="search hero-search" onSubmit={onSubmit}>
+        <input
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Bạn đang tìm thiết bị gì?"
+        />
+        <button type="submit">Tìm sản phẩm</button>
+      </form>
     </section>
   )
 }

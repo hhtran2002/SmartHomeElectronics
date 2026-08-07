@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getAdminOrder,
   getAdminOrders,
@@ -22,6 +22,18 @@ export function AdminOrdersPage({ roles, token }: Props) {
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [updating, setUpdating] = useState(false)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize))
+  const paginatedOrders = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return orders.slice(start, start + pageSize)
+  }, [page, orders])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   useEffect(() => {
     if (!token || !canManageOrders(roles)) return
@@ -90,7 +102,7 @@ export function AdminOrdersPage({ roles, token }: Props) {
           ) : orders.length === 0 ? (
             <div className="status-card">Chưa có đơn hàng.</div>
           ) : (
-            orders.map((order) => (
+            paginatedOrders.map((order) => (
               <button
                 className={`admin-order-row ${detail?.order.orderId === order.orderId ? 'active' : ''}`}
                 key={order.orderId}
@@ -106,6 +118,17 @@ export function AdminOrdersPage({ roles, token }: Props) {
                 </span>
               </button>
             ))
+          )}
+          {!loading && orders.length > 0 && (
+            <div className="admin-pagination" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
+              <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                Trang trước
+              </button>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '750' }}>Trang {page} / {totalPages} · {orders.length} đơn</span>
+              <button disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                Trang sau
+              </button>
+            </div>
           )}
         </div>
 

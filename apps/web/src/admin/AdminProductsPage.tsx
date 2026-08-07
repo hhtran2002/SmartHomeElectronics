@@ -203,7 +203,7 @@ function ProductForm({
 
       <div className="product-form-actions">
         <button disabled={saving}>{saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Thêm sản phẩm'}</button>
-        {editingId && onCancel && <button type="button" onClick={onCancel}>Hủy sửa</button>}
+        {onCancel && <button type="button" onClick={onCancel}>{editingId ? 'Hủy sửa' : 'Hủy'}</button>}
       </div>
     </form>
   )
@@ -218,6 +218,7 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
   const [page, setPage] = useState(1)
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [saving, setSaving] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -313,6 +314,13 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
           <h2>Quản lý sản phẩm</h2>
           <p>Thêm, sửa, bật/tắt sản phẩm, SKU bán chính và thư viện ảnh sản phẩm.</p>
         </div>
+        <button
+          className="primary-link"
+          style={{ padding: '10px 20px', borderRadius: '999px', fontSize: '14px', height: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+          onClick={() => setShowCreateModal(true)}
+        >
+          + Tạo sản phẩm mới
+        </button>
       </section>
 
       {error && <div className="status-card error">{error}</div>}
@@ -355,19 +363,42 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
             </div>
           )}
         </div>
-
-        <aside className="admin-product-side">
-          <ProductForm
-            brands={brands}
-            categories={categories}
-            editingId={null}
-            form={createForm}
-            saving={saving}
-            onChange={setCreateForm}
-            onSubmit={handleCreate}
-          />
-        </aside>
       </section>
+
+      {showCreateModal && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => { setShowCreateModal(false); setCreateForm(emptyForm); }}>
+          <section
+            aria-modal="true"
+            className="admin-product-modal"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Thêm mới</span>
+                <h3>Tạo sản phẩm mới</h3>
+              </div>
+              <button type="button" onClick={() => { setShowCreateModal(false); setCreateForm(emptyForm); }}>Đóng</button>
+            </div>
+
+            <div className="modal-scroll">
+              <ProductForm
+                brands={brands}
+                categories={categories}
+                editingId={null}
+                form={createForm}
+                saving={saving}
+                onCancel={() => { setShowCreateModal(false); setCreateForm(emptyForm); }}
+                onChange={setCreateForm}
+                onSubmit={async (e) => {
+                  await handleCreate(e);
+                  setShowCreateModal(false);
+                }}
+              />
+            </div>
+          </section>
+        </div>
+      )}
 
       {editingId && (
         <div className="modal-backdrop" role="presentation" onMouseDown={cancelEdit}>
