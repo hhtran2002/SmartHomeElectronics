@@ -47,6 +47,18 @@ function readProductInput(request: Request): AdminProductInput {
     ? null
     : Number(request.body.costPrice)
 
+  const variants = Array.isArray(request.body.variants)
+    ? request.body.variants.map((v: any) => ({
+        skuId: v.skuId ? Number(v.skuId) : undefined,
+        skuCode: readText(v.skuCode),
+        variantName: readText(v.variantName),
+        price: Number(v.price),
+        costPrice: v.costPrice === '' || v.costPrice === undefined || v.costPrice === null
+          ? null
+          : Number(v.costPrice),
+      }))
+    : undefined
+
   return {
     productName: readText(request.body.productName),
     categoryId: Number(request.body.categoryId),
@@ -61,6 +73,7 @@ function readProductInput(request: Request): AdminProductInput {
     price: Number(request.body.price),
     costPrice,
     imageUrl: readText(request.body.imageUrl),
+    variants,
   }
 }
 
