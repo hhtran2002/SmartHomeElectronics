@@ -1,4 +1,4 @@
-import { getPool } from '../config/database.js'
+import { getPool, sql } from '../config/database.js'
 
 export type CategoryDto = {
   id: number
@@ -23,4 +23,17 @@ export async function getActiveCategories(): Promise<CategoryDto[]> {
   `)
 
   return result.recordset as CategoryDto[]
+}
+
+export async function createCategoryService(name: string, slug: string): Promise<number> {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('name', sql.NVarChar(100), name)
+    .input('slug', sql.VarChar(100), slug)
+    .query(`
+      INSERT INTO dbo.Category (CategoryName, Slug, Status)
+      OUTPUT INSERTED.CategoryId
+      VALUES (@name, @slug, 'Active')
+    `)
+  return Number(result.recordset[0].CategoryId)
 }

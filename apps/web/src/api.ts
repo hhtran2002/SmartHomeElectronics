@@ -203,6 +203,14 @@ export function getBrands() {
   return getJson<{ data: Brand[] }>('/api/brands')
 }
 
+export function createCategory(name: string, token: string) {
+  return postJsonWithToken<{ data: Category }>('/api/categories', token, { name })
+}
+
+export function createBrand(name: string, country: string | null, token: string) {
+  return postJsonWithToken<{ data: Brand }>('/api/brands', token, { name, country })
+}
+
 export function createOrder(payload: CheckoutPayload, token?: string) {
   if (token) return postJsonWithToken<OrderResponse>('/api/orders', token, payload)
   return postJson<OrderResponse>('/api/orders', payload)

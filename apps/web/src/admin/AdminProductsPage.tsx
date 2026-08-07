@@ -5,6 +5,8 @@ import {
   getAdminProducts,
   updateAdminProduct,
   updateAdminProductStatus,
+  createCategory,
+  createBrand,
 } from '../api'
 import type { AdminProduct, AdminProductPayload, Brand, Category } from '../types'
 import { formatPrice } from '../utils'
@@ -26,6 +28,8 @@ type ProductFormProps = {
   onCancel?: () => void
   onChange: (form: AdminProductPayload) => void
   onSubmit: (event: FormEvent) => void
+  onCreateCategory: (name: string) => Promise<Category>
+  onCreateBrand: (name: string, country: string | null) => Promise<Brand>
 }
 
 const pageSize = 10
@@ -77,7 +81,77 @@ function ProductForm({
   onCancel,
   onChange,
   onSubmit,
+  onCreateCategory,
+  onCreateBrand,
 }: ProductFormProps) {
+  const [categorySearch, setCategorySearch] = useState('')
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
+  const [brandSearch, setBrandSearch] = useState('')
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false)
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [creatingBrand, setCreatingBrand] = useState(false)
+
+  const selectedCategoryObj = useMemo(() => categories.find(c => c.id === form.categoryId), [categories, form.categoryId])
+  const selectedBrandObj = useMemo(() => brands.find(b => b.id === form.brandId), [brands, form.brandId])
+
+  useEffect(() => {
+    if (selectedCategoryObj) {
+      setCategorySearch(selectedCategoryObj.name)
+    } else {
+      setCategorySearch('')
+    }
+  }, [form.categoryId, selectedCategoryObj])
+
+  useEffect(() => {
+    if (selectedBrandObj) {
+      setBrandSearch(selectedBrandObj.name)
+    } else {
+      setBrandSearch('')
+    }
+  }, [form.brandId, selectedBrandObj])
+
+  const filteredCategories = useMemo(() => {
+    const selectedText = selectedCategoryObj ? selectedCategoryObj.name : ''
+    if (!categorySearch.trim() || selectedText === categorySearch) return categories
+    const query = categorySearch.toLowerCase()
+    return categories.filter(c => c.name.toLowerCase().includes(query))
+  }, [categories, categorySearch, selectedCategoryObj])
+
+  const filteredBrands = useMemo(() => {
+    const selectedText = selectedBrandObj ? selectedBrandObj.name : ''
+    if (!brandSearch.trim() || selectedText === brandSearch) return brands
+    const query = brandSearch.toLowerCase()
+    return brands.filter(b => b.name.toLowerCase().includes(query))
+  }, [brands, brandSearch, selectedBrandObj])
+
+  const handleCreateCategoryInline = async () => {
+    if (!categorySearch.trim()) return
+    setCreatingCategory(true)
+    try {
+      const newCat = await onCreateCategory(categorySearch.trim())
+      onChange({ ...form, categoryId: newCat.id })
+      setCategoryDropdownOpen(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Lỗi khi tạo danh mục.')
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
+
+  const handleCreateBrandInline = async () => {
+    if (!brandSearch.trim()) return
+    setCreatingBrand(true)
+    try {
+      const newBrand = await onCreateBrand(brandSearch.trim(), null)
+      onChange({ ...form, brandId: newBrand.id })
+      setBrandDropdownOpen(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Lỗi khi tạo thương hiệu.')
+    } finally {
+      setCreatingBrand(false)
+    }
+  }
+
   return (
     <form className="admin-product-form" onSubmit={onSubmit}>
       <span className="eyebrow">{editingId ? 'Cập nhật' : 'Thêm mới'}</span>
@@ -94,30 +168,166 @@ function ProductForm({
 
       <label>
         Danh mục
-        <select
-          required
-          value={form.categoryId}
-          onChange={(event) => onChange({ ...form, categoryId: Number(event.target.value) })}
-        >
-          <option value={0}>Chọn danh mục</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
-          ))}
-        </select>
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            required
+            placeholder="Tìm danh mục hoặc tạo mới..."
+            value={categorySearch}
+            onFocus={() => setCategoryDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setCategoryDropdownOpen(false), 250)}
+            onChange={(e) => {
+              setCategorySearch(e.target.value)
+              setCategoryDropdownOpen(true)
+            }}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
+          />
+          {categoryDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              maxHeight: '220px',
+              overflowY: 'auto',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
+              marginTop: '4px'
+            }}>
+              {filteredCategories.length === 0 ? (
+                <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Không tìm thấy danh mục nào</span>
+                  <button
+                    type="button"
+                    disabled={creatingCategory}
+                    onMouseDown={handleCreateCategoryInline}
+                    style={{
+                      background: 'var(--blue-600)',
+                      color: 'white',
+                      border: 0,
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {creatingCategory ? 'Đang tạo...' : `+ Tạo mới danh mục "${categorySearch}"`}
+                  </button>
+                </div>
+              ) : (
+                filteredCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onMouseDown={() => {
+                      onChange({ ...form, categoryId: cat.id })
+                      setCategoryDropdownOpen(false)
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 14px',
+                      border: 0,
+                      background: form.categoryId === cat.id ? '#e0f2fe' : 'transparent',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      color: '#0f172a',
+                      borderBottom: '1px solid #f1f5f9'
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </label>
 
       <label>
         Thương hiệu
-        <select
-          required
-          value={form.brandId}
-          onChange={(event) => onChange({ ...form, brandId: Number(event.target.value) })}
-        >
-          <option value={0}>Chọn thương hiệu</option>
-          {brands.map((brand) => (
-            <option key={brand.id} value={brand.id}>{brand.name}</option>
-          ))}
-        </select>
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            required
+            placeholder="Tìm thương hiệu hoặc tạo mới..."
+            value={brandSearch}
+            onFocus={() => setBrandDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setBrandDropdownOpen(false), 250)}
+            onChange={(e) => {
+              setBrandSearch(e.target.value)
+              setBrandDropdownOpen(true)
+            }}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
+          />
+          {brandDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              maxHeight: '220px',
+              overflowY: 'auto',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
+              marginTop: '4px'
+            }}>
+              {filteredBrands.length === 0 ? (
+                <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Không tìm thấy thương hiệu nào</span>
+                  <button
+                    type="button"
+                    disabled={creatingBrand}
+                    onMouseDown={handleCreateBrandInline}
+                    style={{
+                      background: 'var(--blue-600)',
+                      color: 'white',
+                      border: 0,
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {creatingBrand ? 'Đang tạo...' : `+ Tạo mới thương hiệu "${brandSearch}"`}
+                  </button>
+                </div>
+              ) : (
+                filteredBrands.map((brand) => (
+                  <button
+                    key={brand.id}
+                    type="button"
+                    onMouseDown={() => {
+                      onChange({ ...form, brandId: brand.id })
+                      setBrandDropdownOpen(false)
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 14px',
+                      border: 0,
+                      background: form.brandId === brand.id ? '#e0f2fe' : 'transparent',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      color: '#0f172a',
+                      borderBottom: '1px solid #f1f5f9'
+                    }}
+                  >
+                    {brand.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </label>
 
       <label>
@@ -219,6 +429,29 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [saving, setSaving] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  const [localBrands, setLocalBrands] = useState<Brand[]>(brands)
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories)
+
+  useEffect(() => {
+    setLocalBrands(brands)
+  }, [brands])
+
+  useEffect(() => {
+    setLocalCategories(categories)
+  }, [categories])
+
+  const handleCreateCategory = async (name: string) => {
+    const res = await createCategory(name, token)
+    setLocalCategories(current => [...current, res.data])
+    return res.data
+  }
+
+  const handleCreateBrand = async (name: string, country: string | null) => {
+    const res = await createBrand(name, country, token)
+    setLocalBrands(current => [...current, res.data])
+    return res.data
+  }
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -383,8 +616,8 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
 
             <div className="modal-scroll">
               <ProductForm
-                brands={brands}
-                categories={categories}
+                brands={localBrands}
+                categories={localCategories}
                 editingId={null}
                 form={createForm}
                 saving={saving}
@@ -394,6 +627,8 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
                   await handleCreate(e);
                   setShowCreateModal(false);
                 }}
+                onCreateCategory={handleCreateCategory}
+                onCreateBrand={handleCreateBrand}
               />
 
               <div className="admin-image-manager" style={{ alignSelf: 'start' }}>
@@ -407,7 +642,7 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
                     )}
                   </div>
                   <div className="product-meta" style={{ fontSize: '11px', textTransform: 'uppercase', color: '#0284c7', fontWeight: '800', margin: '14px 6px 0' }}>
-                    {categories.find(c => c.id === createForm.categoryId)?.name || 'DANH MỤC'} · {brands.find(b => b.id === createForm.brandId)?.name || 'THƯƠNG HIỆU'}
+                    {localCategories.find(c => c.id === createForm.categoryId)?.name || 'DANH MỤC'} · {localBrands.find(b => b.id === createForm.brandId)?.name || 'THƯƠNG HIỆU'}
                   </div>
                   <h3 style={{ fontSize: '16px', margin: '8px 6px', color: '#0f172a' }}>{createForm.productName || 'Tên sản phẩm'}</h3>
                   <p style={{ fontSize: '12px', color: '#64748b', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '36px', lineHeight: '1.5', margin: '0 6px' }}>
@@ -444,14 +679,16 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
 
             <div className="modal-scroll">
               <ProductForm
-                brands={brands}
-                categories={categories}
+                brands={localBrands}
+                categories={localCategories}
                 editingId={editingId}
                 form={form}
                 saving={saving}
                 onCancel={cancelEdit}
                 onChange={setForm}
                 onSubmit={handleSubmit}
+                onCreateCategory={handleCreateCategory}
+                onCreateBrand={handleCreateBrand}
               />
 
               <AdminProductImages
