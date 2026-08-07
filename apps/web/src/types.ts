@@ -1,3 +1,19 @@
+export type ProductSku = {
+  id: number
+  skuId: number
+  skuCode: string
+  variantName: string
+  price: number
+  originalPrice?: number
+  costPrice: number | null
+  finalPrice?: number
+  availableQuantity: number
+  promotionId?: number | null
+  promotionName?: string | null
+  promotionDiscountType?: string | null
+  promotionDiscountValue?: number | null
+}
+
 export type Product = {
   id: number
   name: string
@@ -25,6 +41,7 @@ export type Product = {
   attributes?: ProductAttribute[]
   reviewSummary?: ProductReviewSummary
   reviews?: ProductReview[]
+  skus?: ProductSku[]
   
   aiScore?: number
   keywordScore?: number | null
@@ -356,6 +373,14 @@ export type AdminProduct = {
   availableQuantity: number
 }
 
+export type AdminVariantPayload = {
+  skuId?: number | null
+  skuCode: string
+  variantName: string
+  price: number
+  costPrice: number | null
+}
+
 export type AdminProductPayload = {
   productName: string
   categoryId: number
@@ -370,6 +395,7 @@ export type AdminProductPayload = {
   price: number
   costPrice?: number | null
   imageUrl?: string
+  variants?: AdminVariantPayload[]
 }
 
 export type AdminProductImage = ProductImage

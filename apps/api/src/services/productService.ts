@@ -328,11 +328,83 @@ export async function getProductBySlug(slug: string) {
       ORDER BY r.CreatedAt DESC
     `)
 
+  const skus = await pool
+    .request()
+    .input('productId', sql.BigInt, product.id)
+    .query(`
+      SELECT
+        ps.SkuId AS id,
+        ps.SkuId AS skuId,
+        ps.SkuCode AS skuCode,
+        ps.VariantName AS variantName,
+        ps.Price AS price,
+        ps.Price AS originalPrice,
+        ps.CostPrice AS costPrice,
+        ISNULL(inv.QuantityOnHand, 0) AS availableQuantity,
+        promotion.PromotionId AS promotionId,
+        promotion.PromotionName AS promotionName,
+        promotion.DiscountType AS promotionDiscountType,
+        promotion.DiscountValue AS promotionDiscountValue,
+        CASE
+          WHEN promotion.PromotionId IS NULL THEN ps.Price
+          WHEN promotion.DiscountType = 'Percent' THEN
+            CASE WHEN ps.Price - (ps.Price * promotion.DiscountValue / 100) < 0 THEN 0 ELSE ps.Price - (ps.Price * promotion.DiscountValue / 100) END
+          WHEN promotion.DiscountType = 'FixedAmount' THEN
+            CASE WHEN ps.Price - promotion.DiscountValue < 0 THEN 0 ELSE ps.Price - promotion.DiscountValue END
+          WHEN promotion.DiscountType = 'FixedPrice' THEN
+            CASE WHEN promotion.DiscountValue < 0 THEN ps.Price ELSE promotion.DiscountValue END
+          ELSE ps.Price
+        END AS finalPrice
+      FROM dbo.ProductSku ps
+      OUTER APPLY (
+        SELECT SUM(i.QuantityOnHand - i.QuantityReserved) AS QuantityOnHand
+        FROM dbo.Inventory i
+        WHERE i.SkuId = ps.SkuId
+      ) inv
+      OUTER APPLY (
+        SELECT TOP (1)
+          promo.PromotionId,
+          promo.PromotionName,
+          promo.DiscountType,
+          promo.DiscountValue
+        FROM dbo.Promotion promo
+        WHERE promo.Status = 'Active'
+          AND promo.StartAt <= SYSDATETIME()
+          AND promo.EndAt > SYSDATETIME()
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM dbo.PromotionSku psPromo
+              WHERE psPromo.PromotionId = promo.PromotionId
+                AND psPromo.SkuId = ps.SkuId
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM dbo.PromotionProduct pp
+              WHERE pp.PromotionId = promo.PromotionId
+                AND pp.ProductId = ps.ProductId
+            )
+          )
+        ORDER BY
+          CASE promo.DiscountType
+            WHEN 'FixedPrice' THEN ps.Price - promo.DiscountValue
+            WHEN 'FixedAmount' THEN promo.DiscountValue
+            WHEN 'Percent' THEN ps.Price * promo.DiscountValue / 100
+            ELSE 0
+          END DESC,
+          promo.EndAt ASC,
+          promo.PromotionId DESC
+      ) promotion
+      WHERE ps.ProductId = @productId AND ps.Status = 'Active'
+      ORDER BY ps.Price, ps.SkuId
+    `)
+
   return {
     ...product,
     images: images.recordset,
     attributes: attributes.recordset,
     reviewSummary: reviewSummary.recordset[0] ?? { reviewCount: 0, averageRating: 0 },
     reviews: reviews.recordset,
+    skus: skus.recordset,
   }
 }

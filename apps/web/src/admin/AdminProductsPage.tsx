@@ -7,8 +7,9 @@ import {
   updateAdminProductStatus,
   createCategory,
   createBrand,
+  getProduct,
 } from '../api'
-import type { AdminProduct, AdminProductPayload, Brand, Category } from '../types'
+import type { AdminProduct, AdminProductPayload, Brand, Category, AdminVariantPayload } from '../types'
 import { formatPrice } from '../utils'
 import { AdminProductImages } from './AdminProductImages'
 
@@ -90,9 +91,13 @@ function ProductForm({
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false)
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [creatingBrand, setCreatingBrand] = useState(false)
+  const [hasVariants, setHasVariants] = useState(false)
 
   const selectedCategoryObj = useMemo(() => categories.find(c => c.id === form.categoryId), [categories, form.categoryId])
   const selectedBrandObj = useMemo(() => brands.find(b => b.id === form.brandId), [brands, form.brandId])
+
+  const catName = selectedCategoryObj ? selectedCategoryObj.name : ''
+  const brandName = selectedBrandObj ? selectedBrandObj.name : ''
 
   useEffect(() => {
     if (selectedCategoryObj) {
@@ -110,19 +115,71 @@ function ProductForm({
     }
   }, [form.brandId, selectedBrandObj])
 
+  useEffect(() => {
+    if (form.variants && form.variants.length > 0) {
+      setHasVariants(true)
+    } else {
+      setHasVariants(false)
+    }
+  }, [form.variants])
+
   const filteredCategories = useMemo(() => {
-    const selectedText = selectedCategoryObj ? selectedCategoryObj.name : ''
-    if (!categorySearch.trim() || selectedText === categorySearch) return categories
+    if (!categorySearch.trim() || catName === categorySearch) return categories
     const query = categorySearch.toLowerCase()
     return categories.filter(c => c.name.toLowerCase().includes(query))
-  }, [categories, categorySearch, selectedCategoryObj])
+  }, [categories, categorySearch, catName])
 
   const filteredBrands = useMemo(() => {
-    const selectedText = selectedBrandObj ? selectedBrandObj.name : ''
-    if (!brandSearch.trim() || selectedText === brandSearch) return brands
+    if (!brandSearch.trim() || brandName === brandSearch) return brands
     const query = brandSearch.toLowerCase()
     return brands.filter(b => b.name.toLowerCase().includes(query))
-  }, [brands, brandSearch, selectedBrandObj])
+  }, [brands, brandSearch, brandName])
+
+  const getGeneratedSku = useCallback((vName?: string) => {
+    if (!form.productName || !catName || !brandName) return ''
+    
+    const catPrefix = catName
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'D');
+
+    const brandPrefix = brandName
+      .toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'D')
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 3);
+
+    const nameWords = form.productName.split(' ').map(w => w.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'D').replace(/[^A-Z0-9]/g, ''));
+    const modelWord = nameWords.find(w => /\d/.test(w)) || nameWords[nameWords.length - 1] || '';
+
+    let base = [catPrefix, brandPrefix, modelWord].filter(Boolean).join('-');
+    
+    if (vName && vName.trim() && vName.trim() !== 'Mặc định') {
+      const variantSuffix = vName
+        .toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'D')
+        .replace(/[^A-Z0-9.]/g, '');
+      base = `${base}-${variantSuffix}`;
+    }
+    return base;
+  }, [form.productName, catName, brandName])
+
+  useEffect(() => {
+    if (!hasVariants) {
+      const generated = getGeneratedSku()
+      if (generated && form.skuCode !== generated) {
+        onChange({
+          ...form,
+          skuCode: generated,
+          price: form.basePrice,
+          costPrice: form.costPrice || Math.round(form.basePrice * 0.7)
+        })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasVariants, form.productName, form.categoryId, form.brandId, form.basePrice])
 
   const handleCreateCategoryInline = async () => {
     if (!categorySearch.trim()) return
@@ -150,6 +207,50 @@ function ProductForm({
     } finally {
       setCreatingBrand(false)
     }
+  }
+
+  const handleVariantChange = (index: number, patch: Partial<AdminVariantPayload>) => {
+    const list = [...(form.variants || [])]
+    const updatedVariant = { ...list[index], ...patch }
+    
+    if (patch.variantName !== undefined) {
+      updatedVariant.skuCode = getGeneratedSku(patch.variantName)
+    }
+    
+    list[index] = updatedVariant
+    
+    const validPrices = list.map(v => v.price).filter(p => p > 0)
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : form.basePrice
+
+    onChange({
+      ...form,
+      variants: list,
+      basePrice: minPrice
+    })
+  }
+
+  const addVariant = () => {
+    const list = [...(form.variants || [])]
+    list.push({
+      skuCode: '',
+      variantName: '',
+      price: form.basePrice,
+      costPrice: form.costPrice || Math.round(form.basePrice * 0.7)
+    })
+    onChange({ ...form, variants: list })
+  }
+
+  const removeVariant = (index: number) => {
+    const list = (form.variants || []).filter((_, i) => i !== index)
+    
+    const validPrices = list.map(v => v.price).filter(p => p > 0)
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : form.basePrice
+
+    onChange({
+      ...form,
+      variants: list,
+      basePrice: minPrice
+    })
   }
 
   return (
@@ -343,54 +444,128 @@ function ProductForm({
         <textarea value={form.highlights} placeholder="Mỗi dòng là một điểm nổi bật" onChange={(event) => onChange({ ...form, highlights: event.target.value })} />
       </label>
 
-      <div className="checkout-grid">
-        <label>
-          Giá tham khảo Product
+      <div style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+        <label className="checkbox-label" style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
-            required
-            type="number"
-            value={form.basePrice}
-            onChange={(event) => onChange({ ...form, basePrice: Number(event.target.value) })}
+            type="checkbox"
+            checked={hasVariants}
+            onChange={(e) => {
+              const checked = e.target.checked
+              setHasVariants(checked)
+              if (checked) {
+                if (!form.variants || form.variants.length === 0) {
+                  onChange({
+                    ...form,
+                    variants: [{ variantName: '', skuCode: '', price: form.basePrice, costPrice: form.costPrice ?? null }]
+                  })
+                }
+              } else {
+                onChange({ ...form, variants: [] })
+              }
+            }}
           />
-        </label>
-        <label>
-          Giá bán thực tế SKU
-          <input
-            required
-            type="number"
-            value={form.price}
-            onChange={(event) => onChange({ ...form, price: Number(event.target.value) })}
-          />
-        </label>
-        <label>
-          Mã SKU
-          <input
-            required
-            value={form.skuCode}
-            onChange={(event) => onChange({ ...form, skuCode: event.target.value })}
-          />
-        </label>
-        <label>
-          Giá vốn SKU
-          <input
-            type="number"
-            value={form.costPrice ?? ''}
-            onChange={(event) => onChange({
-              ...form,
-              costPrice: event.target.value ? Number(event.target.value) : null,
-            })}
-          />
-        </label>
-        <label>
-          Bảo hành
-          <input
-            required
-            type="number"
-            value={form.warrantyMonths}
-            onChange={(event) => onChange({ ...form, warrantyMonths: Number(event.target.value) })}
-          />
+          Sản phẩm có nhiều biến thể (ví dụ: công suất 1 HP / 1.5 HP, màu sắc...)
         </label>
       </div>
+
+      {!hasVariants ? (
+        <div className="checkout-grid" style={{ marginTop: '12px' }}>
+          <label>
+            Giá bán sản phẩm
+            <input
+              required
+              type="number"
+              value={form.basePrice}
+              onChange={(event) => onChange({ ...form, basePrice: Number(event.target.value), price: Number(event.target.value) })}
+            />
+          </label>
+          <label>
+            Mã SKU (Tự động khóa)
+            <input
+              disabled
+              value={form.skuCode}
+              placeholder="Nhập tên, danh mục và thương hiệu..."
+              style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#475569', fontWeight: '700' }}
+            />
+          </label>
+          <label>
+            Giá vốn SKU (Không bắt buộc)
+            <input
+              type="number"
+              placeholder="Mặc định = 70% giá bán"
+              value={form.costPrice ?? ''}
+              onChange={(event) => onChange({
+                ...form,
+                costPrice: event.target.value ? Number(event.target.value) : null,
+              })}
+            />
+          </label>
+          <label>
+            Bảo hành (Tháng)
+            <input
+              required
+              type="number"
+              value={form.warrantyMonths}
+              onChange={(event) => onChange({ ...form, warrantyMonths: Number(event.target.value) })}
+            />
+          </label>
+        </div>
+      ) : (
+        <div style={{ marginTop: '16px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+          <h4 style={{ fontSize: '14px', color: '#0f172a', marginBottom: '12px', fontWeight: '800' }}>Danh sách các biến thể</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {(form.variants || []).map((v, index) => (
+              <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr 1fr', gap: '10px', alignItems: 'center' }}>
+                <input
+                  required
+                  placeholder="Tên biến thể (e.g. 1 HP)"
+                  value={v.variantName}
+                  onChange={(e) => handleVariantChange(index, { variantName: e.target.value })}
+                  style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                />
+                <input
+                  disabled
+                  placeholder="Mã SKU (Tự động)"
+                  value={v.skuCode}
+                  style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f1f5f9', cursor: 'not-allowed', fontSize: '11px', fontWeight: '700' }}
+                />
+                <input
+                  required
+                  type="number"
+                  placeholder="Giá bán"
+                  value={v.price || ''}
+                  onChange={(e) => handleVariantChange(index, { price: Number(e.target.value), costPrice: v.costPrice || Math.round(Number(e.target.value) * 0.7) })}
+                  style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeVariant(index)}
+                  style={{ padding: '8px', borderRadius: '8px', background: '#ef4444', color: 'white', border: 0, cursor: 'pointer', fontWeight: '700' }}
+                >
+                  Xóa
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addVariant}
+            style={{
+              marginTop: '12px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1px solid #0ea5e9',
+              color: '#0ea5e9',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '12px'
+            }}
+          >
+            + Thêm biến thể
+          </button>
+        </div>
+      )}
 
       <p className="form-hint">Giá bán trên website và đơn hàng lấy theo SKU.</p>
 
@@ -521,9 +696,27 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
     await loadProducts()
   }
 
-  function startEdit(product: AdminProduct) {
+  async function startEdit(product: AdminProduct) {
     setEditingId(product.productId)
     setForm(toForm(product))
+    try {
+      const res = await getProduct(product.slug)
+      const detail = res.data
+      if (detail && detail.skus && detail.skus.length > 0) {
+        setForm({
+          ...toForm(product),
+          variants: detail.skus.map(s => ({
+            skuId: s.skuId,
+            skuCode: s.skuCode,
+            variantName: s.variantName,
+            price: s.price,
+            costPrice: s.costPrice,
+          }))
+        })
+      }
+    } catch (e) {
+      console.error('Không tải được danh sách biến thể:', e)
+    }
   }
 
   function cancelEdit() {

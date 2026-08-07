@@ -14,6 +14,13 @@ export type AdminProductInput = {
   price: number
   costPrice: number | null
   imageUrl: string
+  variants?: {
+    skuId?: number
+    skuCode: string
+    variantName: string
+    price: number
+    costPrice: number | null
+  }[]
 }
 
 function makeSlug(value: string) {
@@ -109,15 +116,30 @@ export async function createAdminProduct(input: AdminProductInput) {
 
     const productId = Number(insertedProduct.recordset[0].ProductId)
 
-    await tx()
-      .input('productId', sql.BigInt, productId)
-      .input('skuCode', sql.VarChar(100), input.skuCode)
-      .input('price', sql.Decimal(18, 2), input.price)
-      .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
-      .query(`
-        INSERT INTO dbo.ProductSku (ProductId, SkuCode, Barcode, VariantName, Price, CostPrice, Status, CreatedAt)
-        VALUES (@productId, @skuCode, NULL, N'Mặc định', @price, @costPrice, 'Active', SYSDATETIME())
-      `)
+    if (input.variants && input.variants.length > 0) {
+      for (const variant of input.variants) {
+        await tx()
+          .input('productId', sql.BigInt, productId)
+          .input('skuCode', sql.VarChar(100), variant.skuCode)
+          .input('variantName', sql.NVarChar(100), variant.variantName)
+          .input('price', sql.Decimal(18, 2), variant.price)
+          .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
+          .query(`
+            INSERT INTO dbo.ProductSku (ProductId, SkuCode, Barcode, VariantName, Price, CostPrice, Status, CreatedAt)
+            VALUES (@productId, @skuCode, NULL, @variantName, @price, @costPrice, 'Active', SYSDATETIME())
+          `)
+      }
+    } else {
+      await tx()
+        .input('productId', sql.BigInt, productId)
+        .input('skuCode', sql.VarChar(100), input.skuCode)
+        .input('price', sql.Decimal(18, 2), input.price)
+        .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
+        .query(`
+          INSERT INTO dbo.ProductSku (ProductId, SkuCode, Barcode, VariantName, Price, CostPrice, Status, CreatedAt)
+          VALUES (@productId, @skuCode, NULL, N'Mặc định', @price, @costPrice, 'Active', SYSDATETIME())
+        `)
+    }
 
     if (input.imageUrl) {
       await tx()
@@ -170,19 +192,66 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
         WHERE ProductId = @productId
       `)
 
-    if (input.skuId) {
-      await tx()
-        .input('skuId', sql.BigInt, input.skuId)
-        .input('skuCode', sql.VarChar(100), input.skuCode)
-        .input('price', sql.Decimal(18, 2), input.price)
-        .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
-        .query(`
-          UPDATE dbo.ProductSku
-          SET SkuCode = @skuCode,
-              Price = @price,
-              CostPrice = @costPrice
-          WHERE SkuId = @skuId
-        `)
+    if (input.variants && input.variants.length > 0) {
+      const currentSkusResult = await tx()
+        .input('productId', sql.BigInt, productId)
+        .query('SELECT SkuId FROM dbo.ProductSku WHERE ProductId = @productId AND Status = \'Active\'')
+      const currentSkuIds = currentSkusResult.recordset.map(r => Number(r.SkuId))
+
+      const updatedSkuIds = input.variants.map(v => Number(v.skuId)).filter(Boolean)
+
+      const removedSkuIds = currentSkuIds.filter(id => !updatedSkuIds.includes(id))
+      for (const removedId of removedSkuIds) {
+        await tx()
+          .input('skuId', sql.BigInt, removedId)
+          .query('UPDATE dbo.ProductSku SET Status = \'Inactive\' WHERE SkuId = @skuId')
+      }
+
+      for (const variant of input.variants) {
+        if (variant.skuId) {
+          await tx()
+            .input('skuId', sql.BigInt, variant.skuId)
+            .input('skuCode', sql.VarChar(100), variant.skuCode)
+            .input('variantName', sql.NVarChar(100), variant.variantName)
+            .input('price', sql.Decimal(18, 2), variant.price)
+            .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
+            .query(`
+              UPDATE dbo.ProductSku
+              SET SkuCode = @skuCode,
+                  VariantName = @variantName,
+                  Price = @price,
+                  CostPrice = @costPrice,
+                  Status = 'Active'
+              WHERE SkuId = @skuId
+            `)
+        } else {
+          await tx()
+            .input('productId', sql.BigInt, productId)
+            .input('skuCode', sql.VarChar(100), variant.skuCode)
+            .input('variantName', sql.NVarChar(100), variant.variantName)
+            .input('price', sql.Decimal(18, 2), variant.price)
+            .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
+            .query(`
+              INSERT INTO dbo.ProductSku (ProductId, SkuCode, Barcode, VariantName, Price, CostPrice, Status, CreatedAt)
+              VALUES (@productId, @skuCode, NULL, @variantName, @price, @costPrice, 'Active', SYSDATETIME())
+            `)
+        }
+      }
+    } else {
+      if (input.skuId) {
+        await tx()
+          .input('skuId', sql.BigInt, input.skuId)
+          .input('skuCode', sql.VarChar(100), input.skuCode)
+          .input('price', sql.Decimal(18, 2), input.price)
+          .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
+          .query(`
+            UPDATE dbo.ProductSku
+            SET SkuCode = @skuCode,
+                Price = @price,
+                CostPrice = @costPrice
+            WHERE SkuId = @skuId
+          `)
+      }
     }
 
     if (input.imageUrl) {

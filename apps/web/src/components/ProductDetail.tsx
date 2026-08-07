@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { submitProductReview } from '../api'
 import type { Product, ProductAttribute, ProductReview } from '../types'
@@ -96,6 +96,16 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
   const [reviewSaving, setReviewSaving] = useState(false)
   const [replyTo, setReplyTo] = useState<ProductReview | null>(null)
 
+  const skus = useMemo(() => product?.skus ?? [], [product])
+  const initialSku = useMemo(() => skus.find(s => s.skuId === product?.skuId) || skus[0] || null, [skus, product])
+  const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (initialSku) {
+      setSelectedSkuId(initialSku.skuId)
+    }
+  }, [initialSku])
+
   if (loading) {
     return <main className="detail-page"><div className="status-card">Đang tải chi tiết sản phẩm...</div></main>
   }
@@ -108,16 +118,31 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
     )
   }
 
+  const activeSku = skus.find(s => s.skuId === selectedSkuId) || initialSku
+
+  const productToAddToCart = {
+    ...product,
+    skuId: activeSku ? activeSku.skuId : product.skuId,
+    skuCode: activeSku ? activeSku.skuCode : product.skuCode,
+    price: activeSku ? activeSku.price : product.price,
+    originalPrice: activeSku ? activeSku.originalPrice : product.originalPrice,
+    finalPrice: activeSku ? activeSku.finalPrice : product.finalPrice,
+    promotionName: activeSku ? activeSku.promotionName : product.promotionName,
+    availableQuantity: activeSku ? activeSku.availableQuantity : product.availableQuantity,
+  }
+
   const attributes = product.attributes ?? []
   const specs = attributes.length > 0
     ? attributes.map((attribute) => ({ label: attribute.name, value: attributeValue(attribute) }))
-    : buildFallbackSpecs(product)
-  const highlights = buildHighlights(product, attributes)
-  const canBuy = Boolean(product.skuId) && product.availableQuantity > 0
+    : buildFallbackSpecs(productToAddToCart)
+  const highlights = buildHighlights(productToAddToCart, attributes)
+  
+  const displayPrice = productToAddToCart.finalPrice ?? productToAddToCart.price ?? productToAddToCart.basePrice
+  const originalPrice = productToAddToCart.originalPrice ?? productToAddToCart.price ?? productToAddToCart.basePrice
+  const hasPromotion = Boolean(productToAddToCart.promotionId || (activeSku && activeSku.promotionId)) && displayPrice < originalPrice
+  
+  const canBuy = Boolean(productToAddToCart.skuId) && productToAddToCart.availableQuantity > 0
   const mainImageUrl = selectedImageUrl || images[0]?.imageUrl || product.imageUrl
-  const displayPrice = product.finalPrice ?? product.price ?? product.basePrice
-  const originalPrice = product.originalPrice ?? product.price ?? product.basePrice
-  const hasPromotion = Boolean(product.promotionId) && displayPrice < originalPrice
   const reviewSummary = product.reviewSummary ?? { reviewCount: 0, averageRating: 0 }
   const reviews = product.reviews ?? []
   const reviewTree = buildReviewTree(reviews)
@@ -185,26 +210,55 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
             <small>{reviewSummary.reviewCount} đánh giá</small>
           </div>
 
+          {skus.length > 1 && (
+            <div className="variant-selector" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '800' }}>Chọn phiên bản:</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {skus.map((sku) => (
+                  <button
+                    key={sku.skuId}
+                    onClick={() => setSelectedSkuId(sku.skuId)}
+                    type="button"
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '12px',
+                      border: sku.skuId === selectedSkuId ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                      background: sku.skuId === selectedSkuId ? '#f0f9ff' : '#ffffff',
+                      color: sku.skuId === selectedSkuId ? '#0284c7' : '#1e293b',
+                      fontSize: '13px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: sku.skuId === selectedSkuId ? '0 4px 12px rgba(2, 132, 199, 0.15)' : 'none'
+                    }}
+                  >
+                    {sku.variantName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="detail-price">
             {hasPromotion && <small className="old-price">{formatPrice(originalPrice)}</small>}
             <span>{formatPrice(displayPrice)}</span>
-            {hasPromotion && <small className="promotion-label">{product.promotionName}</small>}
+            {hasPromotion && <small className="promotion-label">{productToAddToCart.promotionName}</small>}
           </div>
 
           <div className="detail-facts">
-            <div><strong>{product.skuCode ?? 'Chưa cập nhật'}</strong><span>Mã SKU</span></div>
-            <div><strong>{product.warrantyMonths} tháng</strong><span>Bảo hành</span></div>
-            <div><strong>{product.availableQuantity}</strong><span>Tồn khả dụng</span></div>
-            <div><strong>{product.installRequired ? 'Có' : 'Không'}</strong><span>Lắp đặt</span></div>
+            <div><strong>{productToAddToCart.skuCode ?? 'Chưa cập nhật'}</strong><span>Mã SKU</span></div>
+            <div><strong>{productToAddToCart.warrantyMonths} tháng</strong><span>Bảo hành</span></div>
+            <div><strong>{productToAddToCart.availableQuantity}</strong><span>Tồn khả dụng</span></div>
+            <div><strong>{productToAddToCart.installRequired ? 'Có' : 'Không'}</strong><span>Lắp đặt</span></div>
           </div>
 
           <div className="detail-actions">
-            <button disabled={!canBuy} onClick={() => onAddToCart(product)}>Thêm vào giỏ</button>
+            <button disabled={!canBuy} onClick={() => onAddToCart(productToAddToCart)}>Thêm vào giỏ</button>
             <button
               className="secondary"
               disabled={!canBuy}
               onClick={() => {
-                onAddToCart(product)
+                onAddToCart(productToAddToCart)
                 window.location.hash = '#/cart'
               }}
             >
