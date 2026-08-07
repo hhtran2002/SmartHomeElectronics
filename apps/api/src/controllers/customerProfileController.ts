@@ -3,11 +3,13 @@ import type { AuthRequest } from '../auth.js'
 import {
   changeCustomerPassword,
   createCustomerAddress,
+  createReviewByOrderDetail,
   deleteCustomerAddress,
   getCustomerAddresses,
   getCustomerOrderDetail,
   getCustomerOrders,
   getCustomerProfile,
+  getMyReviewedOrderDetails,
   updateCustomerAddress,
   updateCustomerProfile,
 } from '../services/customerProfileService.js'
@@ -175,6 +177,45 @@ export async function deleteAddress(request: AuthRequest, response: Response, ne
       response.status(400).json({ message: error.message })
       return
     }
+    next(error)
+  }
+}
+
+export async function submitReview(request: AuthRequest, response: Response, next: NextFunction) {
+  const orderDetailId = Number(request.body.orderDetailId)
+  const rating = Number(request.body.rating)
+  const comment = String(request.body.comment ?? '').trim()
+
+  if (!Number.isInteger(orderDetailId) || orderDetailId < 1) {
+    response.status(400).json({ message: 'orderDetailId không hợp lệ.' })
+    return
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    response.status(400).json({ message: 'Rating phải từ 1 đến 5.' })
+    return
+  }
+  if (!comment) {
+    response.status(400).json({ message: 'Vui lòng nhập nội dung đánh giá.' })
+    return
+  }
+
+  try {
+    const result = await createReviewByOrderDetail(request.user!.userId, orderDetailId, rating, comment)
+    response.status(201).json({ data: result })
+  } catch (error) {
+    if (error instanceof Error) {
+      response.status(400).json({ message: error.message })
+      return
+    }
+    next(error)
+  }
+}
+
+export async function listMyReviews(request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    const reviewedIds = await getMyReviewedOrderDetails(request.user!.userId)
+    response.json({ data: reviewedIds })
+  } catch (error) {
     next(error)
   }
 }

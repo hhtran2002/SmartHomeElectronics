@@ -668,6 +668,24 @@ export function getCustomerOrder(orderId: number, token: string) {
   return getJsonWithToken<{ data: CustomerOrderDetail }>(`/api/profile/orders/${orderId}`, token)
 }
 
+export function submitCustomerReview(payload: { orderDetailId: number; rating: number; comment: string }, token: string) {
+  return fetch('/api/profile/reviews', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  }).then(async (response) => {
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      throw new Error((data as { message?: string } | null)?.message ?? `Request failed: ${response.status}`)
+    }
+    return response.json() as Promise<{ data: { reviewId: number; status: string } }>
+  })
+}
+
+export function getMyReviewedItems(token: string) {
+  return getJsonWithToken<{ data: number[] }>('/api/profile/reviews/my', token)
+}
+
 export function getProvinces() {
   return getJson<{ data: AdministrativeProvince[] }>('/api/locations/provinces')
 }

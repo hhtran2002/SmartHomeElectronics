@@ -7,6 +7,8 @@ import {
   getProfile,
   listAddresses,
   listCustomerOrders,
+  listMyReviews,
+  submitReview,
   updateAddress,
   updatePassword,
   updateProfile,
@@ -25,3 +27,5 @@ customerProfileRouter.get('/addresses', listAddresses)
 customerProfileRouter.post('/addresses', createAddress)
 customerProfileRouter.put('/addresses/:addressId', updateAddress)
 customerProfileRouter.delete('/addresses/:addressId', deleteAddress)
+customerProfileRouter.post('/reviews', submitReview)
+customerProfileRouter.get('/reviews/my', listMyReviews)

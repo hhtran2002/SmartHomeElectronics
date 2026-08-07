@@ -85,6 +85,7 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
 
   const items = await pool.request()
     .input('orderId', sql.BigInt, orderId)
+    .input('userId', sql.BigInt, userId)
     .query(`
       SELECT
         sod.OrderDetailId AS orderDetailId,
@@ -95,12 +96,19 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
         sod.Quantity AS quantity,
         sod.DiscountAmount AS discountAmount,
         sod.LineTotal AS lineTotal,
-        pi.ImageUrl AS imageUrl
+        pi.ImageUrl AS imageUrl,
+        p.Slug AS productSlug,
+        CAST(CASE WHEN EXISTS (
+          SELECT 1 FROM dbo.Review r
+          WHERE r.OrderDetailId = sod.OrderDetailId AND r.UserId = @userId
+        ) THEN 1 ELSE 0 END AS BIT) AS hasReview
       FROM dbo.SalesOrderDetail sod
+      INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
+      INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
       OUTER APPLY (
         SELECT TOP (1) ImageUrl
         FROM dbo.ProductImage
-        WHERE ProductId = (SELECT ProductId FROM dbo.ProductSku WHERE SkuId = sod.SkuId)
+        WHERE ProductId = p.ProductId
         ORDER BY IsPrimary DESC, SortOrder, ImageId
       ) pi
       WHERE sod.OrderId = @orderId
@@ -349,3 +357,82 @@ export async function deleteCustomerAddress(userId: number, addressId: number) {
     throw error
   }
 }
+
+export async function createReviewByOrderDetail(
+  userId: number,
+  orderDetailId: number,
+  rating: number,
+  comment: string,
+) {
+  const pool = await getPool()
+
+  // Validate orderDetailId belongs to userId and order is Completed
+  const eligibleResult = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .input('orderDetailId', sql.BigInt, orderDetailId)
+    .query(`
+      SELECT
+        sod.OrderDetailId,
+        sod.SkuId,
+        ps.ProductId
+      FROM dbo.SalesOrderDetail sod
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+      INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+      INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
+      WHERE sod.OrderDetailId = @orderDetailId
+        AND cp.UserId = @userId
+        AND os.StatusCode = 'Completed'
+    `)
+
+  const eligible = eligibleResult.recordset[0]
+  if (!eligible) {
+    throw new Error('Bạn chỉ có thể đánh giá sản phẩm trong đơn hàng đã hoàn thành.')
+  }
+
+  // Check not already reviewed
+  const existingResult = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .input('orderDetailId', sql.BigInt, orderDetailId)
+    .query(`
+      SELECT TOP 1 ReviewId FROM dbo.Review
+      WHERE OrderDetailId = @orderDetailId AND UserId = @userId
+    `)
+
+  if (existingResult.recordset[0]) {
+    throw new Error('Bạn đã đánh giá sản phẩm này rồi.')
+  }
+
+  const inserted = await pool.request()
+    .input('productId', sql.BigInt, eligible.ProductId as number)
+    .input('orderDetailId', sql.BigInt, orderDetailId)
+    .input('userId', sql.BigInt, userId)
+    .input('rating', sql.TinyInt, rating)
+    .input('comment', sql.NVarChar(1000), comment)
+    .query(`
+      INSERT INTO dbo.Review (
+        ProductId, OrderDetailId, UserId, Rating, Comment,
+        Status, CreatedAt, ParentReviewId
+      )
+      OUTPUT INSERTED.ReviewId
+      VALUES (
+        @productId, @orderDetailId, @userId, @rating, @comment,
+        'Pending', SYSDATETIME(), NULL
+      )
+    `)
+
+  return { reviewId: inserted.recordset[0].ReviewId as number, status: 'Pending' }
+}
+
+export async function getMyReviewedOrderDetails(userId: number) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT DISTINCT OrderDetailId AS orderDetailId
+      FROM dbo.Review
+      WHERE UserId = @userId
+    `)
+  return result.recordset.map((r: { orderDetailId: number }) => r.orderDetailId)
+}
+

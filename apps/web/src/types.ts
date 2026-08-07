@@ -801,5 +801,7 @@ export type CustomerOrderDetail = {
     discountAmount: number
     lineTotal: number
     imageUrl: string | null
+    productSlug: string
+    hasReview: boolean
   }>
 }
