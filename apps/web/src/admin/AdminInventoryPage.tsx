@@ -49,6 +49,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
   const [skuSearchQuery, setSkuSearchQuery] = useState('')
   const [skuDropdownOpen, setSkuDropdownOpen] = useState(false)
   const [selectedMovement, setSelectedMovement] = useState<AdminStockMovement | null>(null)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
 
   const selectedItem = useMemo(
     () => inventory.find((item) => item.skuId === Number(form.skuId) && item.warehouseId === Number(form.warehouseId)),
@@ -204,11 +205,35 @@ export function AdminInventoryPage({ roles, token }: Props) {
 
   return (
     <>
-      <section className="section-heading">
+      <section className="section-heading" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
         <div>
           <span className="eyebrow">Quản lý kho</span>
           <h2>Nhập kho / xuất kho</h2>
           <p>Theo dõi tồn theo SKU, tạo phiếu nhập xuất và ghi lịch sử biến động kho.</p>
+        </div>
+        <div>
+          <button
+            className="primary-link"
+            style={{
+              padding: '10px 20px',
+              borderRadius: '999px',
+              fontSize: '14px',
+              height: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+              color: '#ffffff',
+              border: 0,
+              cursor: 'pointer',
+              fontWeight: '800',
+              boxShadow: '0 8px 20px rgba(14, 165, 233, 0.2)'
+            }}
+            onClick={() => setShowHistoryModal(true)}
+            type="button"
+          >
+            📜 Nhật ký kho hàng
+          </button>
         </div>
       </section>
 
@@ -433,68 +458,103 @@ export function AdminInventoryPage({ roles, token }: Props) {
         </aside>
       </section>
 
-      <section className="admin-panel-card">
-        <div className="section-heading compact">
-          <div>
-            <span className="eyebrow">Lịch sử kho</span>
-            <h3>Biến động gần đây</h3>
-          </div>
-        </div>
-        <div className="movement-list" style={{ display: 'grid', gap: '8px' }}>
-          {movements.length === 0 ? (
-            <p className="form-hint">Chưa có biến động kho.</p>
-          ) : (
-            paginatedMovements.map((movement) => (
-              <button
-                key={movement.stockMovementId}
-                onClick={() => setSelectedMovement(movement)}
-                type="button"
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 0,
-                  background: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  display: 'block'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid var(--blue-50)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className={movement.quantityChange > 0 ? 'stock-badge' : 'stock-badge danger'}>
-                      {movement.quantityChange > 0 ? `+${movement.quantityChange}` : movement.quantityChange}
-                    </span>
-                    <div>
-                      <strong style={{ display: 'block', color: '#0f172a' }}>{movement.productName}</strong>
-                      <small style={{ color: '#64748b', marginTop: '2px', display: 'block' }}>
-                        {movement.warehouseName} · SKU {movement.skuCode} · {movement.sourceType}
-                        {movement.adjustmentNote ? ` · ${movement.adjustmentNote}` : ''}
-                      </small>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>
-                      {new Date(movement.createdAt).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+      {showHistoryModal && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowHistoryModal(false)}>
+          <section
+            aria-modal="true"
+            className="admin-product-modal"
+            style={{ maxWidth: '1000px', width: '95%', height: 'calc(100vh - 80px)', borderRadius: '24px' }}
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Lịch sử biến động</span>
+                <h3>Nhật ký kho hàng</h3>
+              </div>
+              <button type="button" onClick={() => setShowHistoryModal(false)}>Đóng</button>
+            </div>
 
-        {!loading && movements.length > 0 && (
-          <div className="admin-pagination" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
-            <button disabled={movementsPage <= 1} onClick={() => setMovementsPage((current) => current - 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
-              Trang trước
-            </button>
-            <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '800' }}>Trang {movementsPage} / {totalMovementPages} · {movements.length} bản ghi</span>
-            <button disabled={movementsPage >= totalMovementPages} onClick={() => setMovementsPage((current) => current + 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
-              Trang sau
-            </button>
-          </div>
-        )}
-      </section>
+            <div className="modal-scroll" style={{ display: 'flex', flexDirection: 'column', padding: '20px', gap: '16px', flex: 1, overflowY: 'auto' }}>
+              <div style={{ overflowX: 'auto', flex: 1 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #cbd5e1', color: '#475569', fontWeight: '800' }}>
+                      <th style={{ padding: '12px 8px' }}>Mã GD</th>
+                      <th style={{ padding: '12px 8px' }}>Sản phẩm</th>
+                      <th style={{ padding: '12px 8px' }}>Kho</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'center' }}>Số lượng</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'right' }}>Đơn giá</th>
+                      <th style={{ padding: '12px 8px' }}>Thời gian</th>
+                      <th style={{ padding: '12px 8px' }}>Người tạo</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movements.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>Chưa có biến động kho.</td>
+                      </tr>
+                    ) : (
+                      paginatedMovements.map((movement) => (
+                        <tr 
+                          key={movement.stockMovementId} 
+                          style={{ borderBottom: '1px solid #e2e8f0', cursor: 'pointer' }}
+                          onClick={() => setSelectedMovement(movement)}
+                          className="table-row-hover"
+                        >
+                          <td style={{ padding: '12px 8px', fontWeight: '700', color: '#64748b' }}>#{movement.stockMovementId}</td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <strong style={{ display: 'block', color: '#0f172a' }}>{movement.productName}</strong>
+                            <small style={{ color: '#0ea5e9', fontWeight: '800' }}>SKU: {movement.skuCode}</small>
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#334155' }}>{movement.warehouseName}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <span className={movement.quantityChange > 0 ? 'stock-badge' : 'stock-badge danger'}>
+                              {movement.quantityChange > 0 ? `+${movement.quantityChange}` : movement.quantityChange}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '600' }}>
+                            {movement.unitCost ? formatPrice(movement.unitCost) : '—'}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#475569' }}>
+                            {new Date(movement.createdAt).toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '12px 8px', color: '#475569' }}>{movement.createdBy || 'Hệ thống'}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMovement(movement);
+                              }}
+                              style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #0ea5e9', color: '#0ea5e9', background: 'transparent', fontSize: '11px', cursor: 'pointer', fontWeight: '700' }}
+                            >
+                              Chi tiết
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {!loading && movements.length > 0 && (
+                <div className="admin-pagination" style={{ display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                  <button disabled={movementsPage <= 1} onClick={() => setMovementsPage((current) => current - 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                    Trang trước
+                  </button>
+                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '800' }}>Trang {movementsPage} / {totalMovementPages} · {movements.length} bản ghi</span>
+                  <button disabled={movementsPage >= totalMovementPages} onClick={() => setMovementsPage((current) => current + 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                    Trang sau
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {selectedMovement && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setSelectedMovement(null)}>

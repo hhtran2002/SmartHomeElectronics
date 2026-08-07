@@ -2036,3 +2036,8 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
   grid-template-columns: 1fr !important;
 }
 
+/* Hover style for table rows in the stock history modal */
+.table-row-hover:hover {
+  background-color: #f1f5f9 !important;
+}
+
