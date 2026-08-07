@@ -395,6 +395,32 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
                   setShowCreateModal(false);
                 }}
               />
+
+              <div className="admin-image-manager" style={{ alignSelf: 'start' }}>
+                <h3 style={{ fontSize: '18px', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '14px' }}>Xem trước sản phẩm (Preview)</h3>
+                <div className="product-card" style={{ maxWidth: '320px', margin: '0 auto', border: '1px solid rgba(125, 211, 252, 0.35)', boxShadow: '0 10px 30px rgba(14,165,233,0.06)' }}>
+                  <div className="product-image" style={{ height: '180px' }}>
+                    {createForm.imageUrl ? (
+                      <img src={createForm.imageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '48px', color: '#0ea5e9' }}>⌂</span>
+                    )}
+                  </div>
+                  <div className="product-meta" style={{ fontSize: '11px', textTransform: 'uppercase', color: '#0284c7', fontWeight: '800', margin: '14px 6px 0' }}>
+                    {categories.find(c => c.id === createForm.categoryId)?.name || 'DANH MỤC'} · {brands.find(b => b.id === createForm.brandId)?.name || 'THƯƠNG HIỆU'}
+                  </div>
+                  <h3 style={{ fontSize: '16px', margin: '8px 6px', color: '#0f172a' }}>{createForm.productName || 'Tên sản phẩm'}</h3>
+                  <p style={{ fontSize: '12px', color: '#64748b', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '36px', lineHeight: '1.5', margin: '0 6px' }}>
+                    {createForm.description || 'Nhập mô tả sản phẩm ở bên trái để xem trước tại đây.'}
+                  </p>
+                  <div className="product-bottom" style={{ marginTop: '16px', padding: '0 6px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '18px', color: '#0f172a' }}>{formatPrice(createForm.price || createForm.basePrice)}</strong>
+                      <small style={{ fontSize: '11px', color: '#94a3b8' }}>SKU: {createForm.skuCode || 'chưa nhập'}</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
