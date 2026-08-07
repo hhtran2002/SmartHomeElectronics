@@ -34,6 +34,40 @@ function makeSlug(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+async function ensureUniqueSkuCode(tx: () => sql.Request, skuCode: string, currentSkuId?: number): Promise<string> {
+  let uniqueSku = skuCode.trim()
+  let count = 0
+  let isUnique = false
+
+  while (!isUnique && count < 20) {
+    const testSku = count === 0 ? uniqueSku : `${uniqueSku}-${count}`
+    const req = tx().input('skuCodeCheck', sql.VarChar(100), testSku)
+    if (currentSkuId) {
+      req.input('currentSkuIdCheck', sql.BigInt, currentSkuId)
+    }
+
+    const checkResult = await req.query(`
+      SELECT 1 FROM dbo.ProductSku 
+      WHERE SkuCode = @skuCodeCheck 
+      ${currentSkuId ? 'AND SkuId != @currentSkuIdCheck' : ''}
+    `)
+
+    if (checkResult.recordset.length === 0) {
+      uniqueSku = testSku
+      isUnique = true
+    } else {
+      count++
+    }
+  }
+
+  if (!isUnique) {
+    const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase()
+    uniqueSku = `${skuCode}-${randomSuffix}`
+  }
+
+  return uniqueSku
+}
+
 export async function getAdminProducts() {
   const pool = await getPool()
   const result = await pool.request().query(`
@@ -118,9 +152,10 @@ export async function createAdminProduct(input: AdminProductInput) {
 
     if (input.variants && input.variants.length > 0) {
       for (const variant of input.variants) {
+        const uniqueSku = await ensureUniqueSkuCode(tx, variant.skuCode)
         await tx()
           .input('productId', sql.BigInt, productId)
-          .input('skuCode', sql.VarChar(100), variant.skuCode)
+          .input('skuCode', sql.VarChar(100), uniqueSku)
           .input('variantName', sql.NVarChar(100), variant.variantName)
           .input('price', sql.Decimal(18, 2), variant.price)
           .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
@@ -130,9 +165,10 @@ export async function createAdminProduct(input: AdminProductInput) {
           `)
       }
     } else {
+      const uniqueSku = await ensureUniqueSkuCode(tx, input.skuCode)
       await tx()
         .input('productId', sql.BigInt, productId)
-        .input('skuCode', sql.VarChar(100), input.skuCode)
+        .input('skuCode', sql.VarChar(100), uniqueSku)
         .input('price', sql.Decimal(18, 2), input.price)
         .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
         .query(`
@@ -209,9 +245,10 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
 
       for (const variant of input.variants) {
         if (variant.skuId) {
+          const uniqueSku = await ensureUniqueSkuCode(tx, variant.skuCode, variant.skuId)
           await tx()
             .input('skuId', sql.BigInt, variant.skuId)
-            .input('skuCode', sql.VarChar(100), variant.skuCode)
+            .input('skuCode', sql.VarChar(100), uniqueSku)
             .input('variantName', sql.NVarChar(100), variant.variantName)
             .input('price', sql.Decimal(18, 2), variant.price)
             .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
@@ -225,9 +262,10 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
               WHERE SkuId = @skuId
             `)
         } else {
+          const uniqueSku = await ensureUniqueSkuCode(tx, variant.skuCode)
           await tx()
             .input('productId', sql.BigInt, productId)
-            .input('skuCode', sql.VarChar(100), variant.skuCode)
+            .input('skuCode', sql.VarChar(100), uniqueSku)
             .input('variantName', sql.NVarChar(100), variant.variantName)
             .input('price', sql.Decimal(18, 2), variant.price)
             .input('costPrice', sql.Decimal(18, 2), Number.isFinite(variant.costPrice) ? variant.costPrice : null)
@@ -239,9 +277,10 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
       }
     } else {
       if (input.skuId) {
+        const uniqueSku = await ensureUniqueSkuCode(tx, input.skuCode, input.skuId)
         await tx()
           .input('skuId', sql.BigInt, input.skuId)
-          .input('skuCode', sql.VarChar(100), input.skuCode)
+          .input('skuCode', sql.VarChar(100), uniqueSku)
           .input('price', sql.Decimal(18, 2), input.price)
           .input('costPrice', sql.Decimal(18, 2), Number.isFinite(input.costPrice) ? input.costPrice : null)
           .query(`
