@@ -102,6 +102,17 @@ export function AdminInventoryPage({ roles, token }: Props) {
     }
   }, [form.skuId, selectedSkuObj])
 
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.sku-select-container')) {
+        setSkuDropdownOpen(false)
+      }
+    }
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [])
+
   const filteredSkusForSelect = useMemo(() => {
     const list = mode === 'in' ? stockableSkus : inventory
     const selectedText = selectedSkuObj ? `${selectedSkuObj.skuCode} · ${selectedSkuObj.productName}` : ''
@@ -337,14 +348,13 @@ export function AdminInventoryPage({ roles, token }: Props) {
 
             <label>
               SKU
-              <div style={{ position: 'relative' }}>
+              <div className="sku-select-container" style={{ position: 'relative' }}>
                 <input
                   type="text"
                   required
                   placeholder="Tìm mã SKU hoặc tên sản phẩm..."
                   value={skuSearchQuery}
                   onFocus={() => setSkuDropdownOpen(true)}
-                  onBlur={() => setTimeout(() => setSkuDropdownOpen(false), 250)}
                   onChange={(e) => {
                     setSkuSearchQuery(e.target.value)
                     setSkuDropdownOpen(true)
