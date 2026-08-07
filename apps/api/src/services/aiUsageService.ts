@@ -69,3 +69,42 @@ export async function consumeAiDailyMessage(userId: number, roles: string[] = []
     throw error
   }
 }
+
+export async function refundAiDailyMessage(userId: number, roles: string[] = []) {
+  if (roles.some((role) => unlimitedRoleCodes.has(role))) return
+
+  const pool = await getPool()
+  const transaction = new sql.Transaction(pool)
+  const usageDate = vietnamDate()
+
+  try {
+    await transaction.begin()
+    const request = () => new sql.Request(transaction)
+    const currentResult = await request()
+      .input('userId', sql.BigInt, userId)
+      .input('usageDate', sql.Date, usageDate)
+      .query(`
+        SELECT MessageCount
+        FROM dbo.AiDailyUsage WITH (UPDLOCK, HOLDLOCK)
+        WHERE UserId = @userId AND UsageDate = @usageDate
+      `)
+
+    const used = Number(currentResult.recordset[0]?.MessageCount ?? 0)
+    if (used <= 1) {
+      await request()
+        .input('userId', sql.BigInt, userId)
+        .input('usageDate', sql.Date, usageDate)
+        .query(`DELETE FROM dbo.AiDailyUsage WHERE UserId = @userId AND UsageDate = @usageDate`)
+    } else {
+      await request()
+        .input('userId', sql.BigInt, userId)
+        .input('usageDate', sql.Date, usageDate)
+        .query(`UPDATE dbo.AiDailyUsage SET MessageCount = MessageCount - 1, UpdatedAt = SYSDATETIME() WHERE UserId = @userId AND UsageDate = @usageDate`)
+    }
+
+    await transaction.commit()
+  } catch (error) {
+    await transaction.rollback().catch(() => undefined)
+    throw error
+  }
+}
