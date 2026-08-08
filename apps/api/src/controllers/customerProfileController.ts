@@ -226,7 +226,11 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
   const orderId = Number(request.body.orderId)
   const reason = String(request.body.reason ?? '').trim()
   const note = String(request.body.note ?? '').trim()
-  const imageUrl = String(request.body.imageUrl ?? '').trim()
+  const evidenceUrl = String(request.body.evidenceUrl ?? request.body.imageUrl ?? '').trim()
+  const refundMethod = (String(request.body.refundMethod ?? 'BankTransfer').trim() === 'CashOnPickup' ? 'CashOnPickup' : 'BankTransfer') as 'BankTransfer' | 'CashOnPickup'
+  const bankName = String(request.body.bankName ?? '').trim()
+  const bankAccountNumber = String(request.body.bankAccountNumber ?? '').trim()
+  const bankAccountName = String(request.body.bankAccountName ?? '').trim()
 
   if (!Number.isInteger(orderId) || orderId < 1) {
     response.status(400).json({ message: 'OrderId không hợp lệ.' })
@@ -236,9 +240,23 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
     response.status(400).json({ message: 'Vui lòng chọn lý do hoàn hàng.' })
     return
   }
+  if (!evidenceUrl) {
+    response.status(400).json({ message: 'Bạn bắt buộc phải cung cấp link ảnh hoặc video minh chứng sản phẩm bị lỗi.' })
+    return
+  }
 
   try {
-    const result = await createReturnRequest(request.user!.userId, orderId, reason, note, imageUrl)
+    const result = await createReturnRequest({
+      userId: request.user!.userId,
+      orderId,
+      reason,
+      note,
+      evidenceUrl,
+      refundMethod,
+      bankName,
+      bankAccountNumber,
+      bankAccountName,
+    })
     response.status(201).json({ data: result })
   } catch (error) {
     if (error instanceof Error) {

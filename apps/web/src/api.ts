@@ -689,7 +689,16 @@ export function getMyReviewedItems(token: string) {
 }
 
 export function submitCustomerReturnRequest(
-  payload: { orderId: number; reason: string; note?: string; imageUrl?: string },
+  payload: {
+    orderId: number
+    reason: string
+    note?: string
+    evidenceUrl: string
+    refundMethod: 'BankTransfer' | 'CashOnPickup'
+    bankName?: string
+    bankAccountNumber?: string
+    bankAccountName?: string
+  },
   token: string
 ) {
   return postJsonWithToken<{ data: { returnRequestId: number; status: string } }>(
@@ -709,14 +718,18 @@ export function getAdminReturnRequests(token: string) {
 
 export function updateAdminReturnRequestStatus(
   returnRequestId: number,
-  status: string,
-  adminNote: string,
+  payload: {
+    status: string
+    refundStatus?: string
+    refundAmount?: number | null
+    adminNote?: string
+  },
   token: string
 ) {
   return patchJsonWithToken<{ data: { returnRequestId: number; status: string; adminNote: string } }>(
     `/api/admin/returns/${returnRequestId}/status`,
     token,
-    { status, adminNote }
+    payload
   )
 }
 

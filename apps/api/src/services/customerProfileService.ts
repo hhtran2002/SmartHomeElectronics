@@ -123,7 +123,13 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
         ReturnRequestId AS returnRequestId,
         Reason AS reason,
         Note AS note,
-        ImageUrl AS imageUrl,
+        ISNULL(EvidenceUrl, ImageUrl) AS evidenceUrl,
+        RefundMethod AS refundMethod,
+        BankName AS bankName,
+        BankAccountNumber AS bankAccountNumber,
+        BankAccountName AS bankAccountName,
+        RefundStatus AS refundStatus,
+        RefundAmount AS refundAmount,
         Status AS status,
         AdminNote AS adminNote,
         CreatedAt AS createdAt
@@ -139,21 +145,37 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
   }
 }
 
-export async function createReturnRequest(
-  userId: number,
-  orderId: number,
-  reason: string,
-  note?: string,
-  imageUrl?: string
-) {
+export type ReturnRequestPayload = {
+  userId: number
+  orderId: number
+  reason: string
+  note?: string
+  evidenceUrl: string
+  refundMethod: 'BankTransfer' | 'CashOnPickup'
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountName?: string
+}
+
+export async function createReturnRequest(input: ReturnRequestPayload) {
+  if (!input.evidenceUrl || !input.evidenceUrl.trim()) {
+    throw new Error('Bạn bắt buộc phải cung cấp link hình ảnh hoặc video minh chứng lỗi sản phẩm.')
+  }
+
+  if (input.refundMethod === 'BankTransfer') {
+    if (!input.bankName?.trim() || !input.bankAccountNumber?.trim() || !input.bankAccountName?.trim()) {
+      throw new Error('Vui lòng điền đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn.')
+    }
+  }
+
   const pool = await getPool()
 
   // Validate order belongs to user and is Completed
   const orderResult = await pool.request()
-    .input('orderId', sql.BigInt, orderId)
-    .input('userId', sql.BigInt, userId)
+    .input('orderId', sql.BigInt, input.orderId)
+    .input('userId', sql.BigInt, input.userId)
     .query(`
-      SELECT TOP (1) so.OrderId
+      SELECT TOP (1) so.OrderId, so.TotalAmount
       FROM dbo.SalesOrder so
       INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
       INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
@@ -162,14 +184,15 @@ export async function createReturnRequest(
         AND os.StatusCode = 'Completed'
     `)
 
-  if (!orderResult.recordset[0]) {
+  const orderData = orderResult.recordset[0]
+  if (!orderData) {
     throw new Error('Bạn chỉ có thể yêu cầu hoàn hàng đối với đơn hàng đã hoàn thành.')
   }
 
   // Check if there is already a return request for this order
   const existingResult = await pool.request()
-    .input('orderId', sql.BigInt, orderId)
-    .input('userId', sql.BigInt, userId)
+    .input('orderId', sql.BigInt, input.orderId)
+    .input('userId', sql.BigInt, input.userId)
     .query(`
       SELECT TOP (1) ReturnRequestId FROM dbo.OrderReturnRequest
       WHERE OrderId = @orderId AND UserId = @userId
@@ -180,18 +203,27 @@ export async function createReturnRequest(
   }
 
   const inserted = await pool.request()
-    .input('orderId', sql.BigInt, orderId)
-    .input('userId', sql.BigInt, userId)
-    .input('reason', sql.NVarChar(255), reason)
-    .input('note', sql.NVarChar(1000), note || null)
-    .input('imageUrl', sql.NVarChar(500), imageUrl || null)
+    .input('orderId', sql.BigInt, input.orderId)
+    .input('userId', sql.BigInt, input.userId)
+    .input('reason', sql.NVarChar(255), input.reason)
+    .input('note', sql.NVarChar(1000), input.note || null)
+    .input('evidenceUrl', sql.NVarChar(500), input.evidenceUrl.trim())
+    .input('refundMethod', sql.VarChar(20), input.refundMethod)
+    .input('bankName', sql.NVarChar(100), input.refundMethod === 'BankTransfer' ? input.bankName?.trim() : null)
+    .input('bankAccountNumber', sql.VarChar(50), input.refundMethod === 'BankTransfer' ? input.bankAccountNumber?.trim() : null)
+    .input('bankAccountName', sql.NVarChar(150), input.refundMethod === 'BankTransfer' ? input.bankAccountName?.trim() : null)
+    .input('refundAmount', sql.Decimal(18, 2), Number(orderData.TotalAmount))
     .query(`
       INSERT INTO dbo.OrderReturnRequest (
-        OrderId, UserId, Reason, Note, ImageUrl, Status, CreatedAt
+        OrderId, UserId, Reason, Note, ImageUrl, EvidenceUrl,
+        RefundMethod, BankName, BankAccountNumber, BankAccountName,
+        RefundStatus, RefundAmount, Status, CreatedAt
       )
       OUTPUT INSERTED.ReturnRequestId
       VALUES (
-        @orderId, @userId, @reason, @note, @imageUrl, 'Pending', SYSDATETIME()
+        @orderId, @userId, @reason, @note, @evidenceUrl, @evidenceUrl,
+        @refundMethod, @bankName, @bankAccountNumber, @bankAccountName,
+        'Pending', @refundAmount, 'Pending', SYSDATETIME()
       )
     `)
 
@@ -209,7 +241,13 @@ export async function getCustomerReturnRequests(userId: number) {
         so.OrderCode AS orderCode,
         rr.Reason AS reason,
         rr.Note AS note,
-        rr.ImageUrl AS imageUrl,
+        ISNULL(rr.EvidenceUrl, rr.ImageUrl) AS evidenceUrl,
+        rr.RefundMethod AS refundMethod,
+        rr.BankName AS bankName,
+        rr.BankAccountNumber AS bankAccountNumber,
+        rr.BankAccountName AS bankAccountName,
+        rr.RefundStatus AS refundStatus,
+        rr.RefundAmount AS refundAmount,
         rr.Status AS status,
         rr.AdminNote AS adminNote,
         rr.CreatedAt AS createdAt,

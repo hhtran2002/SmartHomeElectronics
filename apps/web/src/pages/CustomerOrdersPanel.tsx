@@ -30,7 +30,11 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   const [showReturnModal, setShowReturnModal] = useState(false)
   const [returnReason, setReturnReason] = useState('Sản phẩm lỗi/hỏng')
   const [returnNote, setReturnNote] = useState('')
-  const [returnImageUrl, setReturnImageUrl] = useState('')
+  const [returnEvidenceUrl, setReturnEvidenceUrl] = useState('')
+  const [returnRefundMethod, setReturnRefundMethod] = useState<'BankTransfer' | 'CashOnPickup'>('BankTransfer')
+  const [returnBankName, setReturnBankName] = useState('')
+  const [returnBankAccountNumber, setReturnBankAccountNumber] = useState('')
+  const [returnBankAccountName, setReturnBankAccountName] = useState('')
   const [returnSubmitting, setReturnSubmitting] = useState(false)
   const [returnError, setReturnError] = useState('')
 
@@ -105,6 +109,17 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   async function handleReturnSubmit(event: FormEvent) {
     event.preventDefault()
     if (!detail) return
+    if (!returnEvidenceUrl.trim()) {
+      setReturnError('Bạn bắt buộc phải nhập link ảnh hoặc video minh chứng lỗi sản phẩm.')
+      return
+    }
+    if (returnRefundMethod === 'BankTransfer') {
+      if (!returnBankName.trim() || !returnBankAccountNumber.trim() || !returnBankAccountName.trim()) {
+        setReturnError('Vui lòng nhập đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn.')
+        return
+      }
+    }
+
     setReturnSubmitting(true)
     setReturnError('')
     try {
@@ -112,11 +127,18 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
         orderId: detail.order.orderId,
         reason: returnReason,
         note: returnNote.trim(),
-        imageUrl: returnImageUrl.trim(),
+        evidenceUrl: returnEvidenceUrl.trim(),
+        refundMethod: returnRefundMethod,
+        bankName: returnBankName.trim(),
+        bankAccountNumber: returnBankAccountNumber.trim(),
+        bankAccountName: returnBankAccountName.trim(),
       }, token)
       setShowReturnModal(false)
       setReturnNote('')
-      setReturnImageUrl('')
+      setReturnEvidenceUrl('')
+      setReturnBankName('')
+      setReturnBankAccountNumber('')
+      setReturnBankAccountName('')
       const refreshed = await getCustomerOrder(detail.order.orderId, token)
       setDetail(refreshed.data)
     } catch (err) {
@@ -147,12 +169,13 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
         >
           <div style={{
             background: '#fff', borderRadius: '20px',
-            padding: '32px', maxWidth: '480px', width: '100%',
+            padding: '32px', maxWidth: '520px', width: '100%',
             boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
+            maxHeight: '90vh', overflowY: 'auto',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#eab308', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#ca8a04', textTransform: 'uppercase', letterSpacing: '1px' }}>
                   Khiếu nại / Đổi trả
                 </span>
                 <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#0f172a' }}>
@@ -168,10 +191,19 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
               </button>
             </div>
 
+            {/* Warning Banner */}
+            <div style={{
+              background: '#fefce8', border: '1px solid #fef08a', color: '#854d0e',
+              padding: '12px 14px', borderRadius: '10px', fontSize: '12px', lineHeight: '1.5',
+              marginBottom: '20px', fontWeight: '600',
+            }}>
+              ⚠️ <strong>Lưu ý quan trọng:</strong> Shop sẽ từ chối xử lý tất cả các yêu cầu không có link ảnh hoặc video minh chứng đính kèm (link Google Drive hoặc link ảnh).
+            </div>
+
             <form onSubmit={handleReturnSubmit}>
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                  Lý do hoàn hàng
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
+                  Lý do hoàn hàng <span style={{ color: '#dc2626' }}>*</span>
                 </label>
                 <select
                   value={returnReason}
@@ -191,7 +223,24 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
+                  Link minh chứng (Ảnh / Google Drive Video) <span style={{ color: '#dc2626' }}>* (Bắt buộc)</span>
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://drive.google.com/... hoặc link ảnh sản phẩm bị lỗi"
+                  value={returnEvidenceUrl}
+                  onChange={(e) => setReturnEvidenceUrl(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
                   Mô tả chi tiết sự cố
                 </label>
                 <textarea
@@ -201,25 +250,81 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                   onChange={(e) => setReturnNote(e.target.value)}
                   style={{
                     width: '100%', padding: '10px 14px', borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit',
+                    border: '1.5px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                  Link ảnh minh họa (tùy chọn)
+              {/* Refund Method Section */}
+              <div style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '10px' }}>
+                  Hình thức nhận tiền hoàn
                 </label>
-                <input
-                  type="text"
-                  placeholder="https://example.com/evidence-image.jpg"
-                  value={returnImageUrl}
-                  onChange={(e) => setReturnImageUrl(e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 14px', borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1', fontSize: '14px',
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
+                    <input
+                      type="radio"
+                      name="refundMethod"
+                      value="BankTransfer"
+                      checked={returnRefundMethod === 'BankTransfer'}
+                      onChange={() => setReturnRefundMethod('BankTransfer')}
+                    />
+                    🏦 Chuyển khoản ngân hàng
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
+                    <input
+                      type="radio"
+                      name="refundMethod"
+                      value="CashOnPickup"
+                      checked={returnRefundMethod === 'CashOnPickup'}
+                      onChange={() => setReturnRefundMethod('CashOnPickup')}
+                    />
+                    💵 Tiền mặt khi Shipper tới lấy hàng
+                  </label>
+                </div>
+
+                {returnRefundMethod === 'BankTransfer' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Tên Ngân hàng (VD: Vietcombank, Techcombank, MBBank...)</label>
+                      <input
+                        type="text"
+                        placeholder="VD: Vietcombank - Chi nhánh Hà Nội"
+                        value={returnBankName}
+                        onChange={(e) => setReturnBankName(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Số tài khoản</label>
+                        <input
+                          type="text"
+                          placeholder="VD: 10123456789"
+                          value={returnBankAccountNumber}
+                          onChange={(e) => setReturnBankAccountNumber(e.target.value)}
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Tên chủ tài khoản</label>
+                        <input
+                          type="text"
+                          placeholder="VD: NGUYEN VAN A"
+                          value={returnBankAccountName}
+                          onChange={(e) => setReturnBankAccountName(e.target.value)}
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {returnRefundMethod === 'CashOnPickup' && (
+                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#0369a1', lineHeight: '1.4' }}>
+                    * Khi nhân viên Shipper tới địa chỉ của bạn thu hồi sản phẩm lỗi, Shipper sẽ hoàn trả lại tiền mặt trực tiếp cho bạn sau khi đối soát xong.
+                  </p>
+                )}
               </div>
 
               {returnError && (
@@ -430,7 +535,7 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                     {detail.returnRequest ? (
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Trạng thái khiếu nại / hoàn hàng:</span>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Trạng thái khiếu nại hoàn hàng:</span>
                           <span style={{
                             padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
                             background: detail.returnRequest.status === 'Approved' ? '#f0fdf4' : detail.returnRequest.status === 'Rejected' ? '#fef2f2' : '#fefce8',
@@ -442,6 +547,30 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                         </div>
                         <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
                           <strong>Lý do:</strong> {detail.returnRequest.reason}
+                        </p>
+                        {detail.returnRequest.evidenceUrl && (
+                          <p style={{ margin: '4px 0', fontSize: '13px', color: '#0284c7' }}>
+                            <strong>Minh chứng:</strong>{' '}
+                            <a href={detail.returnRequest.evidenceUrl} target="_blank" rel="noreferrer" style={{ color: '#0284c7', textDecoration: 'underline' }}>
+                              🔗 Xem ảnh / clip Drive minh chứng
+                            </a>
+                          </p>
+                        )}
+                        <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
+                          <strong>Hình thức nhận tiền:</strong>{' '}
+                          {detail.returnRequest.refundMethod === 'BankTransfer'
+                            ? `🏦 Chuyển khoản qua ${detail.returnRequest.bankName || 'Ngân hàng'} (STK: ${detail.returnRequest.bankAccountNumber || 'N/A'} - Owner: ${detail.returnRequest.bankAccountName || 'N/A'})`
+                            : '💵 Tiền mặt trực tiếp khi Shipper tới thu hồi hàng'}
+                        </p>
+                        <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
+                          <strong>Trạng thái hoàn tiền:</strong>{' '}
+                          <span style={{ fontWeight: '700', color: detail.returnRequest.refundStatus === 'Refunded' ? '#16a34a' : '#ea580c' }}>
+                            {detail.returnRequest.refundStatus === 'Refunded'
+                              ? '✅ Đã hoàn tiền thành công'
+                              : detail.returnRequest.refundStatus === 'Processing'
+                              ? '🔄 Đang trong quá trình thu hồi hàng & hoàn tiền'
+                              : '⏳ Đang chờ xử lý'}
+                          </span>
                         </p>
                         {detail.returnRequest.note && (
                           <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
@@ -462,7 +591,10 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                           onClick={() => {
                             setReturnReason('Sản phẩm lỗi/hỏng')
                             setReturnNote('')
-                            setReturnImageUrl('')
+                            setReturnEvidenceUrl('')
+                            setReturnBankName('')
+                            setReturnBankAccountNumber('')
+                            setReturnBankAccountName('')
                             setReturnError('')
                             setShowReturnModal(true)
                           }}

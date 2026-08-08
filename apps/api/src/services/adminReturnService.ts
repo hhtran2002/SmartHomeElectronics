@@ -1,6 +1,7 @@
 import { getPool, sql } from '../config/database.js'
 
 export type ReturnRequestStatus = 'Pending' | 'Approved' | 'Rejected'
+export type RefundStatus = 'Pending' | 'Processing' | 'Refunded' | 'Failed'
 
 export async function getAdminReturnRequests() {
   const pool = await getPool()
@@ -15,7 +16,13 @@ export async function getAdminReturnRequests() {
       ua.Email AS email,
       rr.Reason AS reason,
       rr.Note AS note,
-      rr.ImageUrl AS imageUrl,
+      ISNULL(rr.EvidenceUrl, rr.ImageUrl) AS evidenceUrl,
+      rr.RefundMethod AS refundMethod,
+      rr.BankName AS bankName,
+      rr.BankAccountNumber AS bankAccountNumber,
+      rr.BankAccountName AS bankAccountName,
+      rr.RefundStatus AS refundStatus,
+      rr.RefundAmount AS refundAmount,
       rr.Status AS status,
       rr.AdminNote AS adminNote,
       rr.CreatedAt AS createdAt,
@@ -34,25 +41,31 @@ export async function getAdminReturnRequests() {
   return result.recordset
 }
 
-export async function updateReturnRequestStatus(
-  returnRequestId: number,
-  status: ReturnRequestStatus,
-  adminNote: string | null,
+export async function updateReturnRequestStatus(input: {
+  returnRequestId: number
+  status: ReturnRequestStatus
+  refundStatus?: RefundStatus
+  refundAmount?: number | null
+  adminNote?: string | null
   moderatorId: number
-) {
-  const allowed = new Set(['Pending', 'Approved', 'Rejected'])
-  if (!allowed.has(status)) throw new Error('Trạng thái yêu cầu không hợp lệ.')
+}) {
+  const allowedStatus = new Set(['Pending', 'Approved', 'Rejected'])
+  if (!allowedStatus.has(input.status)) throw new Error('Trạng thái yêu cầu không hợp lệ.')
 
   const pool = await getPool()
   const result = await pool
     .request()
-    .input('returnRequestId', sql.BigInt, returnRequestId)
-    .input('status', sql.VarChar(20), status)
-    .input('adminNote', sql.NVarChar(1000), adminNote || null)
-    .input('moderatorId', sql.BigInt, moderatorId)
+    .input('returnRequestId', sql.BigInt, input.returnRequestId)
+    .input('status', sql.VarChar(20), input.status)
+    .input('refundStatus', sql.VarChar(20), input.refundStatus || (input.status === 'Approved' ? 'Processing' : 'Pending'))
+    .input('refundAmount', sql.Decimal(18, 2), input.refundAmount ?? null)
+    .input('adminNote', sql.NVarChar(1000), input.adminNote || null)
+    .input('moderatorId', sql.BigInt, input.moderatorId)
     .query(`
       UPDATE dbo.OrderReturnRequest
       SET Status = @status,
+          RefundStatus = @refundStatus,
+          RefundAmount = ISNULL(@refundAmount, RefundAmount),
           AdminNote = @adminNote,
           ProcessedAt = SYSDATETIME(),
           ProcessedBy = @moderatorId
@@ -65,5 +78,11 @@ export async function updateReturnRequestStatus(
     throw new Error('Không tìm thấy yêu cầu hoàn hàng.')
   }
 
-  return { returnRequestId, status, adminNote }
+  return {
+    returnRequestId: input.returnRequestId,
+    status: input.status,
+    refundStatus: input.refundStatus,
+    refundAmount: input.refundAmount,
+    adminNote: input.adminNote,
+  }
 }

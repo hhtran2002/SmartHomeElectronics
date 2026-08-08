@@ -800,6 +800,13 @@ export type OrderReturnRequest = {
   reason: string
   note: string | null
   imageUrl: string | null
+  evidenceUrl: string
+  refundMethod: 'BankTransfer' | 'CashOnPickup'
+  bankName: string | null
+  bankAccountNumber: string | null
+  bankAccountName: string | null
+  refundStatus: 'Pending' | 'Processing' | 'Refunded' | 'Failed'
+  refundAmount: number | null
   status: 'Pending' | 'Approved' | 'Rejected'
   adminNote: string | null
   createdAt: string
