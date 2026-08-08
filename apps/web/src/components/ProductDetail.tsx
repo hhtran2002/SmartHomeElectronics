@@ -54,11 +54,16 @@ function buildReviewTree(reviews: ProductReview[]) {
   const map = new Map<number, ProductReview>()
   const roots: ProductReview[] = []
 
-  for (const review of reviews) map.set(review.reviewId, { ...review, replies: [] })
+  for (const review of reviews) {
+    const id = Number(review.reviewId)
+    const parentId = review.parentReviewId ? Number(review.parentReviewId) : null
+    map.set(id, { ...review, reviewId: id, parentReviewId: parentId, replies: [] })
+  }
+
   for (const review of map.values()) {
     if (review.parentReviewId && map.has(review.parentReviewId)) {
       map.get(review.parentReviewId)!.replies!.push(review)
-    } else {
+    } else if (!review.parentReviewId) {
       roots.push(review)
     }
   }
@@ -160,14 +165,15 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
 
     setReviewSaving(true)
     try {
-      await submitProductReview(productSlug, token, {
+      const res = await submitProductReview(productSlug, token, {
         rating: reviewRating,
         comment: reviewComment,
         parentReviewId: replyTo?.reviewId ?? null,
       })
       setReviewComment('')
       setReplyTo(null)
-      setReviewMessage('Đã gửi. Nội dung sẽ hiển thị sau khi admin duyệt.')
+      const isApproved = res?.data?.status === 'Approved'
+      setReviewMessage(isApproved ? 'Đã gửi phản hồi thành công!' : 'Đã gửi. Nội dung sẽ hiển thị sau khi admin duyệt.')
       onReviewSubmitted()
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : 'Không gửi được đánh giá.')

@@ -2,6 +2,7 @@ import { getPool, sql } from '../config/database.js'
 
 export type ReviewInput = {
   userId: number
+  roles?: string[]
   slug: string
   rating: number
   comment: string
@@ -37,6 +38,14 @@ export async function createProductReview(input: ReviewInput) {
     if (!parentResult.recordset[0]) throw new Error('Bình luận cha không hợp lệ.')
   }
 
+  const isAdminOrStaff = Boolean(
+    input.roles?.some((r) =>
+      ['SystemAdmin', 'CustomerSupport', 'OrderAdmin', 'WarehouseStaff', 'Employee'].includes(r)
+    )
+  )
+
+  const isReply = Boolean(input.parentReviewId)
+
   const purchasedResult = await pool
     .request()
     .input('userId', sql.BigInt, input.userId)
@@ -54,17 +63,23 @@ export async function createProductReview(input: ReviewInput) {
       ORDER BY so.CreatedAt DESC
     `)
 
-  const orderDetailId = purchasedResult.recordset[0]?.OrderDetailId as number | undefined
-  if (!orderDetailId) throw new Error('Bạn chỉ có thể đánh giá sản phẩm đã mua và đơn đã hoàn thành.')
+  const orderDetailId = (purchasedResult.recordset[0]?.OrderDetailId as number | undefined) ?? null
+
+  if (!isReply && !isAdminOrStaff && !orderDetailId) {
+    throw new Error('Bạn chỉ có thể đánh giá sản phẩm đã mua và đơn đã hoàn thành.')
+  }
+
+  const status = isAdminOrStaff || isReply ? 'Approved' : 'Pending'
 
   const inserted = await pool
     .request()
     .input('productId', sql.BigInt, productId)
     .input('orderDetailId', sql.BigInt, orderDetailId)
     .input('userId', sql.BigInt, input.userId)
-    .input('rating', sql.TinyInt, input.parentReviewId ? 5 : input.rating)
+    .input('rating', sql.TinyInt, isReply ? 5 : input.rating)
     .input('comment', sql.NVarChar(1000), input.comment)
     .input('parentReviewId', sql.BigInt, input.parentReviewId ?? null)
+    .input('status', sql.VarChar(20), status)
     .query(`
       INSERT INTO dbo.Review (
         ProductId, OrderDetailId, UserId, Rating, Comment,
@@ -73,11 +88,11 @@ export async function createProductReview(input: ReviewInput) {
       OUTPUT INSERTED.ReviewId
       VALUES (
         @productId, @orderDetailId, @userId, @rating, @comment,
-        'Pending', SYSDATETIME(), @parentReviewId
+        @status, SYSDATETIME(), @parentReviewId
       )
     `)
 
-  return { reviewId: inserted.recordset[0].ReviewId as number, status: 'Pending' }
+  return { reviewId: inserted.recordset[0].ReviewId as number, status }
 }
 
 export async function listAdminReviews() {

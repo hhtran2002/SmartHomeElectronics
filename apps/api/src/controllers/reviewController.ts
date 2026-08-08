@@ -30,6 +30,7 @@ export async function submitProductReview(request: AuthRequest, response: Respon
   try {
     const result = await createProductReview({
       userId: request.user.userId,
+      roles: request.user.roles ?? [],
       slug,
       rating,
       comment,

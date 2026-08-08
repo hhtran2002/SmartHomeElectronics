@@ -315,9 +315,9 @@ export async function getProductBySlug(slug: string) {
     .request()
     .input('productId', sql.BigInt, product.id)
     .query(`
-      SELECT TOP (50)
-        r.ReviewId AS reviewId,
-        r.ParentReviewId AS parentReviewId,
+      SELECT TOP (100)
+        CAST(r.ReviewId AS INT) AS reviewId,
+        CAST(r.ParentReviewId AS INT) AS parentReviewId,
         r.Rating AS rating,
         r.Comment AS comment,
         r.CreatedAt AS createdAt,
@@ -325,7 +325,7 @@ export async function getProductBySlug(slug: string) {
       FROM dbo.Review r
       INNER JOIN dbo.UserAccount ua ON ua.UserId = r.UserId
       WHERE r.ProductId = @productId AND r.Status = 'Approved'
-      ORDER BY r.CreatedAt DESC
+      ORDER BY r.CreatedAt ASC
     `)
 
   const skus = await pool
