@@ -308,44 +308,139 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
         </p>
       </article>
 
-      <article className="detail-section-card">
+      <article className="detail-section-card" id="product-reviews">
         <span className="eyebrow">Đánh giá</span>
         <h2>Đánh giá khách hàng</h2>
-        <div className="review-summary">
-          <strong>★ {Number(reviewSummary.averageRating).toFixed(1)}</strong>
-          <span>{reviewSummary.reviewCount} đánh giá đã duyệt</span>
+
+        {/* Review Summary Hero */}
+        <div style={{
+          display: 'flex', gap: '32px', alignItems: 'center',
+          background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+          borderRadius: '16px', padding: '24px 28px', marginBottom: '28px',
+        }}>
+          <div style={{ textAlign: 'center', minWidth: '100px' }}>
+            <div style={{ fontSize: '56px', fontWeight: '900', color: '#0369a1', lineHeight: 1 }}>
+              {Number(reviewSummary.averageRating).toFixed(1)}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', margin: '8px 0' }}>
+              {[1,2,3,4,5].map((s) => (
+                <span key={s} style={{ fontSize: '20px', color: s <= Math.round(Number(reviewSummary.averageRating)) ? '#f59e0b' : '#e2e8f0' }}>★</span>
+              ))}
+            </div>
+            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+              {reviewSummary.reviewCount} đánh giá
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            {[5,4,3,2,1].map((star) => {
+              const count = reviews.filter(r => !r.parentReviewId && r.rating === star).length
+              const pct = reviewSummary.reviewCount > 0 ? Math.round((count / reviewSummary.reviewCount) * 100) : 0
+              return (
+                <div key={star} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', width: '32px' }}>{star} ★</span>
+                  <div style={{ flex: 1, height: '8px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', borderRadius: '99px', transition: 'width 0.6s ease' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', color: '#94a3b8', width: '28px', textAlign: 'right' }}>{count}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
+
+        {/* Review List */}
         {reviewTree.length === 0 ? (
-          <p className="empty-hint">Chưa có đánh giá. Khi làm module review/comment, phần này sẽ tự lấy dữ liệu từ bảng Review.</p>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>💬</div>
+            <p style={{ fontWeight: '700', color: '#64748b', margin: '0 0 4px' }}>Chưa có đánh giá nào</p>
+            <p style={{ fontSize: '13px', margin: 0 }}>Hãy là người đầu tiên chia sẻ trải nghiệm về sản phẩm này!</p>
+          </div>
         ) : (
           <div className="review-list">
             {reviewTree.map((review) => <ReviewNode key={review.reviewId} review={review} onReply={setReplyTo} />)}
           </div>
         )}
 
-        <form className="review-form" onSubmit={handleSubmitReview}>
-          <h3>{replyTo ? `Trả lời ${replyTo.reviewerName}` : 'Viết đánh giá'}</h3>
-          {!replyTo && (
-            <label>Rating
-              <select value={reviewRating} onChange={(event) => setReviewRating(Number(event.target.value))}>
-                {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} sao</option>)}
-              </select>
-            </label>
-          )}
+        {/* Review Form */}
+        <div style={{
+          marginTop: '32px', background: '#f8fafc', borderRadius: '16px',
+          padding: '24px', border: '1px solid #e2e8f0',
+        }}>
+          <h3 style={{ margin: '0 0 20px', fontSize: '18px', color: '#0f172a' }}>
+            {replyTo ? `↩ Trả lời ${replyTo.reviewerName}` : '✍️ Viết đánh giá của bạn'}
+          </h3>
           {replyTo && (
-            <button className="ghost-button" type="button" onClick={() => setReplyTo(null)}>Hủy trả lời</button>
+            <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#f0f9ff', borderRadius: '10px', fontSize: '13px', color: '#0369a1' }}>
+              <strong>{replyTo.reviewerName}:</strong> {replyTo.comment?.slice(0, 100)}{(replyTo.comment?.length ?? 0) > 100 ? '...' : ''}
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                style={{ marginLeft: '12px', background: 'none', border: 0, cursor: 'pointer', color: '#94a3b8', fontSize: '16px' }}
+              >×</button>
+            </div>
           )}
-          <label>Nội dung
+          <form className="review-form" onSubmit={handleSubmitReview} style={{ background: 'transparent', padding: 0, border: 0 }}>
+            {!replyTo && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                  Chất lượng sản phẩm
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {[1,2,3,4,5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      style={{
+                        background: 'none', border: 0, cursor: 'pointer', padding: '2px',
+                        fontSize: '32px', lineHeight: 1,
+                        color: star <= reviewRating ? '#f59e0b' : '#e2e8f0',
+                        transition: 'color 0.15s, transform 0.1s',
+                        transform: star <= reviewRating ? 'scale(1.1)' : 'scale(1)',
+                      }}
+                    >★</button>
+                  ))}
+                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', marginLeft: '4px' }}>
+                    {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc!'][reviewRating]}
+                  </span>
+                </div>
+              </div>
+            )}
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>
+              Nội dung đánh giá
+            </label>
             <textarea
-              placeholder="Chia sẻ trải nghiệm sau khi mua sản phẩm..."
+              placeholder="Chia sẻ trải nghiệm thực tế sau khi dùng sản phẩm..."
               value={reviewComment}
               onChange={(event) => setReviewComment(event.target.value)}
+              rows={4}
+              style={{
+                width: '100%', padding: '12px 14px', borderRadius: '12px',
+                border: '1.5px solid #e2e8f0', fontSize: '14px', resize: 'vertical',
+                fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => { e.target.style.borderColor = '#0ea5e9' }}
+              onBlur={(e) => { e.target.style.borderColor = '#e2e8f0' }}
             />
-          </label>
-          {reviewError && <p className="form-error">{reviewError}</p>}
-          {reviewMessage && <p className="form-hint">{reviewMessage}</p>}
-          <button disabled={reviewSaving}>{reviewSaving ? 'Đang gửi...' : 'Gửi để duyệt'}</button>
-        </form>
+            {reviewError && <p className="form-error" style={{ marginTop: '8px' }}>{reviewError}</p>}
+            {reviewMessage && <p className="form-hint" style={{ marginTop: '8px', color: '#16a34a' }}>{reviewMessage}</p>}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              <button
+                disabled={reviewSaving}
+                style={{
+                  padding: '12px 24px', borderRadius: '12px', border: 0,
+                  background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                  color: '#fff', fontWeight: '700', fontSize: '14px',
+                  cursor: reviewSaving ? 'not-allowed' : 'pointer', opacity: reviewSaving ? 0.7 : 1,
+                }}
+              >
+                {reviewSaving ? 'Đang gửi...' : (replyTo ? 'Gửi trả lời' : 'Gửi đánh giá')}
+              </button>
+              {!token && <p style={{ margin: 0, alignSelf: 'center', fontSize: '13px', color: '#94a3b8' }}>Bạn cần đăng nhập để đánh giá</p>}
+            </div>
+          </form>
+        </div>
       </article>
     </main>
   )

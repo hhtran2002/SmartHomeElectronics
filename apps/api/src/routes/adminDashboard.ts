@@ -76,17 +76,70 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
       FROM dbo.SalesOrder so
       INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
       ORDER BY so.OrderId DESC;
+
+      SELECT
+        CONVERT(varchar(10), d.dt, 23) AS reportDate,
+        ISNULL(SUM(CASE
+          WHEN os.StatusCode IN ('Shipping', 'Completed')
+          THEN so.SubtotalAmount - so.DiscountAmount ELSE 0
+        END), 0) AS revenue,
+        ISNULL(SUM(CASE
+          WHEN os.StatusCode IN ('Shipping', 'Completed')
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0) ELSE 0
+        END), 0) AS grossProfit,
+        COUNT(so.OrderId) AS orderCount
+      FROM (
+        SELECT DATEADD(day, -6, CAST(SYSDATETIME() AS date)) AS dt UNION ALL
+        SELECT DATEADD(day, -5, CAST(SYSDATETIME() AS date)) UNION ALL
+        SELECT DATEADD(day, -4, CAST(SYSDATETIME() AS date)) UNION ALL
+        SELECT DATEADD(day, -3, CAST(SYSDATETIME() AS date)) UNION ALL
+        SELECT DATEADD(day, -2, CAST(SYSDATETIME() AS date)) UNION ALL
+        SELECT DATEADD(day, -1, CAST(SYSDATETIME() AS date)) UNION ALL
+        SELECT CAST(SYSDATETIME() AS date)
+      ) d
+      LEFT JOIN dbo.SalesOrder so
+        ON CAST(so.CreatedAt AS date) = d.dt
+      LEFT JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      OUTER APPLY (
+        SELECT SUM(sod.CostOfGoodsSold) AS costOfGoodsSold
+        FROM dbo.SalesOrderDetail sod
+        WHERE sod.OrderId = so.OrderId
+      ) orderCost
+      GROUP BY d.dt
+      ORDER BY d.dt;
+
+      SELECT TOP (5)
+        sod.ProductNameSnapshot AS productName,
+        SUM(sod.Quantity) AS quantitySold,
+        ISNULL(SUM(sod.LineTotal), 0) AS revenue
+      FROM dbo.SalesOrderDetail sod
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+      INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      WHERE YEAR(so.CreatedAt) = YEAR(SYSDATETIME())
+        AND MONTH(so.CreatedAt) = MONTH(SYSDATETIME())
+        AND os.StatusCode <> 'Cancelled'
+      GROUP BY sod.ProductNameSnapshot
+      ORDER BY revenue DESC;
     `)
 
-    const recordsets = result.recordsets as unknown as [Array<Record<string, unknown>>, Array<Record<string, unknown>>]
+    const recordsets = result.recordsets as unknown as [
+      Array<Record<string, unknown>>,
+      Array<Record<string, unknown>>,
+      Array<Record<string, unknown>>,
+      Array<Record<string, unknown>>,
+    ]
 
     response.json({
       data: {
         summary: recordsets[0][0],
         recentOrders: recordsets[1],
+        salesByDay: recordsets[2],
+        topProducts: recordsets[3],
       },
     })
   } catch (error) {
     next(error)
   }
 })
+
+

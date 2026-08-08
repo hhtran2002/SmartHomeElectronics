@@ -291,6 +291,17 @@ export type AdminDashboard = {
     createdAt: string
     orderStatusName: string
   }>
+  salesByDay: Array<{
+    reportDate: string
+    revenue: number
+    grossProfit: number
+    orderCount: number
+  }>
+  topProducts: Array<{
+    productName: string
+    quantitySold: number
+    revenue: number
+  }>
 }
 
 export type AdminReports = {
