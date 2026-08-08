@@ -90,7 +90,15 @@ export function AdminReviewsPage({ roles, token }: Props) {
             <article className="review-moderation-row" key={review.reviewId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <strong>{review.productName}</strong>
+                  <strong>
+                    {review.productName}{' '}
+                    <a
+                      href={`/#/products/${encodeURIComponent(review.productSlug)}`}
+                      style={{ fontSize: '12px', color: '#0284c7', textDecoration: 'none', marginLeft: '8px', fontWeight: 'normal' }}
+                    >
+                      🔗 Xem sản phẩm
+                    </a>
+                  </strong>
                   <small style={{ display: 'block', marginTop: '2px', color: '#64748b' }}>
                     {review.parentReviewId ? `Reply #${review.parentReviewId}` : `${review.rating} sao`} · {review.reviewerName} ({new Date(review.createdAt).toLocaleString('vi-VN')})
                   </small>
