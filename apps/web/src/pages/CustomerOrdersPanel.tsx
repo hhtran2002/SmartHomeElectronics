@@ -31,7 +31,6 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   const [returnReason, setReturnReason] = useState('Sản phẩm lỗi/hỏng')
   const [returnNote, setReturnNote] = useState('')
   const [returnEvidenceUrl, setReturnEvidenceUrl] = useState('')
-  const [returnRefundMethod, setReturnRefundMethod] = useState<'BankTransfer' | 'CashOnPickup'>('BankTransfer')
   const [returnBankName, setReturnBankName] = useState('')
   const [returnBankAccountNumber, setReturnBankAccountNumber] = useState('')
   const [returnBankAccountName, setReturnBankAccountName] = useState('')
@@ -113,11 +112,9 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
       setReturnError('Bạn bắt buộc phải nhập link ảnh hoặc video minh chứng lỗi sản phẩm.')
       return
     }
-    if (returnRefundMethod === 'BankTransfer') {
-      if (!returnBankName.trim() || !returnBankAccountNumber.trim() || !returnBankAccountName.trim()) {
-        setReturnError('Vui lòng nhập đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn.')
-        return
-      }
+    if (!returnBankName.trim() || !returnBankAccountNumber.trim() || !returnBankAccountName.trim()) {
+      setReturnError('Vui lòng nhập đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn qua chuyển khoản.')
+      return
     }
 
     setReturnSubmitting(true)
@@ -128,7 +125,6 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
         reason: returnReason,
         note: returnNote.trim(),
         evidenceUrl: returnEvidenceUrl.trim(),
-        refundMethod: returnRefundMethod,
         bankName: returnBankName.trim(),
         bankAccountNumber: returnBankAccountNumber.trim(),
         bankAccountName: returnBankAccountName.trim(),
@@ -255,76 +251,51 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                 />
               </div>
 
-              {/* Refund Method Section */}
+              {/* Bank Transfer Details Section */}
               <div style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '10px' }}>
-                  Hình thức nhận tiền hoàn
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '4px' }}>
+                  🏦 Thông tin ngân hàng nhận tiền hoàn (Chuyển khoản) <span style={{ color: '#dc2626' }}>*</span>
                 </label>
-                <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#64748b' }}>
+                  Sau khi sản phẩm được thu hồi về kho, shop sẽ chuyển khoản lại số tiền hoàn vào tài khoản này.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tên Ngân hàng (VD: Vietcombank, Techcombank, MBBank...)</label>
                     <input
-                      type="radio"
-                      name="refundMethod"
-                      value="BankTransfer"
-                      checked={returnRefundMethod === 'BankTransfer'}
-                      onChange={() => setReturnRefundMethod('BankTransfer')}
+                      type="text"
+                      required
+                      placeholder="VD: Vietcombank - Chi nhánh Hà Nội"
+                      value={returnBankName}
+                      onChange={(e) => setReturnBankName(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
                     />
-                    🏦 Chuyển khoản ngân hàng
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
-                    <input
-                      type="radio"
-                      name="refundMethod"
-                      value="CashOnPickup"
-                      checked={returnRefundMethod === 'CashOnPickup'}
-                      onChange={() => setReturnRefundMethod('CashOnPickup')}
-                    />
-                    💵 Tiền mặt khi Shipper tới lấy hàng
-                  </label>
-                </div>
-
-                {returnRefundMethod === 'BankTransfer' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Tên Ngân hàng (VD: Vietcombank, Techcombank, MBBank...)</label>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Số tài khoản</label>
                       <input
                         type="text"
-                        placeholder="VD: Vietcombank - Chi nhánh Hà Nội"
-                        value={returnBankName}
-                        onChange={(e) => setReturnBankName(e.target.value)}
+                        required
+                        placeholder="VD: 10123456789"
+                        value={returnBankAccountNumber}
+                        onChange={(e) => setReturnBankAccountNumber(e.target.value)}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
                       />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Số tài khoản</label>
-                        <input
-                          type="text"
-                          placeholder="VD: 10123456789"
-                          value={returnBankAccountNumber}
-                          onChange={(e) => setReturnBankAccountNumber(e.target.value)}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Tên chủ tài khoản</label>
-                        <input
-                          type="text"
-                          placeholder="VD: NGUYEN VAN A"
-                          value={returnBankAccountName}
-                          onChange={(e) => setReturnBankAccountName(e.target.value)}
-                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
-                        />
-                      </div>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tên chủ tài khoản</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="VD: NGUYEN VAN A"
+                        value={returnBankAccountName}
+                        onChange={(e) => setReturnBankAccountName(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
+                      />
                     </div>
                   </div>
-                )}
-
-                {returnRefundMethod === 'CashOnPickup' && (
-                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#0369a1', lineHeight: '1.4' }}>
-                    * Khi nhân viên Shipper tới địa chỉ của bạn thu hồi sản phẩm lỗi, Shipper sẽ hoàn trả lại tiền mặt trực tiếp cho bạn sau khi đối soát xong.
-                  </p>
-                )}
+                </div>
               </div>
 
               {returnError && (
@@ -557,10 +528,8 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                           </p>
                         )}
                         <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
-                          <strong>Hình thức nhận tiền:</strong>{' '}
-                          {detail.returnRequest.refundMethod === 'BankTransfer'
-                            ? `🏦 Chuyển khoản qua ${detail.returnRequest.bankName || 'Ngân hàng'} (STK: ${detail.returnRequest.bankAccountNumber || 'N/A'} - Owner: ${detail.returnRequest.bankAccountName || 'N/A'})`
-                            : '💵 Tiền mặt trực tiếp khi Shipper tới thu hồi hàng'}
+                          <strong>Tài khoản nhận tiền:</strong>{' '}
+                          🏦 Chuyển khoản qua {detail.returnRequest.bankName || 'Ngân hàng'} (STK: <strong>{detail.returnRequest.bankAccountNumber || 'N/A'}</strong> - Chủ TK: <strong>{detail.returnRequest.bankAccountName || 'N/A'}</strong>)
                         </p>
                         <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
                           <strong>Trạng thái hoàn tiền:</strong>{' '}

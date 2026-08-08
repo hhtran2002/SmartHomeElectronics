@@ -151,10 +151,10 @@ export type ReturnRequestPayload = {
   reason: string
   note?: string
   evidenceUrl: string
-  refundMethod: 'BankTransfer' | 'CashOnPickup'
-  bankName?: string
-  bankAccountNumber?: string
-  bankAccountName?: string
+  refundMethod?: string
+  bankName: string
+  bankAccountNumber: string
+  bankAccountName: string
 }
 
 export async function createReturnRequest(input: ReturnRequestPayload) {
@@ -162,10 +162,8 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
     throw new Error('Bạn bắt buộc phải cung cấp link hình ảnh hoặc video minh chứng lỗi sản phẩm.')
   }
 
-  if (input.refundMethod === 'BankTransfer') {
-    if (!input.bankName?.trim() || !input.bankAccountNumber?.trim() || !input.bankAccountName?.trim()) {
-      throw new Error('Vui lòng điền đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn.')
-    }
+  if (!input.bankName?.trim() || !input.bankAccountNumber?.trim() || !input.bankAccountName?.trim()) {
+    throw new Error('Vui lòng điền đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn qua chuyển khoản.')
   }
 
   const pool = await getPool()
@@ -208,10 +206,10 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
     .input('reason', sql.NVarChar(255), input.reason)
     .input('note', sql.NVarChar(1000), input.note || null)
     .input('evidenceUrl', sql.NVarChar(500), input.evidenceUrl.trim())
-    .input('refundMethod', sql.VarChar(20), input.refundMethod)
-    .input('bankName', sql.NVarChar(100), input.refundMethod === 'BankTransfer' ? input.bankName?.trim() : null)
-    .input('bankAccountNumber', sql.VarChar(50), input.refundMethod === 'BankTransfer' ? input.bankAccountNumber?.trim() : null)
-    .input('bankAccountName', sql.NVarChar(150), input.refundMethod === 'BankTransfer' ? input.bankAccountName?.trim() : null)
+    .input('refundMethod', sql.VarChar(20), 'BankTransfer')
+    .input('bankName', sql.NVarChar(100), input.bankName.trim())
+    .input('bankAccountNumber', sql.VarChar(50), input.bankAccountNumber.trim())
+    .input('bankAccountName', sql.NVarChar(150), input.bankAccountName.trim())
     .input('refundAmount', sql.Decimal(18, 2), Number(orderData.TotalAmount))
     .query(`
       INSERT INTO dbo.OrderReturnRequest (

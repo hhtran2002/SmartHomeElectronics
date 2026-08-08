@@ -227,7 +227,6 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
   const reason = String(request.body.reason ?? '').trim()
   const note = String(request.body.note ?? '').trim()
   const evidenceUrl = String(request.body.evidenceUrl ?? request.body.imageUrl ?? '').trim()
-  const refundMethod = (String(request.body.refundMethod ?? 'BankTransfer').trim() === 'CashOnPickup' ? 'CashOnPickup' : 'BankTransfer') as 'BankTransfer' | 'CashOnPickup'
   const bankName = String(request.body.bankName ?? '').trim()
   const bankAccountNumber = String(request.body.bankAccountNumber ?? '').trim()
   const bankAccountName = String(request.body.bankAccountName ?? '').trim()
@@ -244,6 +243,10 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
     response.status(400).json({ message: 'Bạn bắt buộc phải cung cấp link ảnh hoặc video minh chứng sản phẩm bị lỗi.' })
     return
   }
+  if (!bankName || !bankAccountNumber || !bankAccountName) {
+    response.status(400).json({ message: 'Vui lòng điền đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn qua chuyển khoản.' })
+    return
+  }
 
   try {
     const result = await createReturnRequest({
@@ -252,7 +255,7 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
       reason,
       note,
       evidenceUrl,
-      refundMethod,
+      refundMethod: 'BankTransfer',
       bankName,
       bankAccountNumber,
       bankAccountName,

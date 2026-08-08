@@ -130,19 +130,15 @@ export function AdminReturnsPage({ roles, token }: Props) {
                     </div>
                   )}
 
-                  {/* Refund method & Bank info box */}
+                  {/* Refund Bank info box */}
                   <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div>
-                      <strong>Phương thức hoàn tiền:</strong>{' '}
-                      <span style={{ fontWeight: '700', color: item.refundMethod === 'BankTransfer' ? '#0369a1' : '#ca8a04' }}>
-                        {item.refundMethod === 'BankTransfer' ? '🏦 Chuyển khoản ngân hàng' : '💵 Tiền mặt khi Shipper đến lấy hàng'}
-                      </span>
+                      <strong>Tài khoản chuyển khoản hoàn tiền:</strong>{' '}
+                      <span style={{ fontWeight: '700', color: '#0369a1' }}>🏦 Chuyển khoản ngân hàng</span>
                     </div>
-                    {item.refundMethod === 'BankTransfer' && (
-                      <div style={{ marginTop: '4px', color: '#334155' }}>
-                        👉 Ngân hàng: <strong>{item.bankName || 'N/A'}</strong> | STK: <strong>{item.bankAccountNumber || 'N/A'}</strong> | Chủ TK: <strong>{item.bankAccountName || 'N/A'}</strong>
-                      </div>
-                    )}
+                    <div style={{ marginTop: '4px', color: '#334155' }}>
+                      👉 Ngân hàng: <strong>{item.bankName || 'N/A'}</strong> | STK: <strong>{item.bankAccountNumber || 'N/A'}</strong> | Chủ TK: <strong>{item.bankAccountName || 'N/A'}</strong>
+                    </div>
                     <div style={{ marginTop: '4px', color: '#475569' }}>
                       👉 Trạng thái hoàn tiền: <span style={{ fontWeight: '700', color: item.refundStatus === 'Refunded' ? '#16a34a' : '#ea580c' }}>
                         {item.refundStatus === 'Refunded' ? '✅ Đã hoàn tiền' : item.refundStatus === 'Processing' ? '🔄 Đang xử lý' : '⏳ Chờ hoàn tiền'}

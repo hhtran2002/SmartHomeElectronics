@@ -694,10 +694,9 @@ export function submitCustomerReturnRequest(
     reason: string
     note?: string
     evidenceUrl: string
-    refundMethod: 'BankTransfer' | 'CashOnPickup'
-    bankName?: string
-    bankAccountNumber?: string
-    bankAccountName?: string
+    bankName: string
+    bankAccountNumber: string
+    bankAccountName: string
   },
   token: string
 ) {
