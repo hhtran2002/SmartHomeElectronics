@@ -11,6 +11,7 @@ import { adminOrdersRouter } from './routes/adminOrders.js'
 import { adminProductsRouter } from './routes/adminProducts.js'
 import { adminPromotionsRouter } from './routes/adminPromotions.js'
 import { adminReportsRouter } from './routes/adminReports.js'
+import { adminReturnsRouter } from './routes/adminReturns.js'
 import { adminReviewsRouter } from './routes/adminReviews.js'
 import { adminUsersRouter } from './routes/adminUsers.js'
 import { authRouter } from './routes/auth.js'
@@ -65,6 +66,7 @@ app.use('/api/admin/orders', adminOrdersRouter)
 app.use('/api/admin/products', adminProductsRouter)
 app.use('/api/admin/promotions', adminPromotionsRouter)
 app.use('/api/admin/reports', adminReportsRouter)
+app.use('/api/admin/returns', adminReturnsRouter)
 app.use('/api/admin/reviews', adminReviewsRouter)
 app.use('/api/admin/users', adminUsersRouter)
 

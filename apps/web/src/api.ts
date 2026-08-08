@@ -14,6 +14,7 @@ import type {
   AdminPromotionPayload,
   AdminPromotionSkuOption,
   AdminReports,
+  AdminReturnRequest,
   AdminReview,
   AdminStockMovement,
   AdminRole,
@@ -25,6 +26,7 @@ import type {
   CustomerProfile,
   CustomerOrder,
   CustomerOrderDetail,
+  OrderReturnRequest,
   AdministrativeProvince,
   AdministrativeWard,
   CheckoutPayload,
@@ -686,6 +688,38 @@ export function getMyReviewedItems(token: string) {
   return getJsonWithToken<{ data: number[] }>('/api/profile/reviews/my', token)
 }
 
+export function submitCustomerReturnRequest(
+  payload: { orderId: number; reason: string; note?: string; imageUrl?: string },
+  token: string
+) {
+  return postJsonWithToken<{ data: { returnRequestId: number; status: string } }>(
+    '/api/profile/returns',
+    token,
+    payload
+  )
+}
+
+export function getMyReturnRequests(token: string) {
+  return getJsonWithToken<{ data: OrderReturnRequest[] }>('/api/profile/returns', token)
+}
+
+export function getAdminReturnRequests(token: string) {
+  return getJsonWithToken<{ data: AdminReturnRequest[] }>('/api/admin/returns', token)
+}
+
+export function updateAdminReturnRequestStatus(
+  returnRequestId: number,
+  status: string,
+  adminNote: string,
+  token: string
+) {
+  return patchJsonWithToken<{ data: { returnRequestId: number; status: string; adminNote: string } }>(
+    `/api/admin/returns/${returnRequestId}/status`,
+    token,
+    { status, adminNote }
+  )
+}
+
 export function getProvinces() {
   return getJson<{ data: AdministrativeProvince[] }>('/api/locations/provinces')
 }
@@ -693,3 +727,4 @@ export function getProvinces() {
 export function getWards(provinceCode: string) {
   return getJson<{ data: AdministrativeWard[] }>(`/api/locations/wards?provinceCode=${encodeURIComponent(provinceCode)}`)
 }
+

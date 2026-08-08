@@ -13,6 +13,7 @@ import { AdminLayout } from './admin/AdminLayout'
 import { AdminProductsPage } from './admin/AdminProductsPage'
 import { AdminPromotionsPage } from './admin/AdminPromotionsPage'
 import { AdminReportsPage } from './admin/AdminReportsPage'
+import { AdminReturnsPage } from './admin/AdminReturnsPage'
 import { AdminReviewsPage } from './admin/AdminReviewsPage'
 import { AdminUsersPage } from './admin/AdminUsersPage'
 import { CartPage } from './components/CartPage'
@@ -372,6 +373,8 @@ function App() {
     )
   } else if (hash === '#/admin/promotions') {
     activePage = 'admin'
+  } else if (hash === '#/admin/promotions') {
+    activePage = 'admin'
     page = (
       <AdminLayout active="promotions" user={auth.user}>
         <AdminPromotionsPage roles={auth.user?.roles ?? []} token={auth.token} />
@@ -400,6 +403,13 @@ function App() {
     page = (
       <AdminLayout active="reviews" user={auth.user}>
         <AdminReviewsPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </AdminLayout>
+    )
+  } else if (hash === '#/admin/returns') {
+    activePage = 'admin'
+    page = (
+      <AdminLayout active="returns" user={auth.user}>
+        <AdminReturnsPage roles={auth.user?.roles ?? []} token={auth.token} />
       </AdminLayout>
     )
   }

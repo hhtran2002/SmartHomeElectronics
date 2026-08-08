@@ -794,6 +794,28 @@ export type CustomerOrder = {
   totalQuantity: number
 }
 
+export type OrderReturnRequest = {
+  returnRequestId: number
+  orderId: number
+  reason: string
+  note: string | null
+  imageUrl: string | null
+  status: 'Pending' | 'Approved' | 'Rejected'
+  adminNote: string | null
+  createdAt: string
+}
+
+export type AdminReturnRequest = OrderReturnRequest & {
+  orderCode: string
+  userId: number
+  customerName: string
+  phone: string | null
+  email: string | null
+  totalAmount: number
+  processedAt: string | null
+  processedByName: string | null
+}
+
 export type CustomerOrderDetail = {
   order: CustomerOrder & {
     subtotalAmount: number
@@ -815,4 +837,6 @@ export type CustomerOrderDetail = {
     productSlug: string
     hasReview: boolean
   }>
+  returnRequest?: OrderReturnRequest | null
 }
+

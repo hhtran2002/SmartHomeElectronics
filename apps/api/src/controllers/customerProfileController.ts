@@ -3,12 +3,14 @@ import type { AuthRequest } from '../auth.js'
 import {
   changeCustomerPassword,
   createCustomerAddress,
+  createReturnRequest,
   createReviewByOrderDetail,
   deleteCustomerAddress,
   getCustomerAddresses,
   getCustomerOrderDetail,
   getCustomerOrders,
   getCustomerProfile,
+  getCustomerReturnRequests,
   getMyReviewedOrderDetails,
   updateCustomerAddress,
   updateCustomerProfile,
@@ -219,3 +221,40 @@ export async function listMyReviews(request: AuthRequest, response: Response, ne
     next(error)
   }
 }
+
+export async function submitReturnRequest(request: AuthRequest, response: Response, next: NextFunction) {
+  const orderId = Number(request.body.orderId)
+  const reason = String(request.body.reason ?? '').trim()
+  const note = String(request.body.note ?? '').trim()
+  const imageUrl = String(request.body.imageUrl ?? '').trim()
+
+  if (!Number.isInteger(orderId) || orderId < 1) {
+    response.status(400).json({ message: 'OrderId không hợp lệ.' })
+    return
+  }
+  if (!reason) {
+    response.status(400).json({ message: 'Vui lòng chọn lý do hoàn hàng.' })
+    return
+  }
+
+  try {
+    const result = await createReturnRequest(request.user!.userId, orderId, reason, note, imageUrl)
+    response.status(201).json({ data: result })
+  } catch (error) {
+    if (error instanceof Error) {
+      response.status(400).json({ message: error.message })
+      return
+    }
+    next(error)
+  }
+}
+
+export async function listMyReturnRequests(request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    const requests = await getCustomerReturnRequests(request.user!.userId)
+    response.json({ data: requests })
+  } catch (error) {
+    next(error)
+  }
+}
+

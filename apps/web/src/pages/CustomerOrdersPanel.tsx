@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { getCustomerOrder, getCustomerOrders, submitCustomerReview } from '../api'
+import { getCustomerOrder, getCustomerOrders, submitCustomerReturnRequest, submitCustomerReview } from '../api'
 import type { CustomerOrder, CustomerOrderDetail } from '../types'
 import { formatPrice } from '../utils'
 
@@ -25,6 +25,14 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewError, setReviewError] = useState('')
   const [reviewSuccess, setReviewSuccess] = useState('')
+
+  // Return request modal state
+  const [showReturnModal, setShowReturnModal] = useState(false)
+  const [returnReason, setReturnReason] = useState('Sản phẩm lỗi/hỏng')
+  const [returnNote, setReturnNote] = useState('')
+  const [returnImageUrl, setReturnImageUrl] = useState('')
+  const [returnSubmitting, setReturnSubmitting] = useState(false)
+  const [returnError, setReturnError] = useState('')
 
   const loadOrders = useCallback(async () => {
     setLoading(true)
@@ -94,6 +102,30 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
     }
   }
 
+  async function handleReturnSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (!detail) return
+    setReturnSubmitting(true)
+    setReturnError('')
+    try {
+      await submitCustomerReturnRequest({
+        orderId: detail.order.orderId,
+        reason: returnReason,
+        note: returnNote.trim(),
+        imageUrl: returnImageUrl.trim(),
+      }, token)
+      setShowReturnModal(false)
+      setReturnNote('')
+      setReturnImageUrl('')
+      const refreshed = await getCustomerOrder(detail.order.orderId, token)
+      setDetail(refreshed.data)
+    } catch (err) {
+      setReturnError(err instanceof Error ? err.message : 'Không gửi được yêu cầu hoàn hàng.')
+    } finally {
+      setReturnSubmitting(false)
+    }
+  }
+
   if (loading) return <div className="status-card">Đang tải đơn hàng...</div>
 
   const isCompleted = detail?.order.orderStatusCode === 'Completed'
@@ -101,6 +133,129 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   return (
     <section className="customer-orders-panel">
       {error && <div className="status-card error">{error}</div>}
+
+      {/* Return Request Modal */}
+      {showReturnModal && detail && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowReturnModal(false) }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: '20px',
+            padding: '32px', maxWidth: '480px', width: '100%',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#eab308', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Khiếu nại / Đổi trả
+                </span>
+                <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#0f172a' }}>
+                  Yêu cầu hoàn hàng #{detail.order.orderCode}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReturnModal(false)}
+                style={{ background: 'none', border: 0, fontSize: '22px', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleReturnSubmit}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                  Lý do hoàn hàng
+                </label>
+                <select
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1', fontSize: '14px', background: '#fff',
+                  }}
+                >
+                  <option value="Sản phẩm lỗi/hỏng">Sản phẩm bị lỗi hoặc hỏng</option>
+                  <option value="Giao sai sản phẩm">Giao sai sản phẩm đã đặt</option>
+                  <option value="Thiếu phụ kiện/quà tặng">Thiếu phụ kiện hoặc quà tặng</option>
+                  <option value="Hàng hư hỏng khi vận chuyển">Hàng bị hư hỏng khi vận chuyển</option>
+                  <option value="Sản phẩm không như mô tả">Sản phẩm không đúng mô tả</option>
+                  <option value="Lý do khác">Lý do khác</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                  Mô tả chi tiết sự cố
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Mô tả cụ thể tình trạng sản phẩm hoặc lý do bạn muốn hoàn hàng..."
+                  value={returnNote}
+                  onChange={(e) => setReturnNote(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+                  Link ảnh minh họa (tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://example.com/evidence-image.jpg"
+                  value={returnImageUrl}
+                  onChange={(e) => setReturnImageUrl(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1', fontSize: '14px',
+                  }}
+                />
+              </div>
+
+              {returnError && (
+                <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#fef2f2', borderRadius: '10px', color: '#dc2626', fontSize: '13px' }}>
+                  {returnError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="submit"
+                  disabled={returnSubmitting}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '12px', border: 0,
+                    background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                    color: '#fff', fontWeight: '700', fontSize: '14px', cursor: 'pointer',
+                  }}
+                >
+                  {returnSubmitting ? 'Đang gửi...' : '🔄 Gửi yêu cầu hoàn hàng'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReturnModal(false)}
+                  style={{
+                    padding: '12px 20px', borderRadius: '12px',
+                    border: '1.5px solid #e2e8f0', background: '#fff',
+                    color: '#64748b', fontWeight: '600', fontSize: '14px', cursor: 'pointer',
+                  }}
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Review Modal */}
       {reviewingItem && (
@@ -149,63 +304,50 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
             )}
 
             {reviewSuccess ? (
-              <div style={{
-                background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px',
-                padding: '20px', textAlign: 'center', color: '#15803d', fontWeight: '600',
-              }}>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#16a34a', fontWeight: '700', fontSize: '15px' }}>
                 {reviewSuccess}
               </div>
             ) : (
-              <form onSubmit={(e) => { void handleReviewSubmit(e) }}>
-                {/* Star Rating */}
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '10px' }}>
-                    Chất lượng sản phẩm
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
+              <form onSubmit={handleReviewSubmit}>
+                {/* Rating stars */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
                         type="button"
+                        onClick={() => setReviewRating(star)}
                         onMouseEnter={() => setReviewHoverRating(star)}
                         onMouseLeave={() => setReviewHoverRating(0)}
-                        onClick={() => setReviewRating(star)}
                         style={{
-                          background: 'none', border: 0, cursor: 'pointer', padding: '2px',
+                          background: 'none', border: 0, cursor: 'pointer', padding: '4px',
                           fontSize: '36px', lineHeight: 1,
                           color: star <= (reviewHoverRating || reviewRating) ? '#f59e0b' : '#e2e8f0',
-                          transition: 'color 0.15s, transform 0.1s',
-                          transform: star <= (reviewHoverRating || reviewRating) ? 'scale(1.1)' : 'scale(1)',
+                          transition: 'color 0.15s, transform 0.15s',
+                          transform: star <= (reviewHoverRating || reviewRating) ? 'scale(1.15)' : 'scale(1)',
                         }}
                       >
                         ★
                       </button>
                     ))}
-                    <span style={{ marginLeft: '8px', fontSize: '13px', color: '#64748b', alignSelf: 'center', fontWeight: '600' }}>
-                      {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Rất tuyệt!'][reviewHoverRating || reviewRating]}
-                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', marginTop: '6px' }}>
+                    {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Rất tuyệt!'][reviewHoverRating || reviewRating]}
                   </div>
                 </div>
 
-                {/* Comment */}
+                {/* Comment textarea */}
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                    Nhận xét của bạn
-                  </label>
                   <textarea
-                    required
                     rows={4}
-                    placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này..."
+                    placeholder="Chia sẻ nhận xét thực tế về sản phẩm..."
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
                     style={{
                       width: '100%', padding: '12px 14px', borderRadius: '12px',
                       border: '1.5px solid #e2e8f0', fontSize: '14px', resize: 'vertical',
                       fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-                      transition: 'border-color 0.2s',
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = '#0ea5e9' }}
-                    onBlur={(e) => { e.target.style.borderColor = '#e2e8f0' }}
                   />
                 </div>
 
@@ -224,7 +366,6 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                       background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
                       color: '#fff', fontWeight: '700', fontSize: '14px',
                       cursor: reviewSubmitting ? 'not-allowed' : 'pointer',
-                      opacity: reviewSubmitting ? 0.7 : 1,
                     }}
                   >
                     {reviewSubmitting ? 'Đang gửi...' : '⭐ Gửi đánh giá'}
@@ -282,6 +423,62 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                   <h3>{detail.order.orderCode}</h3>
                   <p>{detail.order.orderStatusName} · {detail.order.paymentStatusName}</p>
                 </header>
+
+                {/* Return Request Banner / Button */}
+                {isCompleted && (
+                  <div style={{ margin: '16px 0', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    {detail.returnRequest ? (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Trạng thái khiếu nại / hoàn hàng:</span>
+                          <span style={{
+                            padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                            background: detail.returnRequest.status === 'Approved' ? '#f0fdf4' : detail.returnRequest.status === 'Rejected' ? '#fef2f2' : '#fefce8',
+                            color: detail.returnRequest.status === 'Approved' ? '#16a34a' : detail.returnRequest.status === 'Rejected' ? '#dc2626' : '#ca8a04',
+                            border: `1px solid ${detail.returnRequest.status === 'Approved' ? '#bbf7d0' : detail.returnRequest.status === 'Rejected' ? '#fecaca' : '#fef08a'}`,
+                          }}>
+                            {detail.returnRequest.status === 'Approved' ? '✅ Đã chấp nhận' : detail.returnRequest.status === 'Rejected' ? '❌ Từ chối' : '⏳ Đang chờ duyệt'}
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
+                          <strong>Lý do:</strong> {detail.returnRequest.reason}
+                        </p>
+                        {detail.returnRequest.note && (
+                          <p style={{ margin: '4px 0', fontSize: '13px', color: '#475569' }}>
+                            <strong>Mô tả:</strong> {detail.returnRequest.note}
+                          </p>
+                        )}
+                        {detail.returnRequest.adminNote && (
+                          <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#0284c7', background: '#f0f9ff', padding: '8px 12px', borderRadius: '8px' }}>
+                            <strong>Phản hồi từ Admin:</strong> {detail.returnRequest.adminNote}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: '#64748b' }}>Bạn gặp sự cố với sản phẩm?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReturnReason('Sản phẩm lỗi/hỏng')
+                            setReturnNote('')
+                            setReturnImageUrl('')
+                            setReturnError('')
+                            setShowReturnModal(true)
+                          }}
+                          style={{
+                            padding: '8px 16px', borderRadius: '10px',
+                            background: '#fefce8', border: '1px solid #fef08a',
+                            color: '#ca8a04', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+                          }}
+                        >
+                          🔄 Yêu cầu hoàn hàng / Đổi trả
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <p><strong>Nhận hàng:</strong> {detail.order.receiverName} · {detail.order.receiverPhone}</p>
                 <p><strong>Địa chỉ:</strong> {detail.order.shippingAddress}</p>
 

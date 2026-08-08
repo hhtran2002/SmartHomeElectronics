@@ -115,8 +115,113 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
       ORDER BY sod.OrderDetailId
     `)
 
-  return { order, items: items.recordset }
+  const returnRequestResult = await pool.request()
+    .input('orderId', sql.BigInt, orderId)
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT TOP (1)
+        ReturnRequestId AS returnRequestId,
+        Reason AS reason,
+        Note AS note,
+        ImageUrl AS imageUrl,
+        Status AS status,
+        AdminNote AS adminNote,
+        CreatedAt AS createdAt
+      FROM dbo.OrderReturnRequest
+      WHERE OrderId = @orderId AND UserId = @userId
+      ORDER BY ReturnRequestId DESC
+    `)
+
+  return {
+    order,
+    items: items.recordset,
+    returnRequest: returnRequestResult.recordset[0] ?? null,
+  }
 }
+
+export async function createReturnRequest(
+  userId: number,
+  orderId: number,
+  reason: string,
+  note?: string,
+  imageUrl?: string
+) {
+  const pool = await getPool()
+
+  // Validate order belongs to user and is Completed
+  const orderResult = await pool.request()
+    .input('orderId', sql.BigInt, orderId)
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT TOP (1) so.OrderId
+      FROM dbo.SalesOrder so
+      INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+      INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      WHERE so.OrderId = @orderId
+        AND cp.UserId = @userId
+        AND os.StatusCode = 'Completed'
+    `)
+
+  if (!orderResult.recordset[0]) {
+    throw new Error('Bạn chỉ có thể yêu cầu hoàn hàng đối với đơn hàng đã hoàn thành.')
+  }
+
+  // Check if there is already a return request for this order
+  const existingResult = await pool.request()
+    .input('orderId', sql.BigInt, orderId)
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT TOP (1) ReturnRequestId FROM dbo.OrderReturnRequest
+      WHERE OrderId = @orderId AND UserId = @userId
+    `)
+
+  if (existingResult.recordset[0]) {
+    throw new Error('Đơn hàng này đã có yêu cầu hoàn hàng được tạo.')
+  }
+
+  const inserted = await pool.request()
+    .input('orderId', sql.BigInt, orderId)
+    .input('userId', sql.BigInt, userId)
+    .input('reason', sql.NVarChar(255), reason)
+    .input('note', sql.NVarChar(1000), note || null)
+    .input('imageUrl', sql.NVarChar(500), imageUrl || null)
+    .query(`
+      INSERT INTO dbo.OrderReturnRequest (
+        OrderId, UserId, Reason, Note, ImageUrl, Status, CreatedAt
+      )
+      OUTPUT INSERTED.ReturnRequestId
+      VALUES (
+        @orderId, @userId, @reason, @note, @imageUrl, 'Pending', SYSDATETIME()
+      )
+    `)
+
+  return { returnRequestId: inserted.recordset[0].ReturnRequestId as number, status: 'Pending' }
+}
+
+export async function getCustomerReturnRequests(userId: number) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT
+        rr.ReturnRequestId AS returnRequestId,
+        rr.OrderId AS orderId,
+        so.OrderCode AS orderCode,
+        rr.Reason AS reason,
+        rr.Note AS note,
+        rr.ImageUrl AS imageUrl,
+        rr.Status AS status,
+        rr.AdminNote AS adminNote,
+        rr.CreatedAt AS createdAt,
+        so.TotalAmount AS totalAmount
+      FROM dbo.OrderReturnRequest rr
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
+      WHERE rr.UserId = @userId
+      ORDER BY rr.ReturnRequestId DESC
+    `)
+  return result.recordset
+}
+
 
 export async function getCustomerProfile(userId: number) {
   const pool = await getPool()
