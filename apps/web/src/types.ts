@@ -829,6 +829,23 @@ export type AdminReturnRequest = OrderReturnRequest & {
   warehouseConfirmedByName: string | null
 }
 
+export type ShipperReturnPickup = {
+  returnRequestId: number
+  orderId: number
+  orderCode: string
+  customerName: string
+  phone: string
+  shippingAddress: string
+  totalAmount: number
+  reason: string
+  note: string | null
+  evidenceUrl: string
+  status: string
+  refundStatus: string
+  warehouseConfirmedAt: string | null
+  createdAt: string
+}
+
 export type CustomerOrderDetail = {
   order: CustomerOrder & {
     subtotalAmount: number

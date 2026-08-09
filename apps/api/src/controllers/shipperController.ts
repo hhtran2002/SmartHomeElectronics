@@ -7,7 +7,9 @@ import {
 } from '../services/codRemittanceService.js'
 import {
   completeShipmentDelivery,
+  confirmShipperReturnPickup,
   failShipmentDelivery,
+  getShipperReturnPickups,
   getShipperShipments,
   requestShipmentReturn,
   rescheduleShipmentDelivery,
@@ -141,6 +143,24 @@ export async function requestReturn(request: AuthRequest, response: Response, ne
   if (!shipmentId || !reason) return void response.status(400).json({ message: 'Vui lòng nhập lý do trả hàng về kho.' })
   try {
     response.json({ data: await requestShipmentReturn(shipmentId, request.user!.userId, isAdmin(request), reason) })
+  } catch (error) {
+    businessError(error, response, next)
+  }
+}
+
+export async function listMyReturnPickups(request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    response.json({ data: await getShipperReturnPickups(request.user!.userId, isAdmin(request)) })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function confirmReturnPickup(request: AuthRequest, response: Response, next: NextFunction) {
+  const returnRequestId = positiveId(request.params.returnRequestId)
+  if (!returnRequestId) return void response.status(400).json({ message: 'Lệnh thu hồi không hợp lệ.' })
+  try {
+    response.json({ data: await confirmShipperReturnPickup(returnRequestId, request.user!.userId) })
   } catch (error) {
     businessError(error, response, next)
   }

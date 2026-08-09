@@ -3,8 +3,10 @@ import { requireAuth, requireRoles } from '../auth.js'
 import {
   cancelCodRemittance,
   completeDelivery,
+  confirmReturnPickup,
   failDelivery,
   getMyCodSummary,
+  listMyReturnPickups,
   listMyShipments,
   requestReturn,
   rescheduleDelivery,
@@ -17,6 +19,8 @@ export const shipperRouter = Router()
 shipperRouter.use(requireAuth, requireRoles(['DeliveryStaff', 'SystemAdmin']))
 
 shipperRouter.get('/shipments', listMyShipments)
+shipperRouter.get('/returns', listMyReturnPickups)
+shipperRouter.post('/returns/:returnRequestId/confirm', confirmReturnPickup)
 shipperRouter.get('/cod', getMyCodSummary)
 shipperRouter.post('/cod/remittances', submitCodRemittance)
 shipperRouter.post('/cod/remittances/:codRemittanceId/cancel', cancelCodRemittance)

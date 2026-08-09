@@ -364,3 +364,59 @@ export function requestShipmentReturn(shipmentId: number, userId: number, isSyst
     note: `Đề nghị trả hàng về kho: ${reason}`,
   })
 }
+
+export async function getShipperReturnPickups(userId: number, isSystemAdmin: boolean) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .input('isSystemAdmin', sql.Bit, isSystemAdmin)
+    .query(`
+      SELECT
+        rr.ReturnRequestId AS returnRequestId,
+        rr.OrderId AS orderId,
+        so.OrderCode AS orderCode,
+        so.ReceiverName AS customerName,
+        so.ReceiverPhone AS phone,
+        so.ShippingAddressSnapshot AS shippingAddress,
+        so.TotalAmount AS totalAmount,
+        rr.Reason AS reason,
+        rr.Note AS note,
+        ISNULL(rr.EvidenceUrl, rr.ImageUrl) AS evidenceUrl,
+        rr.Status AS status,
+        rr.RefundStatus AS refundStatus,
+        rr.WarehouseConfirmedAt AS warehouseConfirmedAt,
+        rr.CreatedAt AS createdAt
+      FROM dbo.OrderReturnRequest rr
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
+      WHERE rr.Status = 'Approved'
+        AND (@isSystemAdmin = 1 OR rr.DeliveryStaffId = @userId)
+      ORDER BY
+        CASE WHEN rr.WarehouseConfirmedAt IS NULL THEN 0 ELSE 1 END,
+        rr.CreatedAt DESC
+    `)
+  return result.recordset
+}
+
+export async function confirmShipperReturnPickup(returnRequestId: number, userId: number) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('returnRequestId', sql.BigInt, returnRequestId)
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      UPDATE dbo.OrderReturnRequest
+      SET WarehouseConfirmedAt = SYSDATETIME(),
+          WarehouseConfirmedBy = @userId,
+          RefundStatus = 'Processing'
+      WHERE ReturnRequestId = @returnRequestId
+        AND Status = 'Approved'
+
+      SELECT @@ROWCOUNT AS affectedRows
+    `)
+
+  if (!Number(result.recordset[0]?.affectedRows)) {
+    throw new Error('Không thể xác nhận thu hồi đơn này.')
+  }
+
+  return { returnRequestId, warehouseConfirmedAt: new Date().toISOString() }
+}
+

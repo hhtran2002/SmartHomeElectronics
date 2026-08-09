@@ -43,6 +43,7 @@ import type {
   CodRemittanceMethod,
   ShipperCodAccount,
   ShipperShipment,
+  ShipperReturnPickup,
   WarehouseReturnShipment,
 } from './types'
 
@@ -736,6 +737,18 @@ export function updateAdminReturnRequestStatus(
 export function confirmWarehouseReturnStockIn(returnRequestId: number, token: string) {
   return patchJsonWithToken<{ data: { returnRequestId: number; warehouseConfirmedAt: string } }>(
     `/api/admin/returns/${returnRequestId}/warehouse-confirm`,
+    token,
+    {}
+  )
+}
+
+export function getShipperReturnPickups(token: string) {
+  return getJsonWithToken<{ data: ShipperReturnPickup[] }>('/api/shipper/returns', token)
+}
+
+export function confirmShipperReturnPickup(returnRequestId: number, token: string) {
+  return postJsonWithToken<{ data: { returnRequestId: number } }>(
+    `/api/shipper/returns/${returnRequestId}/confirm`,
     token,
     {}
   )
