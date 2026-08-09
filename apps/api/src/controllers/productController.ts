@@ -15,6 +15,7 @@ export async function listProducts(request: Request, response: Response, next: N
     const maxPrice = request.query.maxPrice === undefined ? null : Number(request.query.maxPrice)
     const page = Math.max(1, readPositiveNumber(request.query.page, 1))
     const pageSize = Math.min(48, Math.max(6, readPositiveNumber(request.query.pageSize, 12)))
+    const onSale = request.query.onSale === '1' || request.query.onSale === 'true'
 
     const payload = await getProductList({
       search,
@@ -24,6 +25,7 @@ export async function listProducts(request: Request, response: Response, next: N
       maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
       page,
       pageSize,
+      onSale,
     })
 
     response.json(payload)

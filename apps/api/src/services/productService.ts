@@ -8,6 +8,7 @@ export type ProductFilters = {
   maxPrice: number | null
   page: number
   pageSize: number
+  onSale?: boolean
 }
 
 export type ProductListResult = {
@@ -29,6 +30,7 @@ export async function getProductList(filters: ProductFilters): Promise<ProductLi
     .input('maxPrice', sql.Decimal(18, 2), Number.isFinite(filters.maxPrice) ? filters.maxPrice : null)
     .input('offset', sql.Int, offset)
     .input('pageSize', sql.Int, filters.pageSize)
+    .input('onSale', sql.Bit, filters.onSale ? 1 : 0)
     .query(`
       WITH ProductList AS (
         SELECT
@@ -125,6 +127,7 @@ export async function getProductList(filters: ProductFilters): Promise<ProductLi
             OR b.BrandName LIKE @search)
           AND (@category = '' OR c.Slug = @category)
           AND (@brand = N'' OR b.BrandName = @brand)
+          AND (@onSale = 0 OR promotion.PromotionId IS NOT NULL)
           AND (@minPrice IS NULL OR (
             CASE
               WHEN promotion.PromotionId IS NULL THEN sku.Price

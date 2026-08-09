@@ -25,6 +25,7 @@ import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SalePage } from './pages/SalePage'
 import { ShipperLayout } from './shipper/ShipperLayout'
 import { ShipperCodPage } from './shipper/ShipperCodPage'
 import { ShipperPage } from './shipper/ShipperPage'
@@ -204,7 +205,7 @@ function App() {
       .catch(() => setDetailError('Không tải được chi tiết sản phẩm.'))
   }
 
-  let activePage: 'home' | 'products' | 'cart' | 'auth' | 'admin' = 'home'
+  let activePage: 'home' | 'products' | 'sale' | 'cart' | 'auth' | 'admin' = 'home'
   let page = (
     <HomePage
       search={filters.search}
@@ -242,6 +243,14 @@ function App() {
         onViewDetail={handleViewDetail}
         roles={auth.user?.roles ?? []}
         token={auth.token}
+      />
+    )
+  } else if (hash === '#/sale') {
+    activePage = 'sale'
+    page = (
+      <SalePage
+        onAddToCart={addToCart}
+        onViewDetail={handleViewDetail}
       />
     )
   } else if (hash === '#/cart') {
@@ -283,6 +292,7 @@ function App() {
         token={auth.token}
       />
     )
+
   } else if (hash === '#/login') {
     activePage = 'auth'
     page = (

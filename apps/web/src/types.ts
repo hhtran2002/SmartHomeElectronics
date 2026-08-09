@@ -115,6 +115,7 @@ export type ProductFilters = {
   minPrice: string
   maxPrice: string
   page: number
+  onSale?: boolean
 }
 
 export type ProductListResponse = {

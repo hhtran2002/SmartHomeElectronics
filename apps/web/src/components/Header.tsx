@@ -1,7 +1,7 @@
 import type { AuthUser } from '../types'
 
 type HeaderProps = {
-  activePage?: 'home' | 'products' | 'cart' | 'auth' | 'admin'
+  activePage?: 'home' | 'products' | 'sale' | 'cart' | 'auth' | 'admin'
   cartCount?: number
   user?: AuthUser | null
   onLogout?: () => void
@@ -92,6 +92,9 @@ export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: H
           </a>
           <a className={activePage === 'products' ? 'active' : ''} href="#/products">
             Sản phẩm
+          </a>
+          <a className={`nav-sale-link${activePage === 'sale' ? ' active' : ''}`} href="#/sale">
+            🔥 Giảm giá
           </a>
         </nav>
 

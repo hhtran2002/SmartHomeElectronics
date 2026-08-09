@@ -149,6 +149,7 @@ export function getProducts(filters: ProductFilters) {
   if (filters.brand) params.set('brand', filters.brand)
   if (filters.minPrice) params.set('minPrice', filters.minPrice)
   if (filters.maxPrice) params.set('maxPrice', filters.maxPrice)
+  if (filters.onSale) params.set('onSale', '1')
 
   return getJson<ProductListResponse>(`/api/products?${params.toString()}`)
 }
