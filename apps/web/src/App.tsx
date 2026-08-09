@@ -373,8 +373,6 @@ function App() {
     )
   } else if (hash === '#/admin/promotions') {
     activePage = 'admin'
-  } else if (hash === '#/admin/promotions') {
-    activePage = 'admin'
     page = (
       <AdminLayout active="promotions" user={auth.user}>
         <AdminPromotionsPage roles={auth.user?.roles ?? []} token={auth.token} />

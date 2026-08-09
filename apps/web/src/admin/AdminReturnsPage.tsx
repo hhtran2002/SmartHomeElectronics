@@ -98,8 +98,8 @@ export function AdminReturnsPage({ roles, token }: Props) {
   }
 
   return (
-    <section>
-      <div className="section-heading compact">
+    <section style={{ width: '100%', boxSizing: 'border-box' }}>
+      <div className="section-heading compact" style={{ marginBottom: '20px' }}>
         <div>
           <span className="eyebrow">Quản trị CSKH, Giao nhận & Kho hàng</span>
           <h2>Duyệt khiếu nại hoàn hàng & Thu hồi sản phẩm</h2>
@@ -107,232 +107,308 @@ export function AdminReturnsPage({ roles, token }: Props) {
         </div>
       </div>
 
-      {error && <div className="status-card error">{error}</div>}
+      {error && <div className="status-card error" style={{ marginBottom: '16px' }}>{error}</div>}
 
-      <div className="admin-panel-card">
-        <div className="admin-detail-items">
-          {loading ? (
-            <p>Đang tải danh sách khiếu nại...</p>
-          ) : requests.length === 0 ? (
-            <p className="empty-hint">Chưa có yêu cầu hoàn hàng nào.</p>
-          ) : requests.map((item) => (
-            <article className="review-moderation-row" key={item.returnRequestId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <strong>
-                    Đơn hàng #{item.orderCode}{' '}
-                    <a
-                      href={`/#/admin/orders`}
-                      style={{ fontSize: '12px', color: '#0284c7', textDecoration: 'none', marginLeft: '8px', fontWeight: 'normal' }}
-                    >
-                      🔗 Xem chi tiết đơn
-                    </a>
-                  </strong>
-                  <small style={{ display: 'block', marginTop: '4px', color: '#64748b' }}>
-                    Khách hàng: <strong>{item.customerName}</strong> ({item.phone || item.email || 'N/A'}) · Giá trị đơn: <strong>{formatPrice(item.totalAmount)}</strong>
-                  </small>
-                  <p style={{ marginTop: '8px', fontSize: '14px', margin: '8px 0 4px' }}>
-                    <strong>Lý do:</strong> {item.reason}
-                  </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+        {loading ? (
+          <div className="admin-panel-card"><p>Đang tải danh sách khiếu nại...</p></div>
+        ) : requests.length === 0 ? (
+          <div className="admin-panel-card"><p className="empty-hint">Chưa có yêu cầu hoàn hàng nào.</p></div>
+        ) : requests.map((item) => (
+          <div
+            key={item.returnRequestId}
+            style={{
+              background: '#fff',
+              borderRadius: '16px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 20px rgba(15, 23, 42, 0.05)',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Header row: Order info & Status Badge */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                  Đơn hàng #{item.orderCode}
+                </span>
+                <a
+                  href="/#/admin/orders"
+                  style={{ fontSize: '13px', color: '#0284c7', textDecoration: 'none', fontWeight: '600', background: '#e0f2fe', padding: '4px 10px', borderRadius: '6px' }}
+                >
+                  🔗 Xem chi tiết đơn
+                </a>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  Tạo lúc: {new Date(item.createdAt).toLocaleString('vi-VN')}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span
+                  style={{
+                    padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
+                    background: item.status === 'Approved' ? '#f0fdf4' : item.status === 'Rejected' ? '#fef2f2' : '#fefce8',
+                    color: item.status === 'Approved' ? '#16a34a' : item.status === 'Rejected' ? '#dc2626' : '#ca8a04',
+                    border: `1px solid ${item.status === 'Approved' ? '#bbf7d0' : item.status === 'Rejected' ? '#fecaca' : '#fef08a'}`,
+                  }}
+                >
+                  {item.status === 'Approved' ? '✅ CSKH Đã chấp nhận' : item.status === 'Rejected' ? '❌ CSKH Từ chối' : '⏳ Chờ CSKH duyệt'}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid 2 Columns Layout for Widescreen */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '24px', alignItems: 'start' }}>
+              
+              {/* LEFT COLUMN: Customer Info, Error Details & Proof, Bank Transfer */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>Khách hàng khiếu nại:</span>
+                    <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.customerName} ({item.phone || item.email || 'N/A'})</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>Giá trị đơn hàng:</span>
+                    <strong style={{ fontSize: '15px', color: '#0284c7' }}>{formatPrice(item.totalAmount)}</strong>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748b', display: 'block' }}>Lý do hoàn hàng:</span>
+                    <strong style={{ fontSize: '14px', color: '#dc2626' }}>{item.reason}</strong>
+                  </div>
                   {item.note && (
-                    <p style={{ fontSize: '13px', color: '#475569', margin: '2px 0' }}>
-                      <strong>Mô tả lỗi:</strong> {item.note}
-                    </p>
+                    <div>
+                      <span style={{ fontSize: '13px', color: '#64748b', display: 'block' }}>Mô tả sự cố từ khách:</span>
+                      <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#334155', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        {item.note}
+                      </p>
+                    </div>
                   )}
                   {item.evidenceUrl && (
-                    <div style={{ marginTop: '6px' }}>
+                    <div style={{ marginTop: '12px' }}>
                       <a
                         href={item.evidenceUrl}
                         target="_blank"
                         rel="noreferrer"
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '4px',
-                          fontSize: '12px', fontWeight: '700', color: '#0284c7',
-                          background: '#e0f2fe', padding: '4px 10px', borderRadius: '6px',
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          fontSize: '13px', fontWeight: '700', color: '#0284c7',
+                          background: '#e0f2fe', padding: '8px 14px', borderRadius: '8px',
                           textDecoration: 'none', border: '1px solid #bae6fd',
                         }}
                       >
-                        📷 Xem clip / ảnh minh chứng lỗi 🔗
+                        📷 Xem ảnh / Video minh chứng đính kèm 🔗
                       </a>
                     </div>
                   )}
+                </div>
 
-                  {/* 3-Stage Progress Box */}
-                  <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                {/* Bank Account Info */}
+                <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', display: 'block', marginBottom: '8px' }}>
+                    🏦 Tài khoản Ngân hàng nhận tiền chuyển khoản hoàn:
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', fontSize: '13px', color: '#0f172a' }}>
                     <div>
-                      <strong>1. Shipper thu hồi:</strong>{' '}
+                      <small style={{ color: '#64748b', display: 'block' }}>Tên Ngân Hàng</small>
+                      <strong>{item.bankName || 'N/A'}</strong>
+                    </div>
+                    <div>
+                      <small style={{ color: '#64748b', display: 'block' }}>Số Tài Khoản</small>
+                      <strong style={{ fontFamily: 'monospace', fontSize: '14px', color: '#0284c7' }}>{item.bankAccountNumber || 'N/A'}</strong>
+                    </div>
+                    <div>
+                      <small style={{ color: '#64748b', display: 'block' }}>Chủ Tài Khoản</small>
+                      <strong style={{ textTransform: 'uppercase' }}>{item.bankAccountName || 'N/A'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {item.adminNote && (
+                  <div style={{ background: '#fefce8', padding: '12px 16px', borderRadius: '10px', border: '1px solid #fef08a', fontSize: '13px', color: '#854d0e' }}>
+                    <strong>Ghi chú phản hồi CSKH/Kho:</strong> {item.adminNote}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT COLUMN: 3-Stage Progress Box & Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Tiến trình thu hồi & hoàn tiền (3 Bước)
+                  </span>
+
+                  {/* Stage 1: Shipper Assignment */}
+                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><strong>1. Thu hồi hàng:</strong></span>
                       {item.deliveryStaffName ? (
-                        <span style={{ color: '#0284c7', fontWeight: '700' }}>
-                          🚚 Shipper {item.deliveryStaffName} ({item.deliveryStaffPhone || 'N/A'})
-                        </span>
+                        <span style={{ color: '#0284c7', fontWeight: '700' }}>🚚 Shipper {item.deliveryStaffName} ({item.deliveryStaffPhone || 'N/A'})</span>
                       ) : (
-                        <span style={{ color: '#ea580c', fontWeight: '600' }}>⏳ Chưa phân công Shipper lấy hàng</span>
+                        <span style={{ color: '#ea580c', fontWeight: '600' }}>⏳ Chưa phân công Shipper</span>
                       )}
-                    </div>
-
-                    <div>
-                      <strong>2. Nhập kho hàng hoàn:</strong>{' '}
-                      {item.warehouseConfirmedAt ? (
-                        <span style={{ color: '#16a34a', fontWeight: '700' }}>
-                          ✅ Thủ kho {item.warehouseConfirmedByName || ''} đã xác nhận nhập kho ({new Date(item.warehouseConfirmedAt).toLocaleString('vi-VN')})
-                        </span>
-                      ) : (
-                        <span style={{ color: '#dc2626', fontWeight: '600' }}>
-                          ⏳ Chưa nhập kho (Đang chờ thu hồi)
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <strong>3. Chuyển khoản hoàn tiền:</strong>{' '}
-                      <span style={{ fontWeight: '700', color: item.refundStatus === 'Refunded' ? '#16a34a' : '#ca8a04' }}>
-                        {item.refundStatus === 'Refunded' ? '✅ Đã chuyển khoản hoàn tiền thành công' : '⏳ Chờ hoàn tiền'}
-                      </span>
-                    </div>
-
-                    <div style={{ marginTop: '4px', color: '#334155', background: '#fff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                      🏦 STK nhận tiền: <strong>{item.bankName || 'N/A'}</strong> | STK: <strong>{item.bankAccountNumber || 'N/A'}</strong> | Chủ TK: <strong>{item.bankAccountName || 'N/A'}</strong>
                     </div>
                   </div>
 
-                  {item.adminNote && (
-                    <p style={{ marginTop: '8px', fontSize: '12px', color: '#0284c7', background: '#f0f9ff', padding: '6px 10px', borderRadius: '6px' }}>
-                      <strong>Ghi chú CSKH/Kho:</strong> {item.adminNote}
-                    </p>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                  <span className={`status-pill ${item.status.toLowerCase()}`}>
-                    {item.status === 'Approved' ? '✅ Đã chấp nhận' : item.status === 'Rejected' ? '❌ Từ chối' : '⏳ Chờ duyệt'}
-                  </span>
-                  <small style={{ color: '#94a3b8', fontSize: '11px' }}>
-                    {new Date(item.createdAt).toLocaleString('vi-VN')}
-                  </small>
-                  
-                  <div className="row-actions" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', alignItems: 'flex-end' }}>
+                  {/* Stage 2: Warehouse Stock-In */}
+                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><strong>2. Thủ kho nhập kho:</strong></span>
+                      {item.warehouseConfirmedAt ? (
+                        <span style={{ color: '#16a34a', fontWeight: '700' }}>✅ Đã nhập kho ({new Date(item.warehouseConfirmedAt).toLocaleTimeString('vi-VN')})</span>
+                      ) : (
+                        <span style={{ color: '#dc2626', fontWeight: '600' }}>⏳ Chưa nhập kho</span>
+                      )}
+                    </div>
                     {item.status === 'Approved' && !item.warehouseConfirmedAt && isWarehouse && (
                       <button
-                        style={{ background: '#0284c7', color: '#fff', border: 0, borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                        style={{ marginTop: '8px', width: '100%', background: '#0284c7', color: '#fff', border: 0, borderRadius: '6px', padding: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
                         disabled={saving}
                         onClick={() => void handleConfirmStockIn(item.returnRequestId)}
                       >
-                        📦 Thủ kho: Xác nhận đã nhập kho
+                        📦 Thủ kho: Bấm xác nhận đã nhận hàng hoàn về kho
                       </button>
                     )}
+                  </div>
 
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        style={{ background: '#16a34a', color: '#fff', border: 0, borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}
-                        onClick={() => {
-                          setProcessingId(item.returnRequestId)
-                          setActionStatus('Approved')
-                          setRefundStatus(item.refundStatus || 'Processing')
-                          setRefundAmount(item.refundAmount || item.totalAmount)
-                          setSelectedStaffId(item.deliveryStaffId || null)
-                          setAdminNote(item.adminNote || '')
-                        }}
-                      >
-                        {item.status === 'Approved' ? '⚙️ Cập nhật xử lý' : 'Đồng ý thu hồi'}
-                      </button>
-                      <button
-                        style={{ background: '#dc2626', color: '#fff', border: 0, borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}
-                        onClick={() => {
-                          setProcessingId(item.returnRequestId)
-                          setActionStatus('Rejected')
-                          setAdminNote(item.adminNote || '')
-                        }}
-                      >
-                        Từ chối
-                      </button>
+                  {/* Stage 3: Refund Status */}
+                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><strong>3. Chuyển khoản hoàn tiền:</strong></span>
+                      <span style={{ fontWeight: '700', color: item.refundStatus === 'Refunded' ? '#16a34a' : '#ca8a04' }}>
+                        {item.refundStatus === 'Refunded' ? '✅ Đã hoàn tiền' : '⏳ Chờ hoàn tiền'}
+                      </span>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Action input box */}
-              {processingId === item.returnRequestId && (
-                <div style={{ background: actionStatus === 'Approved' ? '#f0fdf4' : '#fef2f2', padding: '14px 16px', borderRadius: '12px', border: `1px solid ${actionStatus === 'Approved' ? '#bbf7d0' : '#fecaca'}` }}>
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: actionStatus === 'Approved' ? '#15803d' : '#991b1b' }}>
-                    Xác nhận {actionStatus === 'Approved' ? 'ĐỒNG Ý THU HỒI' : 'TỪ CHỐI'} yêu cầu hoàn hàng #{item.orderCode}:
-                  </span>
+                {/* Primary Action Buttons */}
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button
+                    style={{
+                      flex: 1, padding: '12px 16px', background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                      color: '#fff', border: 0, borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setProcessingId(item.returnRequestId)
+                      setActionStatus('Approved')
+                      setRefundStatus(item.refundStatus || 'Processing')
+                      setRefundAmount(item.refundAmount || item.totalAmount)
+                      setSelectedStaffId(item.deliveryStaffId || null)
+                      setAdminNote(item.adminNote || '')
+                    }}
+                  >
+                    {item.status === 'Approved' ? '⚙️ Cập nhật phân công & Hoàn tiền' : '✅ Chấp nhận thu hồi hàng'}
+                  </button>
+                  <button
+                    style={{
+                      padding: '12px 16px', background: '#dc2626',
+                      color: '#fff', border: 0, borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setProcessingId(item.returnRequestId)
+                      setActionStatus('Rejected')
+                      setAdminNote(item.adminNote || '')
+                    }}
+                  >
+                    ❌ Từ chối
+                  </button>
+                </div>
 
-                  {actionStatus === 'Approved' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '10px 0' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534' }}>1. Chọn Shipper đến nhà khách lấy sản phẩm lỗi</label>
-                        <select
-                          value={selectedStaffId || ''}
-                          onChange={(e) => setSelectedStaffId(e.target.value ? Number(e.target.value) : null)}
-                          style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px' }}
-                        >
-                          <option value="">-- Chọn Shipper thu hồi --</option>
-                          {deliveryStaffOptions.map((staff) => (
-                            <option key={staff.userId} value={staff.userId}>
-                              🚚 Shipper: {staff.fullName} ({staff.phone})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                {/* Action form modal / expansion */}
+                {processingId === item.returnRequestId && (
+                  <div style={{ background: actionStatus === 'Approved' ? '#f0fdf4' : '#fef2f2', padding: '16px', borderRadius: '12px', border: `1px solid ${actionStatus === 'Approved' ? '#bbf7d0' : '#fecaca'}` }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: actionStatus === 'Approved' ? '#15803d' : '#991b1b', display: 'block', marginBottom: '10px' }}>
+                      Xác nhận {actionStatus === 'Approved' ? 'ĐỒNG Ý THU HỒI' : 'TỪ CHỐI'} yêu cầu hoàn hàng #{item.orderCode}:
+                    </span>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    {actionStatus === 'Approved' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
                         <div>
-                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534' }}>2. Trạng thái chuyển khoản hoàn tiền</label>
+                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
+                            1. Phân công Shipper thu hồi sản phẩm
+                          </label>
                           <select
-                            value={refundStatus}
-                            onChange={(e) => setRefundStatus(e.target.value as any)}
-                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px' }}
+                            value={selectedStaffId || ''}
+                            onChange={(e) => setSelectedStaffId(e.target.value ? Number(e.target.value) : null)}
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
                           >
-                            <option value="Processing">🔄 Đang thu hồi sản phẩm</option>
-                            <option value="Refunded" disabled={!item.warehouseConfirmedAt}>
-                              {!item.warehouseConfirmedAt ? '❌ [Chưa thể chọn] Chờ Thủ kho nhận hàng về kho' : '✅ Đã chuyển khoản hoàn tiền xong'}
-                            </option>
-                            <option value="Pending">⏳ Chờ xử lý</option>
+                            <option value="">-- Chọn Shipper thu hồi hàng --</option>
+                            {deliveryStaffOptions.map((staff) => (
+                              <option key={staff.userId} value={staff.userId}>
+                                🚚 Shipper: {staff.fullName} ({staff.phone})
+                              </option>
+                            ))}
                           </select>
                         </div>
-                        <div>
-                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534' }}>Số tiền hoàn (VNĐ)</label>
-                          <input
-                            type="number"
-                            value={refundAmount}
-                            onChange={(e) => setRefundAmount(Number(e.target.value))}
-                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px' }}
-                          />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
+                          <div>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
+                              2. Trạng thái chuyển khoản
+                            </label>
+                            <select
+                              value={refundStatus}
+                              onChange={(e) => setRefundStatus(e.target.value as any)}
+                              style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+                            >
+                              <option value="Processing">🔄 Đang thu hồi sản phẩm</option>
+                              <option value="Refunded" disabled={!item.warehouseConfirmedAt}>
+                                {!item.warehouseConfirmedAt ? '❌ [Khóa] Chờ Thủ kho nhận hàng về kho' : '✅ Đã chuyển khoản hoàn tiền xong'}
+                              </option>
+                              <option value="Pending">⏳ Chờ xử lý</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
+                              Số tiền hoàn (VNĐ)
+                            </label>
+                            <input
+                              type="number"
+                              value={refundAmount}
+                              onChange={(e) => setRefundAmount(Number(e.target.value))}
+                              style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <textarea
-                    rows={2}
-                    placeholder="Nhập lời nhắn gửi cho khách hàng (lý do từ chối hoặc hướng dẫn trả hàng)..."
-                    value={adminNote}
-                    onChange={(e) => setAdminNote(e.target.value)}
-                    style={{ width: '100%', marginTop: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                  />
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                    <button
-                      disabled={saving}
-                      onClick={() => void handleConfirmStatus()}
-                      style={{
-                        padding: '8px 20px', border: 0, borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', color: '#fff',
-                        background: actionStatus === 'Approved' ? '#16a34a' : '#dc2626',
-                      }}
-                    >
-                      {saving ? 'Đang lưu...' : 'Xác nhận xử lý'}
-                    </button>
-                    <button
-                      onClick={() => { setProcessingId(null); setActionStatus(null) }}
-                      style={{ padding: '8px 14px', background: '#e2e8f0', color: '#475569', border: 0, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
-                    >
-                      Hủy
-                    </button>
+                    <textarea
+                      rows={2}
+                      placeholder="Nhập lời nhắn gửi cho khách hàng (hướng dẫn hẹn thời gian Shipper lấy hàng hoặc lý do từ chối)..."
+                      value={adminNote}
+                      onChange={(e) => setAdminNote(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <button
+                        disabled={saving}
+                        onClick={() => void handleConfirmStatus()}
+                        style={{
+                          padding: '8px 20px', border: 0, borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', color: '#fff',
+                          background: actionStatus === 'Approved' ? '#16a34a' : '#dc2626',
+                        }}
+                      >
+                        {saving ? 'Đang lưu...' : 'Xác nhận xử lý'}
+                      </button>
+                      <button
+                        onClick={() => { setProcessingId(null); setActionStatus(null) }}
+                        style={{ padding: '8px 14px', background: '#e2e8f0', color: '#475569', border: 0, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
+                      >
+                        Hủy
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )
