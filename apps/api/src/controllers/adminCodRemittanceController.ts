@@ -18,7 +18,7 @@ function text(value: unknown) {
 function dateValue(value: unknown) {
   const raw = text(value)
   if (!raw) return null
-  const date = new Date(`${raw}T00:00:00`)
+  const date = new Date(`${raw}T00:00:00Z`)
   return Number.isNaN(date.getTime()) ? undefined : date
 }
 

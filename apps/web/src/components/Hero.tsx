@@ -1,49 +1,3 @@
-// import type { FormEvent } from 'react'
-
-// type HeroProps = {
-//   search: string
-//   onSearchChange: (value: string) => void
-//   onSubmit: (event: FormEvent) => void
-// }
-
-// export function Hero({ search, onSearchChange, onSubmit }: HeroProps) {
-//   return (
-//     <section className="hero">
-//       <div className="hero-copy">
-//         <span className="eyebrow">Không gian thông minh, sống nhẹ tênh</span>
-//         <h1>Thiết bị thông minh cho một ngôi nhà hiểu bạn.</h1>
-//         <p>
-//           Khám phá đồ điện tử gia dụng hiện đại, dễ chọn, dễ dùng và được kết nối trong cùng một trải nghiệm.
-//         </p>
-//         <form className="search" onSubmit={onSubmit}>
-//           <input
-//             value={search}
-//             onChange={(event) => onSearchChange(event.target.value)}
-//             placeholder="Bạn đang tìm thiết bị gì?"
-//           />
-//           <button>Tìm sản phẩm</button>
-//         </form>
-//         <div className="trust-row">
-//           <span>✓ Bảo hành chính hãng</span>
-//           <span>✓ Giao lắp tận nơi</span>
-//           <span>✓ Thanh toán an toàn</span>
-//         </div>
-//       </div>
-//       <div className="hero-panel">
-//         <span className="online">● Hệ thống đang online</span>
-//         <div className="smart-card">
-//           <span>✦ Gợi ý thông minh</span>
-//           <strong>“Máy lọc không khí cho phòng 30m²”</strong>
-//           <p>Tìm theo nhu cầu bằng ngôn ngữ tự nhiên.</p>
-//         </div>
-//         <div className="mini-stats">
-//           <div><strong>20</strong><span>SKU mẫu</span></div>
-//           <div><strong>223</strong><span>sản phẩm trong kho</span></div>
-//         </div>
-//       </div>
-//     </section>
-//   )
-// }
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 
@@ -54,9 +8,29 @@ type HeroProps = {
 }
 
 const banners = [
-  'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622176/69e07dafc279aaa5d30aa98cd063df45_ifawu1.png',
-  'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622171/8caff3f7d928d7a5ff2cc5802d5588f0_dimd4n.png',
-  'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622171/6a32b61c820a82c606eee5810f1089e9_tqszaj.png',
+  {
+    url: 'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622176/69e07dafc279aaa5d30aa98cd063df45_ifawu1.png',
+    title: 'Siêu Hội Điện Tử Gia Dụng 2026',
+    subtitle: 'Ưu đãi đến 35% cho các dòng tủ lạnh, máy lọc không khí mới nhất',
+  },
+  {
+    url: 'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622171/8caff3f7d928d7a5ff2cc5802d5588f0_dimd4n.png',
+    title: 'Giải Pháp Ngôi Nhà Thông Minh',
+    subtitle: 'Tự động hóa không gian sống với AI và kết nối IoT đa nền tảng',
+  },
+  {
+    url: 'https://res.cloudinary.com/dywqgsjss/image/upload/v1783622171/6a32b61c820a82c606eee5810f1089e9_tqszaj.png',
+    title: 'Tivi 4K OLED Premium Edition',
+    subtitle: 'Đỉnh cao giải trí tại gia với hình ảnh chân thực & âm thanh vòm',
+  },
+]
+
+const searchPills = [
+  '🌬️ Máy lọc không khí',
+  '🤖 Robot hút bụi',
+  '📺 Tivi OLED 4K',
+  '🍳 Nồi chiên không dầu',
+  '🧊 Tủ lạnh Inverter',
 ]
 
 export function Hero({ search, onSearchChange, onSubmit }: HeroProps) {
@@ -65,7 +39,7 @@ export function Hero({ search, onSearchChange, onSubmit }: HeroProps) {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % banners.length)
-    }, 4000)
+    }, 4500)
 
     return () => window.clearInterval(timer)
   }, [])
@@ -78,46 +52,143 @@ export function Hero({ search, onSearchChange, onSubmit }: HeroProps) {
     setActiveIndex((current) => (current + 1) % banners.length)
   }
 
+  const handlePillClick = (term: string) => {
+    const cleanTerm = term.replace(/^[^\w\s\u00C0-\u1EF9]+/u, '').trim()
+    onSearchChange(cleanTerm)
+  }
+
   return (
-    <section className="hero">
-      <div className="hero-banner-slider">
-        {banners.map((banner, index) => (
-          <img
-            key={banner}
-            src={banner}
-            alt={`Banner ${index + 1}`}
-            className={index === activeIndex ? 'hero-banner-image active' : 'hero-banner-image'}
-          />
-        ))}
+    <section className="hero-2026">
+      <div className="hero-grid">
+        {/* Left Column: Content & Search */}
+        <div className="hero-content">
+          <div className="hero-badge">
+            <span className="badge-pulse"></span>
+            <span>✦ HỆ THỐNG ĐIỆN TỬ GIA DỤNG THÔNG MINH 2026</span>
+          </div>
 
-        <button type="button" className="slider-arrow slider-arrow-left" onClick={goToPrevious}>
-          ‹
-        </button>
+          <h1 className="hero-title">
+            Không Gian Thông Minh,<br />
+            <span className="hero-title-gradient">Sống Nâng Tầm Mới</span>
+          </h1>
 
-        <button type="button" className="slider-arrow slider-arrow-right" onClick={goToNext}>
-          ›
-        </button>
+          <p className="hero-subtitle">
+            Khám phá thiết bị điện tử hiện đại tích hợp trợ lý AI tư vấn cá nhân hóa — dễ chọn, dễ mua, giao và lắp đặt tận nơi.
+          </p>
 
-        <div className="slider-dots">
-          {banners.map((banner, index) => (
-            <button
-              key={banner}
-              type="button"
-              className={index === activeIndex ? 'slider-dot active' : 'slider-dot'}
-              onClick={() => setActiveIndex(index)}
-            />
-          ))}
+          <form className="hero-search-box" onSubmit={onSubmit}>
+            <div className="search-input-wrap">
+              <span className="search-icon">🔍</span>
+              <input
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Bạn đang tìm thiết bị gì cho ngôi nhà?"
+                className="hero-search-input"
+              />
+            </div>
+            <button type="submit" className="hero-search-btn">
+              <span>Tìm kiếm</span>
+              <span className="btn-arrow">→</span>
+            </button>
+          </form>
+
+          {/* Quick AI Search Suggestions */}
+          <div className="hero-pills">
+            <span className="pills-label">Gợi ý hot:</span>
+            <div className="pills-list">
+              {searchPills.map((pill) => (
+                <button
+                  key={pill}
+                  type="button"
+                  className="pill-item"
+                  onClick={() => handlePillClick(pill)}
+                >
+                  {pill}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Key Metrics Strip */}
+          <div className="hero-stats-row">
+            <div className="hero-stat-item">
+              <strong>100%</strong>
+              <span>Chính hãng</span>
+            </div>
+            <div className="hero-stat-divider"></div>
+            <div className="hero-stat-item">
+              <strong>24/7</strong>
+              <span>AI Tư vấn</span>
+            </div>
+            <div className="hero-stat-divider"></div>
+            <div className="hero-stat-item">
+              <strong>2H</strong>
+              <span>Giao siêu tốc</span>
+            </div>
+            <div className="hero-stat-divider"></div>
+            <div className="hero-stat-item">
+              <strong>4.9★</strong>
+              <span>Đánh giá 5 sao</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Slider & Floating Card */}
+        <div className="hero-visual">
+          <div className="hero-slider-card">
+            <div className="slider-wrapper">
+              {banners.map((banner, index) => (
+                <div
+                  key={banner.url}
+                  className={`slider-slide ${index === activeIndex ? 'active' : ''}`}
+                >
+                  <img src={banner.url} alt={banner.title} className="slide-image" />
+                  <div className="slide-overlay">
+                    <h3>{banner.title}</h3>
+                    <p>{banner.subtitle}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button type="button" className="hero-slider-arrow prev" onClick={goToPrevious} aria-label="Slide trước">
+              ‹
+            </button>
+            <button type="button" className="hero-slider-arrow next" onClick={goToNext} aria-label="Slide sau">
+              ›
+            </button>
+
+            <div className="hero-slider-dots">
+              {banners.map((banner, index) => (
+                <button
+                  key={banner.url}
+                  type="button"
+                  className={`dot ${index === activeIndex ? 'active' : ''}`}
+                  onClick={() => setActiveIndex(index)}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Floating Glass Badges */}
+            <div className="floating-badge top-right">
+              <span className="badge-icon">🔥</span>
+              <div>
+                <strong>Flash Sale 2026</strong>
+                <small>Giảm tới 35% hôm nay</small>
+              </div>
+            </div>
+
+            <div className="floating-badge bottom-left">
+              <span className="badge-icon">🤖</span>
+              <div>
+                <strong>AI Smart Search</strong>
+                <small>Tìm theo hình ảnh & nhu cầu</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <form className="search hero-search" onSubmit={onSubmit}>
-        <input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Bạn đang tìm thiết bị gì?"
-        />
-        <button type="submit">Tìm sản phẩm</button>
-      </form>
     </section>
   )
 }
