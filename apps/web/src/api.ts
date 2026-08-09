@@ -721,6 +721,7 @@ export function updateAdminReturnRequestStatus(
     status: string
     refundStatus?: string
     refundAmount?: number | null
+    deliveryStaffId?: number | null
     adminNote?: string
   },
   token: string
@@ -729,6 +730,14 @@ export function updateAdminReturnRequestStatus(
     `/api/admin/returns/${returnRequestId}/status`,
     token,
     payload
+  )
+}
+
+export function confirmWarehouseReturnStockIn(returnRequestId: number, token: string) {
+  return patchJsonWithToken<{ data: { returnRequestId: number; warehouseConfirmedAt: string } }>(
+    `/api/admin/returns/${returnRequestId}/warehouse-confirm`,
+    token,
+    {}
   )
 }
 

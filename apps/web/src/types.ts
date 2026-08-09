@@ -821,6 +821,12 @@ export type AdminReturnRequest = OrderReturnRequest & {
   totalAmount: number
   processedAt: string | null
   processedByName: string | null
+  deliveryStaffId: number | null
+  deliveryStaffName: string | null
+  deliveryStaffPhone: string | null
+  returnShipmentId: number | null
+  warehouseConfirmedAt: string | null
+  warehouseConfirmedByName: string | null
 }
 
 export type CustomerOrderDetail = {
