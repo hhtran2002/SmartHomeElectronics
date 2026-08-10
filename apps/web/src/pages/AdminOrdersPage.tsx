@@ -23,7 +23,6 @@ export function AdminOrdersPage({ roles, token }: Props) {
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [updating, setUpdating] = useState(false)
-  const [bankTransactionCode, setBankTransactionCode] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 10
 
@@ -77,18 +76,17 @@ export function AdminOrdersPage({ roles, token }: Props) {
     }
   }
 
-  async function confirmBankPayment() {
-    if (!detail || !bankTransactionCode.trim()) return
+  async function confirmBankPayment(transactionCode: string) {
+    if (!detail || !transactionCode.trim()) return
     setUpdating(true)
     setError('')
     try {
-      await confirmAdminBankPayment(detail.order.orderId, bankTransactionCode.trim(), token)
+      await confirmAdminBankPayment(detail.order.orderId, transactionCode.trim(), token)
       const [ordersPayload, detailPayload] = await Promise.all([
         getAdminOrders(token), getAdminOrder(detail.order.orderId, token),
       ])
       setOrders(ordersPayload.data)
       setDetail(detailPayload.data)
-      setBankTransactionCode('')
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không xác nhận được thanh toán.')
     } finally { setUpdating(false) }
@@ -165,32 +163,21 @@ export function AdminOrdersPage({ roles, token }: Props) {
               </div>
 
               {detail.order.paymentMethodCode === 'BANK_TRANSFER' && detail.order.paymentStatusCode === 'Pending' && (
-                <div className="bank-confirm-card">
-                  <strong>Xác nhận chuyển khoản</strong>
-                  <p>Chỉ xác nhận sau khi đã kiểm tra đúng số tiền và nội dung trên tài khoản ngân hàng.</p>
-                  <input placeholder="Nhập mã giao dịch ngân hàng" value={bankTransactionCode} onChange={(event) => setBankTransactionCode(event.target.value)} />
-                  <button disabled={updating || !bankTransactionCode.trim()} onClick={() => void confirmBankPayment()}>
-                    {updating ? 'Đang xác nhận...' : 'Đã nhận tiền — xác nhận'}
-                  </button>
-                </div>
-              )}
-
-              {detail.order.orderStatusCode === 'Shipping' && (
-                <div className="order-complete-card">
-                  <strong>Đơn hàng đang giao</strong>
-                  <p>Sau khi xác nhận khách đã nhận hàng, admin chuyển đơn sang Hoàn thành.</p>
-                  <button
-                    className="success-action"
+                <label className="status-select">
+                  Trạng thái thanh toán
+                  <select
                     disabled={updating}
-                    onClick={() => {
-                      const completed = detail.availableTransitions.find((status) => status.code === 'Completed')
-                      if (completed) void changeStatus(completed.id)
+                    value={detail.order.paymentStatusCode}
+                    onChange={(event) => {
+                      if (event.target.value !== 'Success') return
+                      const transactionCode = window.prompt('Nhập mã giao dịch sau khi đã kiểm tra tiền về tài khoản ngân hàng:')?.trim()
+                      if (transactionCode) void confirmBankPayment(transactionCode)
                     }}
-                    type="button"
                   >
-                    {updating ? 'Đang cập nhật...' : 'Xác nhận đơn đã hoàn thành'}
-                  </button>
-                </div>
+                    <option value="Pending">{detail.order.paymentStatusName}</option>
+                    <option value="Success">Đã nhận chuyển khoản</option>
+                  </select>
+                </label>
               )}
 
               <label className="status-select">

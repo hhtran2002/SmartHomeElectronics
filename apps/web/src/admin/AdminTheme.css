@@ -312,6 +312,24 @@
 .admin-shell .admin-pagination button { border-radius: 4px !important; padding: 8px 11px !important; }
 
 /* COD and reports */
+.return-request-list { display: grid; gap: 16px; }
+.return-request-card { background: #fff; border: 1px solid var(--admin-line); border-radius: 4px; padding: 20px; }
+.return-request-card > header { align-items: start; border-bottom: 1px solid var(--admin-line); display: flex; justify-content: space-between; padding-bottom: 16px; }
+.return-request-card h3 { color: var(--admin-ink); font-size: 18px; margin: 5px 0; }
+.return-request-card header p, .return-request-evidence p { color: var(--admin-muted); font-size: 12px; margin: 0; }
+.return-request-card header > strong { color: var(--admin-ink); font-size: 17px; }
+.return-request-body { display: grid; gap: 24px; grid-template-columns: 1.4fr 1fr; padding: 18px 0; }
+.return-request-evidence, .return-request-bank { display: grid; gap: 7px; }
+.return-request-evidence > span, .return-request-bank > span { color: var(--admin-muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.return-request-evidence > strong, .return-request-bank > strong { color: var(--admin-ink); font-size: 13px; }
+.return-request-evidence a { color: var(--admin-accent); font-size: 12px; font-weight: 700; width: fit-content; }
+.return-request-bank small { color: var(--admin-muted); }
+.return-status-select { max-width: 420px; }
+.return-request-card > footer { align-items: center; border-top: 1px solid var(--admin-line); display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin-top: 18px; padding-top: 14px; }
+.return-request-card footer small { color: var(--admin-muted); }
+.return-workflow-badge { background: var(--admin-surface-subtle); color: var(--admin-muted); font-size: 10px; font-weight: 750; letter-spacing: .04em; padding: 6px 9px; text-transform: uppercase; }
+.return-workflow-badge.returning { background: #fff7ed; color: #9a3412; }
+.return-workflow-badge.refunded { background: #f0fdf4; color: #166534; }
 .admin-shell .report-table > div,
 .admin-shell .report-list > div { background: var(--admin-surface-subtle); }
 .admin-shell .report-table strong,

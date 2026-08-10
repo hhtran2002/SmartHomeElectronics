@@ -2,6 +2,7 @@ import { getPool, sql } from '../config/database.js'
 
 export type ReturnRequestStatus = 'Pending' | 'Approved' | 'Rejected'
 export type RefundStatus = 'Pending' | 'Processing' | 'Refunded' | 'Failed'
+export type ReturnWorkflowStatus = 'Reviewing' | 'Returning' | 'Refunded'
 
 export async function getAdminReturnRequests() {
   const pool = await getPool()
@@ -34,7 +35,13 @@ export async function getAdminReturnRequests() {
       staffUa.Phone AS deliveryStaffPhone,
       rr.ReturnShipmentId AS returnShipmentId,
       rr.WarehouseConfirmedAt AS warehouseConfirmedAt,
-      whUa.FullName AS warehouseConfirmedByName
+      whUa.FullName AS warehouseConfirmedByName,
+      rr.InventoryRestockedAt AS inventoryRestockedAt,
+      CASE
+        WHEN rr.RefundStatus = 'Refunded' AND rr.InventoryRestockedAt IS NOT NULL THEN 'Refunded'
+        WHEN rr.RefundStatus IN ('Processing', 'Refunded') THEN 'Returning'
+        ELSE 'Reviewing'
+      END AS workflowStatus
     FROM dbo.OrderReturnRequest rr
     INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
     INNER JOIN dbo.UserAccount ua ON ua.UserId = rr.UserId
@@ -47,6 +54,152 @@ export async function getAdminReturnRequests() {
   `)
 
   return result.recordset
+}
+
+export async function updateReturnWorkflow(input: {
+  returnRequestId: number
+  workflowStatus: ReturnWorkflowStatus
+  adminUserId: number
+}) {
+  const allowed = new Set<ReturnWorkflowStatus>(['Reviewing', 'Returning', 'Refunded'])
+  if (!allowed.has(input.workflowStatus)) throw new Error('Trạng thái hoàn hàng không hợp lệ.')
+
+  const pool = await getPool()
+  const transaction = new sql.Transaction(pool)
+  try {
+    await transaction.begin()
+    const tx = () => new sql.Request(transaction)
+    const currentResult = await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).query(`
+      SELECT rr.ReturnRequestId, rr.OrderId, rr.Status, rr.RefundStatus, rr.RefundAmount,
+        rr.InventoryRestockedAt, so.TotalAmount
+      FROM dbo.OrderReturnRequest rr WITH (UPDLOCK, HOLDLOCK)
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
+      WHERE rr.ReturnRequestId = @returnRequestId
+    `)
+    const current = currentResult.recordset[0]
+    if (!current) throw new Error('Không tìm thấy yêu cầu hoàn hàng.')
+
+    if (current.InventoryRestockedAt && input.workflowStatus !== 'Refunded') {
+      throw new Error('Yêu cầu đã hoàn tiền và trả tồn kho nên không thể chuyển về trạng thái trước đó.')
+    }
+
+    if (input.workflowStatus === 'Reviewing') {
+      await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).input('adminUserId', sql.BigInt, input.adminUserId).query(`
+        UPDATE dbo.OrderReturnRequest SET Status = 'Pending', RefundStatus = 'Pending',
+          ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
+        WHERE ReturnRequestId = @returnRequestId
+      `)
+    } else if (input.workflowStatus === 'Returning') {
+      await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).input('adminUserId', sql.BigInt, input.adminUserId).query(`
+        UPDATE dbo.OrderReturnRequest SET Status = 'Approved', RefundStatus = 'Processing',
+          ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
+        WHERE ReturnRequestId = @returnRequestId
+      `)
+    } else if (!current.InventoryRestockedAt) {
+      const exportedItems = await tx().input('orderId', sql.BigInt, current.OrderId).query(`
+        SELECT receipt.WarehouseId, detail.OrderDetailId, detail.SkuId,
+          SUM(detail.Quantity) AS Quantity, MAX(detail.UnitCost) AS UnitCost
+        FROM dbo.StockOutReceipt receipt
+        INNER JOIN dbo.StockOutReceiptDetail detail ON detail.StockOutReceiptId = receipt.StockOutReceiptId
+        WHERE receipt.OrderId = @orderId AND receipt.Reason = 'Order' AND receipt.Status = 'Confirmed'
+        GROUP BY receipt.WarehouseId, detail.OrderDetailId, detail.SkuId
+      `)
+      if (!exportedItems.recordset.length) throw new Error('Không tìm thấy phiếu xuất kho gốc của đơn để nhập trả tồn kho.')
+
+      const receiptIds = new Map<number, number>()
+      for (const item of exportedItems.recordset) {
+        const warehouseId = Number(item.WarehouseId)
+        const quantity = Number(item.Quantity)
+        const unitCost = Number(item.UnitCost)
+        let receiptId = receiptIds.get(warehouseId)
+        if (!receiptId) {
+          const receiptCode = `RET-REQ-${input.returnRequestId}-${warehouseId}`
+          const existingReceipt = await tx().input('receiptCode', sql.VarChar(50), receiptCode).query(`
+            SELECT StockInReceiptId FROM dbo.StockInReceipt WITH (UPDLOCK, HOLDLOCK) WHERE ReceiptCode = @receiptCode
+          `)
+          if (existingReceipt.recordset.length) throw new Error('Yêu cầu này đã có phiếu nhập hoàn hàng.')
+          const inserted = await tx()
+            .input('receiptCode', sql.VarChar(50), receiptCode)
+            .input('warehouseId', sql.BigInt, warehouseId)
+            .input('adminUserId', sql.BigInt, input.adminUserId)
+            .query(`
+              INSERT INTO dbo.StockInReceipt (ReceiptCode, WarehouseId, SupplierId, CreatedByUserId, ReceiptDate, Status, Note)
+              OUTPUT INSERTED.StockInReceiptId
+              VALUES (@receiptCode, @warehouseId, NULL, @adminUserId, SYSDATETIME(), 'Confirmed', N'Nhập trả tồn kho từ yêu cầu hoàn hàng')
+            `)
+          receiptId = Number(inserted.recordset[0].StockInReceiptId)
+          receiptIds.set(warehouseId, receiptId)
+        }
+
+        const inventoryResult = await tx().input('warehouseId', sql.BigInt, warehouseId).input('skuId', sql.BigInt, item.SkuId).query(`
+          SELECT InventoryId, QuantityOnHand, AverageUnitCost FROM dbo.Inventory WITH (UPDLOCK, HOLDLOCK)
+          WHERE WarehouseId = @warehouseId AND SkuId = @skuId
+        `)
+        const inventory = inventoryResult.recordset[0]
+        const oldQuantity = Number(inventory?.QuantityOnHand ?? 0)
+        const oldAverage = Number(inventory?.AverageUnitCost ?? 0)
+        const newAverage = oldQuantity + quantity > 0
+          ? ((oldQuantity * oldAverage) + (quantity * unitCost)) / (oldQuantity + quantity)
+          : unitCost
+        if (inventory) {
+          await tx().input('inventoryId', sql.BigInt, inventory.InventoryId).input('quantity', sql.Int, quantity)
+            .input('averageUnitCost', sql.Decimal(18, 2), newAverage).query(`
+              UPDATE dbo.Inventory SET QuantityOnHand = QuantityOnHand + @quantity,
+                AverageUnitCost = @averageUnitCost, UpdatedAt = SYSDATETIME() WHERE InventoryId = @inventoryId
+            `)
+        } else {
+          await tx().input('warehouseId', sql.BigInt, warehouseId).input('skuId', sql.BigInt, item.SkuId)
+            .input('quantity', sql.Int, quantity).input('averageUnitCost', sql.Decimal(18, 2), unitCost).query(`
+              INSERT INTO dbo.Inventory (WarehouseId, SkuId, QuantityOnHand, QuantityReserved, ReorderLevel, AverageUnitCost, UpdatedAt)
+              VALUES (@warehouseId, @skuId, @quantity, 0, 3, @averageUnitCost, SYSDATETIME())
+            `)
+        }
+
+        await tx().input('receiptId', sql.BigInt, receiptId).input('skuId', sql.BigInt, item.SkuId)
+          .input('quantity', sql.Int, quantity).input('unitCost', sql.Decimal(18, 2), unitCost).query(`
+            INSERT INTO dbo.StockInReceiptDetail (StockInReceiptId, SkuId, Quantity, UnitCost)
+            VALUES (@receiptId, @skuId, @quantity, @unitCost)
+          `)
+        await tx().input('warehouseId', sql.BigInt, warehouseId).input('skuId', sql.BigInt, item.SkuId)
+          .input('quantity', sql.Int, quantity).input('unitCost', sql.Decimal(18, 2), unitCost)
+          .input('receiptId', sql.BigInt, receiptId).input('adminUserId', sql.BigInt, input.adminUserId).query(`
+            INSERT INTO dbo.StockMovement (WarehouseId, SkuId, MovementType, QuantityChange, SourceType,
+              StockInReceiptId, UnitCost, AdjustmentNote, CreatedByUserId, CreatedAt)
+            VALUES (@warehouseId, @skuId, 'IN', @quantity, 'StockIn', @receiptId, @unitCost,
+              N'Nhập lại hàng khách hoàn', @adminUserId, SYSDATETIME())
+          `)
+        await tx().input('orderDetailId', sql.BigInt, item.OrderDetailId)
+          .input('returnedCost', sql.Decimal(18, 2), quantity * unitCost).query(`
+            UPDATE dbo.SalesOrderDetail SET CostOfGoodsSold = CASE
+              WHEN CostOfGoodsSold >= @returnedCost THEN CostOfGoodsSold - @returnedCost ELSE 0 END
+            WHERE OrderDetailId = @orderDetailId
+          `)
+      }
+
+      const refundedPaymentStatus = await tx().query(`SELECT PaymentStatusId FROM dbo.PaymentStatus WHERE StatusCode = 'Refunded'`)
+      const refundedPaymentStatusId = Number(refundedPaymentStatus.recordset[0]?.PaymentStatusId)
+      if (!refundedPaymentStatusId) throw new Error('Thiếu trạng thái thanh toán Đã hoàn tiền.')
+      await tx().input('orderId', sql.BigInt, current.OrderId).input('paymentStatusId', sql.TinyInt, refundedPaymentStatusId).query(`
+        UPDATE dbo.Payment SET PaymentStatusId = @paymentStatusId WHERE OrderId = @orderId;
+        UPDATE dbo.SalesOrder SET PaymentStatusId = @paymentStatusId, UpdatedAt = SYSDATETIME() WHERE OrderId = @orderId;
+      `)
+      await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).input('adminUserId', sql.BigInt, input.adminUserId)
+        .input('refundAmount', sql.Decimal(18, 2), Number(current.RefundAmount ?? current.TotalAmount)).query(`
+          UPDATE dbo.OrderReturnRequest SET Status = 'Approved', RefundStatus = 'Refunded', RefundAmount = @refundAmount,
+            WarehouseConfirmedAt = COALESCE(WarehouseConfirmedAt, SYSDATETIME()),
+            WarehouseConfirmedBy = COALESCE(WarehouseConfirmedBy, @adminUserId),
+            InventoryRestockedAt = SYSDATETIME(), InventoryRestockedBy = @adminUserId,
+            ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
+          WHERE ReturnRequestId = @returnRequestId
+        `)
+    }
+
+    await transaction.commit()
+    return { returnRequestId: input.returnRequestId, workflowStatus: input.workflowStatus }
+  } catch (error) {
+    await transaction.rollback().catch(() => undefined)
+    throw error
+  }
 }
 
 export async function updateReturnRequestStatus(input: {

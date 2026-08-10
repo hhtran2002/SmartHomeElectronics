@@ -765,6 +765,16 @@ export function getAdminReturnRequests(token: string) {
   return getJsonWithToken<{ data: AdminReturnRequest[] }>('/api/admin/returns', token)
 }
 
+export function updateAdminReturnWorkflow(
+  returnRequestId: number,
+  workflowStatus: 'Reviewing' | 'Returning' | 'Refunded',
+  token: string,
+) {
+  return patchJsonWithToken<{ data: { returnRequestId: number; workflowStatus: string } }>(
+    `/api/admin/returns/${returnRequestId}/workflow`, token, { workflowStatus },
+  )
+}
+
 export function updateAdminReturnRequestStatus(
   returnRequestId: number,
   payload: {

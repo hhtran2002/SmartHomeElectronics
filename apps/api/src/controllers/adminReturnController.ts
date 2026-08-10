@@ -3,9 +3,11 @@ import type { AuthRequest } from '../auth.js'
 import {
   confirmWarehouseReturnStockIn,
   getAdminReturnRequests,
+  updateReturnWorkflow,
   updateReturnRequestStatus,
   type RefundStatus,
   type ReturnRequestStatus,
+  type ReturnWorkflowStatus,
 } from '../services/adminReturnService.js'
 
 export async function listReturnRequests(_request: AuthRequest, response: Response, next: NextFunction) {
@@ -13,6 +15,23 @@ export async function listReturnRequests(_request: AuthRequest, response: Respon
     const requests = await getAdminReturnRequests()
     response.json({ data: requests })
   } catch (error) {
+    next(error)
+  }
+}
+
+export async function changeReturnWorkflow(request: AuthRequest, response: Response, next: NextFunction) {
+  const returnRequestId = Number(request.params.returnRequestId)
+  const workflowStatus = String(request.body.workflowStatus ?? '').trim() as ReturnWorkflowStatus
+  if (!Number.isInteger(returnRequestId) || returnRequestId <= 0) {
+    response.status(400).json({ message: 'Yêu cầu hoàn hàng không hợp lệ.' })
+    return
+  }
+  try {
+    response.json({ data: await updateReturnWorkflow({
+      returnRequestId, workflowStatus, adminUserId: request.user!.userId,
+    }) })
+  } catch (error) {
+    if (error instanceof Error) { response.status(400).json({ message: error.message }); return }
     next(error)
   }
 }
