@@ -46,24 +46,30 @@ export async function createProductReview(input: ReviewInput) {
 
   const isReply = Boolean(input.parentReviewId)
 
-  const purchasedResult = await pool
-    .request()
-    .input('userId', sql.BigInt, input.userId)
-    .input('productId', sql.BigInt, productId)
-    .query(`
-      SELECT TOP (1) sod.OrderDetailId
-      FROM dbo.SalesOrderDetail sod
-      INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
-      INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
-      INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
-      INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
-      WHERE cp.UserId = @userId
-        AND ps.ProductId = @productId
-        AND os.StatusCode = 'Completed'
-      ORDER BY so.CreatedAt DESC
-    `)
+  // Replies belong to a review thread, not to the order line that allowed the
+  // author to create a root review. Keeping this NULL also prevents replies
+  // from consuming the one-review-per-order-detail unique key.
+  let orderDetailId: number | null = null
+  if (!isReply) {
+    const purchasedResult = await pool
+      .request()
+      .input('userId', sql.BigInt, input.userId)
+      .input('productId', sql.BigInt, productId)
+      .query(`
+        SELECT TOP (1) sod.OrderDetailId
+        FROM dbo.SalesOrderDetail sod
+        INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
+        INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+        INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+        INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+        WHERE cp.UserId = @userId
+          AND ps.ProductId = @productId
+          AND os.StatusCode = 'Completed'
+        ORDER BY so.CreatedAt DESC
+      `)
 
-  const orderDetailId = (purchasedResult.recordset[0]?.OrderDetailId as number | undefined) ?? null
+    orderDetailId = (purchasedResult.recordset[0]?.OrderDetailId as number | undefined) ?? null
+  }
 
   if (!isReply && !isAdminOrStaff && !orderDetailId) {
     throw new Error('Bạn chỉ có thể đánh giá sản phẩm đã mua và đơn đã hoàn thành.')

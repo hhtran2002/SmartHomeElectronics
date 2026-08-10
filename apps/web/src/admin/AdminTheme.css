@@ -466,6 +466,21 @@
   gap: 0;
   padding: 0;
 }
+.admin-shell .admin-review-list .review-tree-reply {
+  background: #f8fbf9;
+  position: relative;
+}
+.admin-shell .admin-review-list .review-tree-reply::before {
+  background: var(--admin-accent);
+  content: '';
+  height: 100%;
+  left: calc(14px + var(--review-depth) * 24px);
+  opacity: .28;
+  position: absolute;
+  top: 0;
+  width: 2px;
+}
+.admin-shell .admin-review-list .review-filter-context { opacity: .72; }
 .admin-review-main,
 .admin-review-author,
 .admin-review-status,
@@ -480,6 +495,24 @@
 .admin-review-main small,
 .admin-review-author small { color: var(--admin-muted); display: block; font-size: 9px; margin-top: 4px; }
 .admin-review-author strong { color: var(--admin-ink); display: block; font-size: 11px; margin-bottom: 8px; }
+.review-tree-reply .admin-review-main { padding-left: calc(28px + var(--review-depth) * 24px); }
+.admin-review-thread-label { align-items: center; display: flex; gap: 8px; margin-bottom: 8px; }
+.admin-review-thread-label > span {
+  color: var(--admin-accent);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.admin-review-thread-label > small {
+  background: var(--admin-accent-soft);
+  border-radius: 10px;
+  color: var(--admin-accent);
+  font-size: 8px;
+  margin: 0;
+  padding: 3px 7px;
+}
+.admin-review-context-label { color: var(--admin-muted); display: block; font-size: 8px; margin-bottom: 6px; text-transform: uppercase; }
 .admin-review-actions { align-content: start; display: grid !important; gap: 5px !important; grid-template-columns: repeat(2, 1fr); }
 .admin-shell .admin-review-actions button { padding: 7px 8px !important; }
 .admin-shell .admin-review-actions button:last-child { background: var(--admin-accent) !important; border-color: var(--admin-accent) !important; color: #fff !important; }
@@ -525,6 +558,8 @@
   .admin-review-author,
   .admin-review-status,
   .admin-review-actions { border-left: 0; border-top: 1px solid var(--admin-line); }
+  .review-tree-reply .admin-review-main { padding-left: calc(24px + var(--review-depth) * 12px); }
+  .admin-shell .admin-review-list .review-tree-reply::before { left: calc(10px + var(--review-depth) * 12px); }
   .admin-review-reply { grid-template-columns: 1fr; }
   .admin-review-reply > div:last-child { grid-column: auto; justify-content: flex-start; }
 }

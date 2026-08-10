@@ -1,10 +1,43 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { getAdminReviews, submitProductReview, updateAdminReviewStatus } from '../api'
 import type { AdminReview } from '../types'
 
 type Props = {
   roles: string[]
   token: string
+}
+
+type ReviewTreeNode = AdminReview & {
+  children: ReviewTreeNode[]
+}
+
+function compareCreatedAt(left: AdminReview, right: AdminReview) {
+  return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+}
+
+function buildReviewTree(reviews: AdminReview[]) {
+  const nodes = new Map<number, ReviewTreeNode>()
+  const roots: ReviewTreeNode[] = []
+
+  reviews.forEach((review) => nodes.set(review.reviewId, { ...review, children: [] }))
+  nodes.forEach((review) => {
+    const parent = review.parentReviewId ? nodes.get(review.parentReviewId) : undefined
+    if (parent) parent.children.push(review)
+    else roots.push(review)
+  })
+
+  nodes.forEach((review) => review.children.sort(compareCreatedAt))
+  return roots.sort((left, right) => compareCreatedAt(right, left))
+}
+
+function filterReviewTree(nodes: ReviewTreeNode[], status: 'All' | AdminReview['status']): ReviewTreeNode[] {
+  if (status === 'All') return nodes
+
+  return nodes.flatMap((node) => {
+    const children = filterReviewTree(node.children, status)
+    return node.status === status || children.length > 0 ? [{ ...node, children }] : []
+  })
 }
 
 export function AdminReviewsPage({ roles, token }: Props) {
@@ -75,9 +108,88 @@ export function AdminReviewsPage({ roles, token }: Props) {
     Hidden: 'Đã ẩn',
     Rejected: 'Từ chối',
   }
-  const filteredReviews = statusFilter === 'All' ? reviews : reviews.filter((review) => review.status === statusFilter)
+  const matchingReviewCount = statusFilter === 'All'
+    ? reviews.length
+    : reviews.filter((review) => review.status === statusFilter).length
+  const reviewTree = filterReviewTree(buildReviewTree(reviews), statusFilter)
   const pendingCount = reviews.filter((review) => review.status === 'Pending').length
   const approvedCount = reviews.filter((review) => review.status === 'Approved').length
+
+  function renderReview(review: ReviewTreeNode, depth = 0) {
+    const isReply = Boolean(review.parentReviewId)
+    const isFilterContext = statusFilter !== 'All' && review.status !== statusFilter
+    const depthStyle = { '--review-depth': Math.min(depth, 5) } as CSSProperties
+
+    return (
+      <Fragment key={review.reviewId}>
+        <article
+          className={`review-moderation-row${isReply ? ' review-tree-reply' : ''}${isFilterContext ? ' review-filter-context' : ''}${replyingId === review.reviewId ? ' replying' : ''}`}
+          style={depthStyle}
+        >
+          <div className="admin-review-main">
+            <div className="admin-review-thread-label">
+              <span>{isReply ? `Phản hồi cho #${review.parentReviewId}` : 'Đánh giá gốc'}</span>
+              {review.children.length > 0 && <small>{review.children.length} phản hồi trực tiếp</small>}
+            </div>
+            <div className="admin-review-product-line">
+              <strong>{review.productName}</strong>
+              <a href={`/#/products/${encodeURIComponent(review.productSlug)}`}>Xem sản phẩm ↗</a>
+            </div>
+            <p>{review.comment || 'Không có nội dung.'}</p>
+            <small>{isReply ? `Nội dung #${review.reviewId}` : `${review.rating}/5 sao · #${review.reviewId}`}</small>
+          </div>
+          <div className="admin-review-author">
+            <strong>{review.reviewerName}</strong>
+            <small>{new Date(review.createdAt).toLocaleDateString('vi-VN')}</small>
+            <small>{new Date(review.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</small>
+          </div>
+          <div className="admin-review-status">
+            {isFilterContext && <small className="admin-review-context-label">Ngữ cảnh</small>}
+            <span className={`status-pill ${review.status.toLowerCase()}`}>{statusLabels[review.status]}</span>
+          </div>
+          <div className="row-actions admin-review-actions">
+            <button onClick={() => void changeStatus(review, 'Approved')}>Duyệt</button>
+            <button onClick={() => void changeStatus(review, 'Hidden')}>Ẩn</button>
+            <button onClick={() => void changeStatus(review, 'Rejected')}>Từ chối</button>
+            <button
+              onClick={() => {
+                if (replyingId === review.reviewId) {
+                  setReplyingId(null)
+                } else {
+                  setReplyingId(review.reviewId)
+                  setReplyComment('')
+                }
+              }}
+            >
+              {replyingId === review.reviewId ? 'Đóng' : 'Trả lời'}
+            </button>
+          </div>
+
+          {replyingId === review.reviewId && (
+            <div className="admin-review-reply">
+              <div><span>Phản hồi từ cửa hàng</span><strong>Trả lời {review.reviewerName}</strong></div>
+              <textarea
+                rows={3}
+                placeholder="Nhập câu trả lời từ Admin/Cửa hàng..."
+                value={replyComment}
+                onChange={(event) => setReplyComment(event.target.value)}
+              />
+              <div>
+                <button
+                  disabled={sendingReply || !replyComment.trim()}
+                  onClick={() => void handleSendReply(review)}
+                >
+                  {sendingReply ? 'Đang gửi...' : 'Gửi trả lời'}
+                </button>
+                <button onClick={() => setReplyingId(null)}>Hủy</button>
+              </div>
+            </div>
+          )}
+        </article>
+        {review.children.map((child) => renderReview(child, depth + 1))}
+      </Fragment>
+    )
+  }
 
   return (
     <section className="admin-review-page">
@@ -105,7 +217,7 @@ export function AdminReviewsPage({ roles, token }: Props) {
             </button>
           ))}
         </div>
-        <span>{filteredReviews.length} nội dung</span>
+        <span>{matchingReviewCount} nội dung</span>
       </div>
 
       <div className="admin-panel-card admin-review-panel">
@@ -115,66 +227,9 @@ export function AdminReviewsPage({ roles, token }: Props) {
         <div className="admin-review-list">
           {loading ? (
             <p className="admin-review-empty">Đang tải đánh giá...</p>
-          ) : filteredReviews.length === 0 ? (
+          ) : reviewTree.length === 0 ? (
             <p className="admin-review-empty">Không có nội dung trong trạng thái này.</p>
-          ) : filteredReviews.map((review) => (
-            <article className={`review-moderation-row${replyingId === review.reviewId ? ' replying' : ''}`} key={review.reviewId}>
-              <div className="admin-review-main">
-                <div className="admin-review-product-line">
-                  <strong>{review.productName}</strong>
-                  <a href={`/#/products/${encodeURIComponent(review.productSlug)}`}>Xem sản phẩm ↗</a>
-                </div>
-                <p>{review.comment || 'Không có nội dung.'}</p>
-                <small>{review.parentReviewId ? `Phản hồi cho #${review.parentReviewId}` : `${review.rating}/5 sao`} · #{review.reviewId}</small>
-              </div>
-              <div className="admin-review-author">
-                <strong>{review.reviewerName}</strong>
-                <small>{new Date(review.createdAt).toLocaleDateString('vi-VN')}</small>
-                <small>{new Date(review.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</small>
-              </div>
-              <div className="admin-review-status">
-                <span className={`status-pill ${review.status.toLowerCase()}`}>{statusLabels[review.status]}</span>
-              </div>
-              <div className="row-actions admin-review-actions">
-                    <button onClick={() => void changeStatus(review, 'Approved')}>Duyệt</button>
-                    <button onClick={() => void changeStatus(review, 'Hidden')}>Ẩn</button>
-                    <button onClick={() => void changeStatus(review, 'Rejected')}>Từ chối</button>
-                    <button
-                      onClick={() => {
-                        if (replyingId === review.reviewId) {
-                          setReplyingId(null)
-                        } else {
-                          setReplyingId(review.reviewId)
-                          setReplyComment('')
-                        }
-                      }}
-                    >
-                      {replyingId === review.reviewId ? 'Đóng' : 'Trả lời'}
-                    </button>
-              </div>
-
-              {replyingId === review.reviewId && (
-                <div className="admin-review-reply">
-                  <div><span>Phản hồi từ cửa hàng</span><strong>Trả lời {review.reviewerName}</strong></div>
-                  <textarea
-                    rows={3}
-                    placeholder="Nhập câu trả lời từ Admin/Cửa hàng..."
-                    value={replyComment}
-                    onChange={(e) => setReplyComment(e.target.value)}
-                  />
-                  <div>
-                    <button
-                      disabled={sendingReply || !replyComment.trim()}
-                      onClick={() => void handleSendReply(review)}
-                    >
-                      {sendingReply ? 'Đang gửi...' : 'Gửi trả lời'}
-                    </button>
-                    <button onClick={() => setReplyingId(null)}>Hủy</button>
-                  </div>
-                </div>
-              )}
-            </article>
-          ))}
+          ) : reviewTree.map((review) => renderReview(review))}
         </div>
       </div>
     </section>
