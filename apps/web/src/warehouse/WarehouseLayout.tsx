@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AuthUser } from '../types'
+import '../admin/AdminTheme.css'
 
 type Props = {
   active: 'inventory' | 'deliveries'
@@ -16,11 +17,14 @@ export function WarehouseLayout({ active, children, user }: Props) {
   return (
     <main className="admin-shell operations-shell">
       <aside className="admin-sidebar warehouse-sidebar">
-        <div>
-          <span className="eyebrow">Khu vực thủ kho</span>
-          <h2>AA Warehouse</h2>
-          <p>{user?.fullName ?? 'Chưa đăng nhập'}</p>
+        <div className="admin-sidebar-head">
+          <span className="admin-workspace-label">AA Smart · Warehouse</span>
+          <div className="admin-account">
+            <span>{(user?.fullName ?? 'W').trim().charAt(0).toUpperCase()}</span>
+            <div><strong>{user?.fullName ?? 'Chưa đăng nhập'}</strong><small>Vận hành kho</small></div>
+          </div>
         </div>
+        <p className="admin-nav-label">Kho vận</p>
         <nav className="admin-nav">
           {menu.map((item) => (
             <a className={active === item.key ? 'active' : ''} href={item.href} key={item.key}>
@@ -30,7 +34,7 @@ export function WarehouseLayout({ active, children, user }: Props) {
           {user?.roles.includes('SystemAdmin') && <a href="#/admin/dashboard">Quản trị</a>}
         </nav>
       </aside>
-      <section className="admin-content">{children}</section>
+      <section className="admin-content"><div className="admin-content-inner">{children}</div></section>
     </main>
   )
 }

@@ -98,7 +98,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
   }
 
   return (
-    <section style={{ width: '100%', boxSizing: 'border-box' }}>
+    <section className="admin-returns-page" style={{ width: '100%', boxSizing: 'border-box' }}>
       <div className="section-heading compact" style={{ marginBottom: '20px' }}>
         <div>
           <span className="eyebrow">Quản trị CSKH, Giao nhận & Kho hàng</span>
@@ -109,13 +109,14 @@ export function AdminReturnsPage({ roles, token }: Props) {
 
       {error && <div className="status-card error" style={{ marginBottom: '16px' }}>{error}</div>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+      <div className="admin-return-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
         {loading ? (
           <div className="admin-panel-card"><p>Đang tải danh sách khiếu nại...</p></div>
         ) : requests.length === 0 ? (
           <div className="admin-panel-card"><p className="empty-hint">Chưa có yêu cầu hoàn hàng nào.</p></div>
         ) : requests.map((item) => (
           <div
+            className="admin-return-card"
             key={item.returnRequestId}
             style={{
               background: '#fff',
@@ -131,7 +132,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
             }}
           >
             {/* Header row: Order info & Status Badge */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
+            <div className="admin-return-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
                   Đơn hàng #{item.orderCode}
@@ -162,11 +163,11 @@ export function AdminReturnsPage({ roles, token }: Props) {
             </div>
 
             {/* Grid 2 Columns Layout for Widescreen */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '24px', alignItems: 'start' }}>
+            <div className="admin-return-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '24px', alignItems: 'start' }}>
               
               {/* LEFT COLUMN: Customer Info, Error Details & Proof, Bank Transfer */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div className="admin-return-info" style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontSize: '13px', color: '#64748b' }}>Khách hàng khiếu nại:</span>
                     <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.customerName} ({item.phone || item.email || 'N/A'})</strong>
@@ -207,7 +208,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                 </div>
 
                 {/* Bank Account Info */}
-                <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                <div className="admin-return-bank" style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#0369a1', display: 'block', marginBottom: '8px' }}>
                     🏦 Tài khoản Ngân hàng nhận tiền chuyển khoản hoàn:
                   </span>
@@ -235,14 +236,14 @@ export function AdminReturnsPage({ roles, token }: Props) {
               </div>
 
               {/* RIGHT COLUMN: 3-Stage Progress Box & Actions */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="admin-return-workflow" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="admin-return-progress" style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Tiến trình thu hồi & hoàn tiền (3 Bước)
                   </span>
 
                   {/* Stage 1: Shipper Assignment */}
-                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                  <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>1. Thu hồi hàng:</strong></span>
                       {item.deliveryStaffName ? (
@@ -254,7 +255,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                   </div>
 
                   {/* Stage 2: Warehouse Stock-In */}
-                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                  <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>2. Thủ kho nhập kho:</strong></span>
                       {item.warehouseConfirmedAt ? (
@@ -275,7 +276,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                   </div>
 
                   {/* Stage 3: Refund Status */}
-                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                  <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>3. Chuyển khoản hoàn tiền:</strong></span>
                       <span style={{ fontWeight: '700', color: item.refundStatus === 'Refunded' ? '#16a34a' : '#ca8a04' }}>
@@ -286,7 +287,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                 </div>
 
                 {/* Primary Action Buttons */}
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <div className="admin-return-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                   <button
                     style={{
                       flex: 1, padding: '12px 16px', background: 'linear-gradient(135deg, #16a34a, #15803d)',
@@ -320,7 +321,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
 
                 {/* Action form modal / expansion */}
                 {processingId === item.returnRequestId && (
-                  <div style={{ background: actionStatus === 'Approved' ? '#f0fdf4' : '#fef2f2', padding: '16px', borderRadius: '12px', border: `1px solid ${actionStatus === 'Approved' ? '#bbf7d0' : '#fecaca'}` }}>
+                  <div className="admin-return-action-panel" style={{ background: actionStatus === 'Approved' ? '#f0fdf4' : '#fef2f2', padding: '16px', borderRadius: '12px', border: `1px solid ${actionStatus === 'Approved' ? '#bbf7d0' : '#fecaca'}` }}>
                     <span style={{ fontSize: '13px', fontWeight: '700', color: actionStatus === 'Approved' ? '#15803d' : '#991b1b', display: 'block', marginBottom: '10px' }}>
                       Xác nhận {actionStatus === 'Approved' ? 'ĐỒNG Ý THU HỒI' : 'TỪ CHỐI'} yêu cầu hoàn hàng #{item.orderCode}:
                     </span>

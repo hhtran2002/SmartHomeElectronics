@@ -94,7 +94,7 @@ export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: H
             Sản phẩm
           </a>
           <a className={`nav-sale-link${activePage === 'sale' ? ' active' : ''}`} href="#/sale">
-            🔥 Giảm giá
+            Giảm giá
           </a>
         </nav>
 

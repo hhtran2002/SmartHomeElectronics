@@ -154,7 +154,7 @@ export function AdminDashboardPage({ roles, token }: Props) {
       </section>
 
       {/* Row 1: Chart + Financial */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(300px, 1fr)', gap: '20px', marginTop: '24px', alignItems: 'start' }}>
+      <div className="admin-dashboard-grid admin-dashboard-grid-primary" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(300px, 1fr)', gap: '20px', marginTop: '24px', alignItems: 'start' }}>
 
         {/* Revenue Chart */}
         <section className="admin-panel-card" style={{ margin: 0, padding: '20px 24px' }}>
@@ -220,7 +220,7 @@ export function AdminDashboardPage({ roles, token }: Props) {
       </div>
 
       {/* Row 2: Top Products + Recent Orders */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '20px', marginTop: '20px', alignItems: 'start' }}>
+      <div className="admin-dashboard-grid admin-dashboard-grid-secondary" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)', gap: '20px', marginTop: '20px', alignItems: 'start' }}>
 
         {/* Top Products this month */}
         <section className="admin-panel-card" style={{ margin: 0, padding: '20px 24px' }}>

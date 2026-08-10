@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AuthUser } from '../types'
+import './AdminTheme.css'
 
 type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'returns' | 'inventory' | 'shipper' | 'cod' | 'users' | 'reports'
 
@@ -27,11 +28,17 @@ export function AdminLayout({ active, children, user }: Props) {
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
-        <div>
-          <span className="eyebrow">Admin panel</span>
-          <h2>AA Smart</h2>
-          <p>{user?.fullName ?? 'Chưa đăng nhập'}</p>
+        <div className="admin-sidebar-head">
+          <span className="admin-workspace-label">AA Smart · Operations</span>
+          <div className="admin-account">
+            <span>{(user?.fullName ?? 'A').trim().charAt(0).toUpperCase()}</span>
+            <div>
+              <strong>{user?.fullName ?? 'Chưa đăng nhập'}</strong>
+              <small>Quản trị hệ thống</small>
+            </div>
+          </div>
         </div>
+        <p className="admin-nav-label">Điều hành</p>
         <nav className="admin-nav">
           {menu.map((item) => (
             <a className={active === item.key ? 'active' : ''} href={item.href} key={item.key}>
@@ -40,7 +47,9 @@ export function AdminLayout({ active, children, user }: Props) {
           ))}
         </nav>
       </aside>
-      <section className="admin-content">{children}</section>
+      <section className="admin-content">
+        <div className="admin-content-inner">{children}</div>
+      </section>
     </main>
   )
 }

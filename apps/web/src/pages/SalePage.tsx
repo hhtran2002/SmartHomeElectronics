@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getProducts } from '../api'
 import type { Product, ProductFilters } from '../types'
+import './StorefrontPages.css'
 
 type Props = {
   onAddToCart: (product: Product) => void
@@ -48,13 +49,10 @@ function SaleProductCard({
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="sale-card-image" />
         ) : (
-          <div className="sale-card-image-placeholder">📦</div>
+          <div className="sale-card-image-placeholder">AA</div>
         )}
         {discountPct && (
           <span className="sale-card-badge">-{discountPct}%</span>
-        )}
-        {product.promotionName && (
-          <span className="sale-card-promo-label">{product.promotionName}</span>
         )}
       </div>
 
@@ -63,9 +61,7 @@ function SaleProductCard({
           {product.categoryName} · {product.brandName}
         </p>
         <h3 className="sale-card-name">{product.name}</h3>
-        {product.description && (
-          <p className="sale-card-desc">{product.description}</p>
-        )}
+        {product.promotionName && <p className="sale-card-offer">{product.promotionName}</p>}
 
         <div className="sale-card-pricing">
           {product.originalPrice && product.finalPrice && product.finalPrice < product.originalPrice ? (
@@ -92,7 +88,7 @@ function SaleProductCard({
               onAddToCart(product)
             }}
           >
-            Thêm
+            Thêm vào giỏ
           </button>
         </div>
       </div>
@@ -137,34 +133,30 @@ export function SalePage({ onAddToCart, onViewDetail }: Props) {
   })
 
   return (
-    <main>
-      {/* Hero Banner */}
+    <main className="sale-page-editorial">
       <div className="sale-hero">
         <div className="sale-hero-inner">
-          <div className="sale-hero-badge">🔥 HOT DEAL</div>
-          <h1 className="sale-hero-title">Siêu Giảm Giá</h1>
+          <div className="sale-hero-badge">Giá tốt trong tháng</div>
+          <h1 className="sale-hero-title">Chọn tốt hơn.<br />Mua nhẹ hơn.</h1>
           <p className="sale-hero-sub">
-            Hàng trăm sản phẩm điện tử đang được giảm giá sốc — chỉ có trong thời gian ngắn!
+            Những ưu đãi đáng cân nhắc cho thiết bị chính hãng, giao lắp tận nơi và bảo hành minh bạch.
           </p>
-          <div className="sale-hero-stats">
-            <div className="sale-stat">
-              <strong>{total}</strong>
-              <span>sản phẩm đang sale</span>
-            </div>
-            <div className="sale-stat-divider" />
-            <div className="sale-stat">
-              <strong>Đến -70%</strong>
-              <span>giảm giá tối đa</span>
-            </div>
-            <div className="sale-stat-divider" />
-            <div className="sale-stat">
-              <strong>Miễn phí</strong>
-              <span>vận chuyển</span>
-            </div>
-          </div>
         </div>
-        <div className="sale-hero-decoration" aria-hidden="true">
-          <span>%</span>
+        <div className="sale-hero-stats">
+          <div className="sale-stat">
+            <strong>{total}</strong>
+            <span>sản phẩm đang sale</span>
+          </div>
+          <div className="sale-stat-divider" />
+          <div className="sale-stat">
+            <strong>Chọn lọc</strong>
+            <span>ưu đãi thực tế</span>
+          </div>
+          <div className="sale-stat-divider" />
+          <div className="sale-stat">
+            <strong>Miễn phí</strong>
+            <span>vận chuyển</span>
+          </div>
         </div>
       </div>
 
@@ -174,7 +166,7 @@ export function SalePage({ onAddToCart, onViewDetail }: Props) {
           <input
             className="sale-search"
             type="text"
-            placeholder="🔍  Tìm sản phẩm đang giảm giá..."
+            placeholder="Tìm trong danh sách ưu đãi..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
@@ -186,7 +178,7 @@ export function SalePage({ onAddToCart, onViewDetail }: Props) {
                 className={`sale-sort-btn${sortMode === mode ? ' active' : ''}`}
                 onClick={() => setSortMode(mode)}
               >
-                {mode === 'discount' ? '% Giảm nhiều nhất' : mode === 'price_asc' ? 'Giá tăng dần' : 'Giá giảm dần'}
+                {mode === 'discount' ? 'Giảm nhiều nhất' : mode === 'price_asc' ? 'Giá tăng dần' : 'Giá giảm dần'}
               </button>
             ))}
           </div>
@@ -200,12 +192,10 @@ export function SalePage({ onAddToCart, onViewDetail }: Props) {
           </div>
         ) : error ? (
           <div className="sale-error">
-            <span>⚠️</span>
             <p>{error}</p>
           </div>
         ) : sorted.length === 0 ? (
           <div className="sale-empty">
-            <span>🛍️</span>
             <p>Hiện không có sản phẩm nào đang giảm giá{search ? ` cho "${search}"` : ''}.</p>
           </div>
         ) : (

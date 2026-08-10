@@ -1,5 +1,6 @@
 import type { CartItem } from '../types'
 import { formatPrice } from '../utils'
+import '../pages/CommerceFlow.css'
 
 type Props = {
   items: CartItem[]
@@ -23,22 +24,21 @@ export function CartPage({
   const total = subtotal + shippingFee
 
   return (
-    <main className="cart-page">
-      <section className="section-heading">
+    <main className="cart-page commerce-flow-page">
+      <section className="section-heading flow-intro">
         <div>
-          <span className="eyebrow">Giỏ hàng</span>
-          <h2>Kiểm tra SKU trước khi đặt hàng</h2>
-          <p>Trang này chỉ quản lý sản phẩm trong giỏ. Thông tin nhận hàng được tách sang trang Checkout riêng.</p>
+          <span className="eyebrow">01 — Giỏ hàng</span>
+          <h1>Những món<br />bạn đã chọn.</h1>
+          <p>Kiểm tra sản phẩm và số lượng trước khi tiếp tục thanh toán.</p>
         </div>
-        {items.length > 0 && <button onClick={onClearCart}>Xóa giỏ hàng</button>}
+        {items.length > 0 && <button className="flow-text-button" onClick={onClearCart}>Xóa tất cả</button>}
       </section>
 
       {items.length === 0 ? (
         <div className="status-card cart-empty">
-          <span className="empty-icon">🛒</span>
           <h3>Giỏ hàng đang trống</h3>
-          <p>Quay lại trang sản phẩm và thêm vài món trước nhé.</p>
-          <button onClick={onBackToProducts}>Xem sản phẩm</button>
+          <p>Hãy khám phá catalog và chọn những thiết bị phù hợp với ngôi nhà của bạn.</p>
+          <button onClick={onBackToProducts}>Khám phá sản phẩm</button>
         </div>
       ) : (
         <section className="cart-layout">
@@ -77,13 +77,14 @@ export function CartPage({
           </div>
 
           <aside className="cart-summary">
-            <h3>Tóm tắt giỏ hàng</h3>
-            <div><span>Số dòng SKU</span><strong>{items.length}</strong></div>
-            <div><span>Tổng số lượng</span><strong>{items.reduce((sum, item) => sum + item.quantity, 0)}</strong></div>
+            <span className="summary-kicker">Đơn hàng của bạn</span>
+            <h3>Tóm tắt</h3>
+            <div><span>Sản phẩm</span><strong>{items.length}</strong></div>
+            <div><span>Số lượng</span><strong>{items.reduce((sum, item) => sum + item.quantity, 0)}</strong></div>
             <div><span>Tạm tính</span><strong>{formatPrice(subtotal)}</strong></div>
             <div><span>Phí giao hàng dự kiến</span><strong>{formatPrice(shippingFee)}</strong></div>
             <div><span>Tổng dự kiến</span><strong>{formatPrice(total)}</strong></div>
-            <button onClick={onGoToCheckout}>Tiến tới checkout</button>
+            <button onClick={onGoToCheckout}>Tiếp tục thanh toán</button>
           </aside>
         </section>
       )}

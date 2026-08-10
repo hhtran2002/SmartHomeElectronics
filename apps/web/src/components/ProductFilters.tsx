@@ -12,9 +12,9 @@ export function ProductFilters({ brands, categories, filters, onChange, onReset 
   const update = (patch: Partial<Filters>) => onChange({ ...filters, ...patch, page: 1 })
 
   return (
-    <aside className="filters-card">
+    <aside className="filters-card catalog-filters">
       <div className="filter-header">
-        <h3>Bộ lọc</h3>
+        <h3>Lọc sản phẩm</h3>
         <button onClick={onReset}>Xóa lọc</button>
       </div>
 

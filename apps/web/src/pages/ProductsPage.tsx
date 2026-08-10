@@ -10,6 +10,7 @@ import type {
   Product,
   ProductFilters as Filters,
 } from '../types'
+import './StorefrontPages.css'
 
 type Props = {
   brands: Brand[]
@@ -188,55 +189,42 @@ export function ProductsPage({
   }
 
   return (
-    <main>
-      <section className="products-section" id="products">
-        <div className="section-heading" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+    <main className="catalog-page">
+      <section className="products-section catalog-section" id="products">
+        <header className="catalog-intro">
           <div>
-            <span className="eyebrow">Danh mục sản phẩm</span>
-            <h2 style={{ fontSize: '28px', margin: '4px 0 0' }}>Tất cả sản phẩm</h2>
-            <p style={{ margin: '4px 0 0', color: '#64748b' }}>{total} thiết bị phù hợp với lựa chọn hiện tại.</p>
+            <span>Catalog AA Smart</span>
+            <h1>Thiết bị cho<br />mọi không gian.</h1>
+            <p>Khám phá sản phẩm chính hãng được tuyển chọn cho ngôi nhà hiện đại.</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button
-              className="primary-link small"
-              onClick={() => setShowAiModal(true)}
-              style={{
-                background: 'linear-gradient(135deg, #16a8e3, #0284c7)',
-                color: '#ffffff',
-                border: 0,
-                borderRadius: '999px',
-                fontWeight: '900',
-                padding: '10px 18px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 8px 20px rgba(22, 168, 227, 0.2)'
-              }}
-            >
-              ✦ Trợ lý AI
-            </button>
-            <button onClick={onResetFilters} style={{ borderRadius: '999px', padding: '10px 18px', fontWeight: '800' }}>Xem tất cả</button>
+          <div className="catalog-intro-aside">
+            <strong>{total}</strong>
+            <span>sản phẩm phù hợp</span>
           </div>
-        </div>
+        </header>
 
-        <div className="catalog-toolbar" style={{ display: 'flex', gap: '16px', margin: '20px 0', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={filters.search}
-            onChange={(e) => onFiltersChange({ ...filters, search: e.target.value, page: 1 })}
-            placeholder="Tìm kiếm sản phẩm nhanh..."
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '12px 18px',
-              borderRadius: '16px',
-              border: '1px solid rgba(125, 211, 252, 0.45)',
-              outline: 'none',
-              fontSize: '14px',
-              boxShadow: '0 4px 12px rgba(14, 165, 233, 0.03)'
-            }}
-          />
+        <div className="catalog-search-row">
+          <div className="catalog-search-field">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
+              <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => onFiltersChange({ ...filters, search: e.target.value, page: 1 })}
+              placeholder="Tìm theo tên hoặc nhu cầu..."
+            />
+          </div>
+          <div className="catalog-search-actions">
+            <button
+              className="catalog-ai-button"
+              onClick={() => setShowAiModal(true)}
+            >
+              Tìm cùng trợ lý AI
+            </button>
+            <button className="catalog-reset-button" onClick={onResetFilters}>Đặt lại</button>
+          </div>
         </div>
 
         <div className="catalog-layout">
@@ -247,7 +235,11 @@ export function ProductsPage({
             onChange={onFiltersChange}
             onReset={onResetFilters}
           />
-          <div>
+          <div className="catalog-results">
+            <div className="catalog-results-heading">
+              <span>Kết quả</span>
+              <small>{total} sản phẩm</small>
+            </div>
             <ProductGrid
               error={error}
               loading={loading}

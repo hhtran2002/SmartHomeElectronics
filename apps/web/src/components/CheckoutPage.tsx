@@ -10,6 +10,7 @@ import type {
   PaymentMethod,
 } from '../types'
 import { formatPrice } from '../utils'
+import '../pages/CommerceFlow.css'
 
 type CheckoutForm = {
   customerName: string
@@ -109,14 +110,14 @@ export function CheckoutPage(props: Props) {
   }
 
   return (
-    <main className="checkout-page">
-      <section className="section-heading">
+    <main className="checkout-page commerce-flow-page">
+      <section className="section-heading flow-intro checkout-intro">
         <div>
-          <span className="eyebrow">Checkout</span>
-          <h2>Thông tin nhận hàng</h2>
-          <p>Chọn địa chỉ đã lưu, chọn hình thức thanh toán rồi tạo đơn.</p>
+          <span className="eyebrow">02 — Thanh toán</span>
+          <h1>Giao hàng<br />đến đâu?</h1>
+          <p>Xác nhận người nhận, địa chỉ và phương thức thanh toán phù hợp.</p>
         </div>
-        {!createdOrder && <button onClick={onBackToCart}>← Quay lại giỏ hàng</button>}
+        {!createdOrder && <button className="flow-text-button" onClick={onBackToCart}>← Quay lại giỏ hàng</button>}
       </section>
 
       {createdOrder ? (
@@ -128,13 +129,13 @@ export function CheckoutPage(props: Props) {
         </div>
       ) : items.length === 0 ? (
         <div className="status-card cart-empty">
-          <h3>Không có sản phẩm để checkout</h3>
+          <h3>Chưa có sản phẩm trong giỏ</h3>
           <button onClick={onBackToProducts}>Xem sản phẩm</button>
         </div>
       ) : (
         <section className="checkout-layout">
           <form className="checkout-form" onSubmit={onCheckoutSubmit}>
-            <div><span className="eyebrow">Thông tin nhận hàng</span><h3>Người nhận</h3></div>
+            <div className="checkout-form-heading"><span>01</span><div><small>Thông tin nhận hàng</small><h3>Người nhận</h3></div></div>
 
             {addresses.length > 0 && (
               <label>Chọn địa chỉ đã lưu
@@ -181,8 +182,7 @@ export function CheckoutPage(props: Props) {
             <label>Ghi chú<textarea value={checkoutForm.note} onChange={(event) => onCheckoutChange({ note: event.target.value })} /></label>
 
             <section className="payment-methods">
-              <span className="eyebrow">Mã giảm giá</span>
-              <h3>Nhập coupon nếu có</h3>
+              <div className="checkout-form-heading"><span>02</span><div><small>Ưu đãi</small><h3>Mã giảm giá</h3></div></div>
               <Field
                 label="Mã coupon"
                 required={false}
@@ -193,8 +193,7 @@ export function CheckoutPage(props: Props) {
             </section>
 
             <section className="payment-methods">
-              <span className="eyebrow">Thanh toán</span>
-              <h3>Chọn hình thức thanh toán</h3>
+              <div className="checkout-form-heading"><span>03</span><div><small>Thanh toán</small><h3>Phương thức thanh toán</h3></div></div>
               <div className="payment-method-list">
                 {paymentMethods.map((method) => (
                   <label className={method.paymentMethodId === selectedPaymentMethodId ? 'active' : ''} key={method.paymentMethodId}>
@@ -222,7 +221,8 @@ export function CheckoutPage(props: Props) {
           </form>
 
           <aside className="cart-summary">
-            <h3>Tóm tắt đơn</h3>
+            <span className="summary-kicker">Đơn hàng của bạn</span>
+            <h3>Tóm tắt</h3>
             {items.map((item) => <div key={item.skuId}><span>{item.skuCode} × {item.quantity}</span><strong>{formatPrice(item.price * item.quantity)}</strong></div>)}
             <div><span>Tạm tính</span><strong>{formatPrice(subtotal)}</strong></div>
             <div><span>Phí giao hàng</span><strong>{formatPrice(shippingFee)}</strong></div>

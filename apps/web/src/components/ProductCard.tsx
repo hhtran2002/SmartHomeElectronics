@@ -21,17 +21,16 @@ export function ProductCard({ product, onAddToCart, onViewDetail }: Props) {
         </div>
         <div className="product-meta">{product.categoryName} · {product.brandName}</div>
         <h3>{product.name}</h3>
-        <p>{product.description ?? 'Thiết bị gia dụng thông minh dành cho ngôi nhà hiện đại.'}</p>
       </button>
       <div className="product-bottom">
         <div>
           {hasPromotion && <small className="old-price">{formatPrice(originalPrice)}</small>}
           <strong>{formatPrice(displayPrice)}</strong>
-          {hasPromotion && <small className="promotion-label">{product.promotionName}</small>}
-          <small>SKU {product.skuCode ?? 'đang cập nhật'} · còn {product.availableQuantity}</small>
+          {hasPromotion && <small className="promotion-label">{product.promotionName || 'Đang ưu đãi'}</small>}
+          <small>{product.availableQuantity > 0 ? `Còn ${product.availableQuantity} sản phẩm` : 'Tạm hết hàng'}</small>
         </div>
         <button disabled={!canBuy} onClick={() => onAddToCart(product)}>
-          Thêm
+          Thêm vào giỏ
         </button>
       </div>
     </article>
