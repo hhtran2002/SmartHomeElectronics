@@ -11,9 +11,12 @@ type ReviewingItem = {
   productSlug: string
 }
 
+const ORDERS_PER_PAGE = 9
+
 export function CustomerOrdersPanel({ token }: { token: string }) {
   const [orders, setOrders] = useState<CustomerOrder[]>([])
   const [detail, setDetail] = useState<CustomerOrderDetail | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -42,6 +45,7 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
     try {
       const payload = await getCustomerOrders(token)
       setOrders(payload.data)
+      setCurrentPage((page) => Math.min(page, Math.max(1, Math.ceil(payload.data.length / ORDERS_PER_PAGE))))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Không tải được đơn hàng.')
     } finally {
@@ -147,6 +151,15 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   if (loading) return <div className="status-card">Đang tải đơn hàng...</div>
 
   const isCompleted = detail?.order.orderStatusCode === 'Completed'
+  const pageCount = Math.max(1, Math.ceil(orders.length / ORDERS_PER_PAGE))
+  const visibleOrders = orders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE)
+
+  function changePage(page: number) {
+    const nextPage = Math.min(Math.max(page, 1), pageCount)
+    if (nextPage === currentPage) return
+    setCurrentPage(nextPage)
+    setDetail(null)
+  }
 
   return (
     <section className="customer-orders-panel">
@@ -468,25 +481,39 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
         <div className="status-card"><h3>Bạn chưa có đơn hàng</h3><a href="#/products">Bắt đầu mua sắm</a></div>
       ) : (
         <div className="customer-orders-layout">
-          <div className="customer-order-list">
-            {orders.map((order) => (
-              <button
-                className={detail?.order.orderId === order.orderId ? 'active' : ''}
-                key={order.orderId}
-                onClick={() => void viewOrder(order.orderId)}
-                type="button"
-              >
-                <span>
-                  <strong>{order.orderCode}</strong>
-                  <small>{new Date(order.createdAt).toLocaleString('vi-VN')}</small>
-                </span>
-                <span>
-                  <strong>{formatPrice(order.totalAmount)}</strong>
-                  <small>{order.totalQuantity} sản phẩm</small>
-                </span>
-                <span className={`order-status ${order.orderStatusCode.toLowerCase()}`}>{order.orderStatusName}</span>
-              </button>
-            ))}
+          <div className="customer-order-index">
+            <div className="customer-order-list">
+              {visibleOrders.map((order) => (
+                <button
+                  className={detail?.order.orderId === order.orderId ? 'active' : ''}
+                  key={order.orderId}
+                  onClick={() => void viewOrder(order.orderId)}
+                  type="button"
+                >
+                  <span>
+                    <strong>{order.orderCode}</strong>
+                    <small>{new Date(order.createdAt).toLocaleString('vi-VN')}</small>
+                  </span>
+                  <span>
+                    <strong>{formatPrice(order.totalAmount)}</strong>
+                    <small>{order.totalQuantity} sản phẩm</small>
+                  </span>
+                  <span className={`order-status ${order.orderStatusCode.toLowerCase()}`}>{order.orderStatusName}</span>
+                </button>
+              ))}
+            </div>
+
+            {pageCount > 1 && (
+              <nav className="customer-order-pagination" aria-label="Phân trang đơn hàng">
+                <button aria-label="Trang trước" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)} type="button">←</button>
+                <div>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                    <button aria-current={page === currentPage ? 'page' : undefined} className={page === currentPage ? 'active' : ''} key={page} onClick={() => changePage(page)} type="button">{page}</button>
+                  ))}
+                </div>
+                <button aria-label="Trang sau" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)} type="button">→</button>
+              </nav>
+            )}
           </div>
 
           <aside className="customer-order-detail">
@@ -494,10 +521,13 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
               <div className="status-card">Chọn một đơn để xem sản phẩm đã mua.</div>
             ) : (
               <>
-                <header>
-                  <span className="eyebrow">Chi tiết đơn</span>
-                  <h3>{detail.order.orderCode}</h3>
-                  <p>{detail.order.orderStatusName} · {detail.order.paymentStatusName}</p>
+                <header className="customer-order-detail-head">
+                  <div>
+                    <span className="eyebrow">Chi tiết đơn hàng</span>
+                    <h3>{detail.order.orderCode}</h3>
+                    <p>{detail.order.paymentStatusName}</p>
+                  </div>
+                  <span className={`order-status ${detail.order.orderStatusCode.toLowerCase()}`}>{detail.order.orderStatusName}</span>
                 </header>
 
                 {/* Return Request Banner / Button */}
@@ -580,35 +610,37 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                   </div>
                 )}
 
-                <p><strong>Nhận hàng:</strong> {detail.order.receiverName} · {detail.order.receiverPhone}</p>
-                <p><strong>Địa chỉ:</strong> {detail.order.shippingAddress}</p>
+                <section className="customer-order-shipping">
+                  <div><span>Người nhận</span><strong>{detail.order.receiverName}</strong></div>
+                  <div><span>Điện thoại</span><strong>{detail.order.receiverPhone}</strong></div>
+                  <div className="customer-order-address"><span>Địa chỉ giao hàng</span><strong>{detail.order.shippingAddress}</strong></div>
+                </section>
 
-                <div className="customer-order-items">
-                  {detail.items.map((item) => (
-                    <article key={item.orderDetailId} style={{ alignItems: 'flex-start', gap: '12px' }}>
-                      <div style={{ display: 'flex', gap: '12px', flex: 1, alignItems: 'center' }}>
+                <section className="customer-order-products">
+                  <div className="customer-order-products-head">
+                    <strong>Sản phẩm</strong>
+                    <span>{detail.items.reduce((total, item) => total + item.quantity, 0)} sản phẩm</span>
+                  </div>
+                  <div className="customer-order-items">
+                    {detail.items.map((item) => (
+                      <article key={item.orderDetailId}>
+                        <div className="customer-order-product-main">
                         {item.imageUrl
-                          ? <img alt={item.productName} src={item.imageUrl} style={{ width: '56px', height: '56px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #f1f5f9', flexShrink: 0 }} />
-                          : <div className="order-image-placeholder" style={{ width: '56px', height: '56px', flexShrink: 0 }}>AA</div>
+                            ? <img alt={item.productName} src={item.imageUrl} />
+                            : <div className="order-image-placeholder">AA</div>
                         }
-                        <div style={{ flex: 1 }}>
-                          <strong style={{ fontSize: '14px' }}>{item.productName}</strong>
-                          <small style={{ display: 'block', color: '#64748b' }}>SKU {item.skuCode} · SL {item.quantity}</small>
+                          <div className="customer-order-product-copy">
+                            <strong>{item.productName}</strong>
+                            <small>SKU {item.skuCode}</small>
+                            <small>Số lượng {item.quantity}</small>
+                          </div>
+                          <strong className="customer-order-product-price">{formatPrice(item.lineTotal)}</strong>
                         </div>
-                        <strong style={{ whiteSpace: 'nowrap' }}>{formatPrice(item.lineTotal)}</strong>
-                      </div>
 
-                      {/* Review button - only shown for completed orders */}
-                      {isCompleted && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #f8fafc' }}>
+                        {isCompleted && (
+                          <div className="customer-order-review-action">
                           {item.hasReview ? (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '5px',
-                              fontSize: '12px', fontWeight: '700', color: '#16a34a',
-                              background: '#f0fdf4', borderRadius: '20px', padding: '5px 12px',
-                            }}>
-                              ✅ Đã đánh giá
-                            </span>
+                              <span className="review-complete">Đã đánh giá</span>
                           ) : (
                             <button
                               type="button"
@@ -618,31 +650,16 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                                 imageUrl: item.imageUrl,
                                 productSlug: item.productSlug,
                               })}
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                fontSize: '12px', fontWeight: '700', color: '#0284c7',
-                                background: 'linear-gradient(135deg, #e0f2fe, #bae6fd)',
-                                border: '1px solid #7dd3fc', borderRadius: '20px',
-                                padding: '5px 14px', cursor: 'pointer',
-                                transition: 'transform 0.15s, box-shadow 0.15s',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-1px)'
-                                e.currentTarget.style.boxShadow = '0 4px 10px rgba(14,165,233,0.2)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)'
-                                e.currentTarget.style.boxShadow = 'none'
-                              }}
                             >
-                              ⭐ Đánh giá
+                                Viết đánh giá
                             </button>
                           )}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </section>
 
                 <div className="customer-order-total">
                   <span>Tạm tính</span><strong>{formatPrice(detail.order.subtotalAmount)}</strong>

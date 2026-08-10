@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { submitProductReview } from '../api'
 import type { Product, ProductAttribute, ProductReview } from '../types'
 import { formatPrice } from '../utils'
+import './ProductDetail.css'
 
 type Props = {
   error: string
@@ -183,8 +184,8 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
   }
 
   return (
-    <main className="detail-page">
-      <button className="back-button" onClick={onBack}>← Quay lại danh sách</button>
+    <main className="detail-page product-detail-editorial">
+      <button className="back-button detail-back-link" onClick={onBack}>← Tất cả sản phẩm</button>
 
       <section className="detail-layout">
         <article className="detail-gallery-card">
@@ -217,26 +218,15 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
           </div>
 
           {skus.length > 1 && (
-            <div className="variant-selector" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '800' }}>Chọn phiên bản:</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            <div className="variant-selector">
+              <span>Phiên bản</span>
+              <div>
                 {skus.map((sku) => (
                   <button
+                    className={sku.skuId === selectedSkuId ? 'active' : ''}
                     key={sku.skuId}
                     onClick={() => setSelectedSkuId(sku.skuId)}
                     type="button"
-                    style={{
-                      padding: '10px 16px',
-                      borderRadius: '12px',
-                      border: sku.skuId === selectedSkuId ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                      background: sku.skuId === selectedSkuId ? '#f0f9ff' : '#ffffff',
-                      color: sku.skuId === selectedSkuId ? '#0284c7' : '#1e293b',
-                      fontSize: '13px',
-                      fontWeight: '800',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: sku.skuId === selectedSkuId ? '0 4px 12px rgba(2, 132, 199, 0.15)' : 'none'
-                    }}
                   >
                     {sku.variantName}
                   </button>
@@ -283,8 +273,8 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
         <div><strong>{product.installRequired ? 'Hỗ trợ lắp đặt' : 'Dễ dùng tại nhà'}</strong><span>Theo đặc thù từng dòng sản phẩm.</span></div>
       </section>
 
-      <section className="detail-two-columns">
-        <article className="detail-section-card">
+      <section className="detail-two-columns detail-information-grid">
+        <article className="detail-section-card detail-highlights-section">
           <span className="eyebrow">Tổng quan</span>
           <h2>Đặc điểm nổi bật</h2>
           <ul className="detail-highlights">
@@ -292,7 +282,7 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
           </ul>
         </article>
 
-        <article className="detail-section-card">
+        <article className="detail-section-card detail-specs-section">
           <span className="eyebrow">Thông tin</span>
           <h2>Thông số sản phẩm</h2>
           <div className="spec-table">
@@ -306,7 +296,7 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
         </article>
       </section>
 
-      <article className="detail-section-card">
+      <article className="detail-section-card detail-description-section">
         <span className="eyebrow">Mô tả</span>
         <h2>Thông tin sản phẩm</h2>
         <p className="detail-description">
@@ -314,138 +304,96 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
         </p>
       </article>
 
-      <article className="detail-section-card" id="product-reviews">
-        <span className="eyebrow">Đánh giá</span>
-        <h2>Đánh giá khách hàng</h2>
+      <article className="detail-section-card detail-reviews-section" id="product-reviews">
+        <header className="detail-section-heading">
+          <div><span className="eyebrow">Đánh giá</span><h2>Khách hàng nói gì</h2></div>
+          <p>Nhận xét từ những khách hàng đã trải nghiệm sản phẩm.</p>
+        </header>
 
-        {/* Review Summary Hero */}
-        <div style={{
-          display: 'flex', gap: '32px', alignItems: 'center',
-          background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-          borderRadius: '16px', padding: '24px 28px', marginBottom: '28px',
-        }}>
-          <div style={{ textAlign: 'center', minWidth: '100px' }}>
-            <div style={{ fontSize: '56px', fontWeight: '900', color: '#0369a1', lineHeight: 1 }}>
+        <div className="product-review-layout">
+          <aside className="product-review-summary">
+            <div className="product-review-score">
+              <div>
               {Number(reviewSummary.averageRating).toFixed(1)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '3px', margin: '8px 0' }}>
+              </div>
+              <div className="product-review-stars">
               {[1,2,3,4,5].map((s) => (
-                <span key={s} style={{ fontSize: '20px', color: s <= Math.round(Number(reviewSummary.averageRating)) ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                  <span className={s <= Math.round(Number(reviewSummary.averageRating)) ? 'filled' : ''} key={s}>★</span>
               ))}
-            </div>
-            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+              </div>
+              <small>
               {reviewSummary.reviewCount} đánh giá
+              </small>
             </div>
-          </div>
-          <div style={{ flex: 1 }}>
+            <div className="product-review-bars">
             {[5,4,3,2,1].map((star) => {
               const count = reviews.filter(r => !r.parentReviewId && r.rating === star).length
               const pct = reviewSummary.reviewCount > 0 ? Math.round((count / reviewSummary.reviewCount) * 100) : 0
               return (
-                <div key={star} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', width: '32px' }}>{star} ★</span>
-                  <div style={{ flex: 1, height: '8px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', borderRadius: '99px', transition: 'width 0.6s ease' }} />
+                  <div key={star}>
+                    <span>{star}</span>
+                    <div className="product-review-bar">
+                      <i style={{ width: `${pct}%` }} />
                   </div>
-                  <span style={{ fontSize: '12px', color: '#94a3b8', width: '28px', textAlign: 'right' }}>{count}</span>
+                    <small>{count}</small>
                 </div>
               )
             })}
-          </div>
-        </div>
-
-        {/* Review List */}
-        {reviewTree.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>💬</div>
-            <p style={{ fontWeight: '700', color: '#64748b', margin: '0 0 4px' }}>Chưa có đánh giá nào</p>
-            <p style={{ fontSize: '13px', margin: 0 }}>Hãy là người đầu tiên chia sẻ trải nghiệm về sản phẩm này!</p>
-          </div>
-        ) : (
-          <div className="review-list">
-            {reviewTree.map((review) => <ReviewNode key={review.reviewId} review={review} onReply={setReplyTo} />)}
-          </div>
-        )}
-
-        {/* Review Form */}
-        <div style={{
-          marginTop: '32px', background: '#f8fafc', borderRadius: '16px',
-          padding: '24px', border: '1px solid #e2e8f0',
-        }}>
-          <h3 style={{ margin: '0 0 20px', fontSize: '18px', color: '#0f172a' }}>
-            {replyTo ? `↩ Trả lời ${replyTo.reviewerName}` : '✍️ Viết đánh giá của bạn'}
-          </h3>
-          {replyTo && (
-            <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#f0f9ff', borderRadius: '10px', fontSize: '13px', color: '#0369a1' }}>
-              <strong>{replyTo.reviewerName}:</strong> {replyTo.comment?.slice(0, 100)}{(replyTo.comment?.length ?? 0) > 100 ? '...' : ''}
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                style={{ marginLeft: '12px', background: 'none', border: 0, cursor: 'pointer', color: '#94a3b8', fontSize: '16px' }}
-              >×</button>
             </div>
-          )}
-          <form className="review-form" onSubmit={handleSubmitReview} style={{ background: 'transparent', padding: 0, border: 0 }}>
-            {!replyTo && (
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
-                  Chất lượng sản phẩm
-                </label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {[1,2,3,4,5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setReviewRating(star)}
-                      style={{
-                        background: 'none', border: 0, cursor: 'pointer', padding: '2px',
-                        fontSize: '32px', lineHeight: 1,
-                        color: star <= reviewRating ? '#f59e0b' : '#e2e8f0',
-                        transition: 'color 0.15s, transform 0.1s',
-                        transform: star <= reviewRating ? 'scale(1.1)' : 'scale(1)',
-                      }}
-                    >★</button>
-                  ))}
-                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', marginLeft: '4px' }}>
-                    {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc!'][reviewRating]}
-                  </span>
+          </aside>
+
+          <section className="product-review-content">
+            <div className="product-review-list-wrap">
+              <h3>Nhận xét gần đây</h3>
+              {reviewTree.length === 0 ? (
+                <div className="product-review-empty">
+                  <strong>Chưa có đánh giá nào</strong>
+                  <p>Hãy là người đầu tiên chia sẻ trải nghiệm về sản phẩm này.</p>
                 </div>
-              </div>
-            )}
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>
-              Nội dung đánh giá
-            </label>
-            <textarea
-              placeholder="Chia sẻ trải nghiệm thực tế sau khi dùng sản phẩm..."
-              value={reviewComment}
-              onChange={(event) => setReviewComment(event.target.value)}
-              rows={4}
-              style={{
-                width: '100%', padding: '12px 14px', borderRadius: '12px',
-                border: '1.5px solid #e2e8f0', fontSize: '14px', resize: 'vertical',
-                fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-                transition: 'border-color 0.2s',
-              }}
-              onFocus={(e) => { e.target.style.borderColor = '#0ea5e9' }}
-              onBlur={(e) => { e.target.style.borderColor = '#e2e8f0' }}
-            />
-            {reviewError && <p className="form-error" style={{ marginTop: '8px' }}>{reviewError}</p>}
-            {reviewMessage && <p className="form-hint" style={{ marginTop: '8px', color: '#16a34a' }}>{reviewMessage}</p>}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button
-                disabled={reviewSaving}
-                style={{
-                  padding: '12px 24px', borderRadius: '12px', border: 0,
-                  background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-                  color: '#fff', fontWeight: '700', fontSize: '14px',
-                  cursor: reviewSaving ? 'not-allowed' : 'pointer', opacity: reviewSaving ? 0.7 : 1,
-                }}
-              >
-                {reviewSaving ? 'Đang gửi...' : (replyTo ? 'Gửi trả lời' : 'Gửi đánh giá')}
-              </button>
-              {!token && <p style={{ margin: 0, alignSelf: 'center', fontSize: '13px', color: '#94a3b8' }}>Bạn cần đăng nhập để đánh giá</p>}
+              ) : (
+                <div className="review-list">
+                  {reviewTree.map((review) => <ReviewNode key={review.reviewId} review={review} onReply={setReplyTo} />)}
+                </div>
+              )}
             </div>
-          </form>
+
+            <div className="product-review-composer">
+              <h3>{replyTo ? `Trả lời ${replyTo.reviewerName}` : 'Viết đánh giá của bạn'}</h3>
+              {replyTo && (
+                <div className="product-review-reply-context">
+                  <span><strong>{replyTo.reviewerName}:</strong> {replyTo.comment?.slice(0, 100)}{(replyTo.comment?.length ?? 0) > 100 ? '...' : ''}</span>
+                  <button type="button" onClick={() => setReplyTo(null)} aria-label="Hủy trả lời">×</button>
+                </div>
+              )}
+              <form className="review-form" onSubmit={handleSubmitReview}>
+                {!replyTo && (
+                  <div className="product-review-rating-input">
+                    <label>Chất lượng sản phẩm</label>
+                    <div>
+                      {[1,2,3,4,5].map((star) => (
+                        <button className={star <= reviewRating ? 'active' : ''} key={star} type="button" onClick={() => setReviewRating(star)}>★</button>
+                      ))}
+                      <span>{['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc'][reviewRating]}</span>
+                    </div>
+                  </div>
+                )}
+                <label htmlFor="product-review-comment">Nội dung đánh giá</label>
+                <textarea
+                  id="product-review-comment"
+                  placeholder="Chia sẻ trải nghiệm thực tế sau khi dùng sản phẩm..."
+                  value={reviewComment}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                  rows={4}
+                />
+                {reviewError && <p className="form-error">{reviewError}</p>}
+                {reviewMessage && <p className="form-hint product-review-success">{reviewMessage}</p>}
+                <div className="product-review-submit">
+                  <button disabled={reviewSaving}>{reviewSaving ? 'Đang gửi...' : (replyTo ? 'Gửi trả lời' : 'Gửi đánh giá')}</button>
+                  {!token && <p>Bạn cần đăng nhập để đánh giá.</p>}
+                </div>
+              </form>
+            </div>
+          </section>
         </div>
       </article>
     </main>
