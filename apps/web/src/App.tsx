@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createOrder, getBrands, getCategories, getPaymentMethods, getProduct, getProducts } from './api'
 import './App.css'
@@ -71,7 +71,9 @@ function defaultAuthenticatedRoute(roles: string[]) {
 
 function App() {
   const auth = useAuth()
-  const cart = useCart()
+  const cart = useCart(auth.token)
+  const [selectedCartSkuIds, setSelectedCartSkuIds] = useState<number[]>([])
+  const cartSelectionInitialized = useRef(false)
   const [brands, setBrands] = useState<Brand[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [checkoutError, setCheckoutError] = useState('')
@@ -89,6 +91,26 @@ function App() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState(1)
   const [total, setTotal] = useState(0)
+
+  const checkoutItems = useMemo(
+    () => cart.cartItems.filter((item) => selectedCartSkuIds.includes(item.skuId)),
+    [cart.cartItems, selectedCartSkuIds],
+  )
+
+  useEffect(() => {
+    const existingIds = new Set(cart.cartItems.map((item) => item.skuId))
+    if (cart.cartItems.length === 0) {
+      cartSelectionInitialized.current = false
+      setSelectedCartSkuIds([])
+      return
+    }
+    if (!cartSelectionInitialized.current) {
+      cartSelectionInitialized.current = true
+      setSelectedCartSkuIds([...existingIds])
+      return
+    }
+    setSelectedCartSkuIds((current) => current.filter((skuId) => existingIds.has(skuId)))
+  }, [cart.cartItems])
 
   const selectedSlug = useMemo(() => {
     const match = hash.match(/^#\/products\/(.+)$/)
@@ -168,7 +190,7 @@ function App() {
     const payload: CheckoutPayload = {
       ...checkoutForm,
       paymentMethodId: selectedPaymentMethodId,
-      items: cart.cartItems.map((item) => ({
+      items: checkoutItems.map((item) => ({
         skuId: Number(item.skuId),
         quantity: Number(item.quantity),
       })),
@@ -177,7 +199,8 @@ function App() {
     try {
       const order = await createOrder(payload, auth.token)
       setCreatedOrder(order.data)
-      cart.clearCart()
+      cart.removeItems(selectedCartSkuIds)
+      setSelectedCartSkuIds([])
       setCheckoutForm(initialCheckoutForm)
       setSelectedPaymentMethodId(1)
     } catch (error) {
@@ -258,6 +281,7 @@ function App() {
     page = (
       <CartPage
         items={cart.cartItems}
+        selectedSkuIds={selectedCartSkuIds}
         onBackToProducts={() => {
           window.location.hash = '#/products'
         }}
@@ -265,6 +289,7 @@ function App() {
         onGoToCheckout={() => {
           window.location.hash = '#/checkout'
         }}
+        onSelectionChange={setSelectedCartSkuIds}
         onRemoveItem={cart.removeItem}
         onUpdateQuantity={cart.updateQuantity}
       />
@@ -277,7 +302,7 @@ function App() {
         checkoutForm={checkoutForm}
         checkoutLoading={checkoutLoading}
         createdOrder={createdOrder}
-        items={cart.cartItems}
+        items={checkoutItems}
         paymentMethods={paymentMethods}
         selectedPaymentMethodId={selectedPaymentMethodId}
         onBackToCart={() => {

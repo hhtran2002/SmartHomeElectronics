@@ -1,6 +1,6 @@
 import type { NextFunction, Response } from 'express'
 import type { AuthRequest } from '../auth.js'
-import { createCheckoutOrder, markMockPaymentSuccess, type CheckoutItem } from '../services/orderService.js'
+import { createCheckoutOrder, type CheckoutItem } from '../services/orderService.js'
 
 function readText(value: unknown) {
   return String(value ?? '').trim()
@@ -56,22 +56,6 @@ export async function createOrder(request: AuthRequest, response: Response, next
     })
 
     response.status(201).json({ data: order })
-  } catch (error) {
-    if (error instanceof Error) {
-      response.status(400).json({ message: error.message })
-      return
-    }
-    next(error)
-  }
-}
-
-export async function mockPaymentSuccess(request: AuthRequest, response: Response, next: NextFunction) {
-  const orderCode = readText(request.params.orderCode)
-  const transactionCode = readText(request.body.transactionCode) || `MOCK-${Date.now()}`
-
-  try {
-    const result = await markMockPaymentSuccess(orderCode, transactionCode)
-    response.json({ data: result })
   } catch (error) {
     if (error instanceof Error) {
       response.status(400).json({ message: error.message })

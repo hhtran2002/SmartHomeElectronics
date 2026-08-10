@@ -59,3 +59,15 @@ Nhờ đó, khách hàng đưa ra quyết định nhanh hơn, còn nhân viên s
 ## Công nghệ sử dụng
 
 **React, TypeScript, Vite, Node.js/Express, SQL Server, Gemini AI và Qdrant.**
+
+## Cấu hình QR chuyển khoản
+
+Hệ thống chỉ hiển thị COD và chuyển khoản ngân hàng. Để VietQR chứa đúng tài khoản nhận tiền, cấu hình ba biến sau trong `.env` rồi khởi động lại API:
+
+```env
+BANK_CODE=MB
+BANK_ACCOUNT_NUMBER=0123456789
+BANK_ACCOUNT_NAME=NGUYEN VAN A
+```
+
+`BANK_CODE` dùng mã ngân hàng theo VietQR/NAPAS. Sau khi khách quét QR và chuyển khoản với nội dung là mã đơn, admin mở **Quản lý bán hàng → Đơn hàng**, đối chiếu giao dịch thực tế, nhập mã giao dịch và xác nhận đã nhận tiền.

@@ -125,6 +125,16 @@ export function CheckoutPage(props: Props) {
           <h3>Đặt hàng thành công</h3>
           <p>Mã đơn: {createdOrder.orderCode} · Tổng tiền: {formatPrice(createdOrder.totalAmount)}</p>
           <p>{createdOrder.paymentInstruction}</p>
+          {createdOrder.paymentQrUrl && (
+            <div className="bank-payment-result">
+              <img src={createdOrder.paymentQrUrl} alt={`QR chuyển khoản đơn ${createdOrder.orderCode}`} />
+              <strong>Quét QR đúng số tiền và giữ nguyên nội dung {createdOrder.orderCode}</strong>
+              <small>Đơn hàng sẽ ở trạng thái chờ thanh toán cho tới khi admin kiểm tra tài khoản ngân hàng.</small>
+            </div>
+          )}
+          {createdOrder.paymentMethodCode === 'BANK_TRANSFER' && !createdOrder.paymentQrUrl && (
+            <p className="form-error">Chưa cấu hình tài khoản nhận tiền. Admin cần điền BANK_CODE, BANK_ACCOUNT_NUMBER và BANK_ACCOUNT_NAME trong file .env.</p>
+          )}
           <button onClick={onBackToProducts}>Tiếp tục mua sắm</button>
         </div>
       ) : items.length === 0 ? (
@@ -249,16 +259,14 @@ function chooseAddress(address: CustomerAddress, change: Props['onCheckoutChange
 
 function describePaymentMethod(methodCode: string) {
   if (methodCode === 'COD') return 'Thanh toán khi nhận hàng, sau này đối soát COD với shipper.'
-  if (methodCode === 'BANK_TRANSFER') return 'Hiển thị thông tin/QR chuyển khoản, chờ ngân hàng xác nhận.'
-  if (methodCode === 'CREDIT_CARD') return 'Mô phỏng thanh toán thẻ, sau này nối cổng thanh toán.'
-  return 'Mô phỏng ví/cổng thanh toán, sau này nhận callback tự động.'
+  if (methodCode === 'BANK_TRANSFER') return 'Quét VietQR để chuyển khoản, sau đó admin kiểm tra tài khoản và xác nhận.'
+  return 'Phương thức thanh toán không được hỗ trợ.'
 }
 
 function describeSelectedPayment(methodCode: string) {
   if (methodCode === 'COD') return 'COD không làm đơn bị kẹt ở bước chờ thanh toán trước. Tiền sẽ được đối soát sau khi giao.'
-  if (methodCode === 'BANK_TRANSFER') return 'Đơn sẽ ở trạng thái chờ thanh toán. Khi webhook ngân hàng báo tiền về, đơn chuyển sang đã thanh toán.'
-  if (methodCode === 'CREDIT_CARD') return 'Đơn sẽ ở trạng thái chờ thanh toán cho tới khi cổng thẻ xác nhận thành công.'
-  return 'Đơn sẽ chờ callback từ ví/cổng thanh toán.'
+  if (methodCode === 'BANK_TRANSFER') return 'Đơn ở trạng thái chờ thanh toán. Admin đối chiếu đúng số tiền và nội dung rồi xác nhận thủ công.'
+  return 'Phương thức thanh toán không được hỗ trợ.'
 }
 
 function Field({ label, value, onChange, type = 'text', required = true }: {

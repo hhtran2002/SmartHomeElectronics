@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  confirmAdminBankPayment,
   getAdminOrder,
   getAdminOrders,
   updateAdminOrderStatus,
@@ -22,6 +23,7 @@ export function AdminOrdersPage({ roles, token }: Props) {
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [updating, setUpdating] = useState(false)
+  const [bankTransactionCode, setBankTransactionCode] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 10
 
@@ -73,6 +75,23 @@ export function AdminOrdersPage({ roles, token }: Props) {
     } finally {
       setUpdating(false)
     }
+  }
+
+  async function confirmBankPayment() {
+    if (!detail || !bankTransactionCode.trim()) return
+    setUpdating(true)
+    setError('')
+    try {
+      await confirmAdminBankPayment(detail.order.orderId, bankTransactionCode.trim(), token)
+      const [ordersPayload, detailPayload] = await Promise.all([
+        getAdminOrders(token), getAdminOrder(detail.order.orderId, token),
+      ])
+      setOrders(ordersPayload.data)
+      setDetail(detailPayload.data)
+      setBankTransactionCode('')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Không xác nhận được thanh toán.')
+    } finally { setUpdating(false) }
   }
 
   if (!token) {
@@ -144,6 +163,17 @@ export function AdminOrdersPage({ roles, token }: Props) {
                 <p>{detail.order.shippingAddress}</p>
                 <p>{detail.order.paymentMethodName ?? 'Chưa có phương thức thanh toán'} · {detail.order.paymentStatusName}</p>
               </div>
+
+              {detail.order.paymentMethodCode === 'BANK_TRANSFER' && detail.order.paymentStatusCode === 'Pending' && (
+                <div className="bank-confirm-card">
+                  <strong>Xác nhận chuyển khoản</strong>
+                  <p>Chỉ xác nhận sau khi đã kiểm tra đúng số tiền và nội dung trên tài khoản ngân hàng.</p>
+                  <input placeholder="Nhập mã giao dịch ngân hàng" value={bankTransactionCode} onChange={(event) => setBankTransactionCode(event.target.value)} />
+                  <button disabled={updating || !bankTransactionCode.trim()} onClick={() => void confirmBankPayment()}>
+                    {updating ? 'Đang xác nhận...' : 'Đã nhận tiền — xác nhận'}
+                  </button>
+                </div>
+              )}
 
               <label className="status-select">
                 Trạng thái đơn

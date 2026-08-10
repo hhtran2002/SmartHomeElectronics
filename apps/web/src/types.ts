@@ -202,6 +202,12 @@ export type OrderResponse = {
     paymentStatusCode: string
     orderStatusCode: string
     paymentInstruction: string
+    paymentQrUrl: string | null
+    bankAccount: {
+      bankCode: string
+      accountNumber: string
+      accountName: string
+    } | null
   }
 }
 
@@ -359,6 +365,30 @@ export type AdminReports = {
     quantityReserved: number
     availableQuantity: number
     reorderLevel: number
+  }>
+}
+
+export type ReportCustomerSummary = {
+  customerId: number
+  customerName: string
+  phone: string | null
+  email: string | null
+  orderCount: number
+  totalSpent: number
+}
+
+export type CustomerSalesReport = {
+  range: { fromDate: string; toDate: string }
+  customer: ReportCustomerSummary & { paidAmount: number; averageOrderValue: number }
+  orders: Array<{
+    orderId: number
+    orderCode: string
+    createdAt: string
+    totalAmount: number
+    orderStatusName: string
+    paymentStatusName: string
+    itemCount: number
+    totalQuantity: number
   }>
 }
 

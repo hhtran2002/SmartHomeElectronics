@@ -5,6 +5,7 @@ import {
   getAdminOrders,
   updateAdminOrderStatus,
 } from '../services/adminOrderService.js'
+import { confirmBankTransferPayment } from '../services/orderService.js'
 
 export async function listAdminOrders(_request: AuthRequest, response: Response, next: NextFunction) {
   try {
@@ -58,6 +59,21 @@ export async function changeAdminOrderStatus(request: AuthRequest, response: Res
       return
     }
 
+    next(error)
+  }
+}
+
+export async function confirmBankPayment(request: AuthRequest, response: Response, next: NextFunction) {
+  const orderId = Number(request.params.orderId)
+  const transactionCode = String(request.body.transactionCode ?? '').trim()
+  if (!Number.isInteger(orderId) || orderId < 1 || !transactionCode) {
+    response.status(400).json({ message: 'Vui lòng nhập mã giao dịch sau khi đã kiểm tra tài khoản ngân hàng.' })
+    return
+  }
+  try {
+    response.json({ data: await confirmBankTransferPayment(orderId, transactionCode, request.user!.userId) })
+  } catch (error) {
+    if (error instanceof Error) { response.status(400).json({ message: error.message }); return }
     next(error)
   }
 }

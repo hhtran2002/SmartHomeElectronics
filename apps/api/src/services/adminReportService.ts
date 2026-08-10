@@ -91,7 +91,7 @@ export async function getAdminReports(range: ReportRange) {
     GROUP BY CONVERT(varchar(10), so.CreatedAt, 23)
     ORDER BY reportDate;
 
-    SELECT TOP (10)
+    SELECT
       sod.SkuId AS skuId,
       sod.SkuCodeSnapshot AS skuCode,
       sod.ProductNameSnapshot AS productName,
@@ -167,4 +167,61 @@ export async function getAdminReports(range: ReportRange) {
     orderStatuses: recordsets[4],
     lowStock: recordsets[5],
   }
+}
+
+export async function searchReportCustomers(range: ReportRange, search: string) {
+  const pool = await getPool()
+  const result = await addRangeInputs(pool.request(), range)
+    .input('search', sql.NVarChar(255), `%${search}%`)
+    .query(`
+      SELECT TOP (30)
+        cp.CustomerId AS customerId, ua.FullName AS customerName, ua.Phone AS phone, ua.Email AS email,
+        COUNT(so.OrderId) AS orderCount,
+        ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS totalSpent
+      FROM dbo.CustomerProfile cp
+      INNER JOIN dbo.UserAccount ua ON ua.UserId = cp.UserId
+      LEFT JOIN dbo.SalesOrder so ON so.CustomerId = cp.CustomerId
+        AND so.CreatedAt >= @fromDate AND so.CreatedAt < DATEADD(day, 1, @toDate)
+      LEFT JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      WHERE @search = N'%%' OR ua.FullName LIKE @search OR ua.Phone LIKE @search OR ua.Email LIKE @search
+      GROUP BY cp.CustomerId, ua.FullName, ua.Phone, ua.Email
+      ORDER BY totalSpent DESC, orderCount DESC, ua.FullName
+    `)
+  return result.recordset
+}
+
+export async function getCustomerReport(range: ReportRange, customerId: number) {
+  const pool = await getPool()
+  const result = await addRangeInputs(pool.request(), range)
+    .input('customerId', sql.BigInt, customerId)
+    .query(`
+      SELECT TOP (1)
+        cp.CustomerId AS customerId, ua.FullName AS customerName, ua.Phone AS phone, ua.Email AS email,
+        COUNT(so.OrderId) AS orderCount,
+        ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS totalSpent,
+        ISNULL(SUM(CASE WHEN ps.StatusCode = 'Success' THEN so.TotalAmount ELSE 0 END), 0) AS paidAmount,
+        ISNULL(AVG(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount END), 0) AS averageOrderValue
+      FROM dbo.CustomerProfile cp
+      INNER JOIN dbo.UserAccount ua ON ua.UserId = cp.UserId
+      LEFT JOIN dbo.SalesOrder so ON so.CustomerId = cp.CustomerId
+        AND so.CreatedAt >= @fromDate AND so.CreatedAt < DATEADD(day, 1, @toDate)
+      LEFT JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      LEFT JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
+      WHERE cp.CustomerId = @customerId
+      GROUP BY cp.CustomerId, ua.FullName, ua.Phone, ua.Email;
+
+      SELECT
+        so.OrderId AS orderId, so.OrderCode AS orderCode, so.CreatedAt AS createdAt,
+        so.TotalAmount AS totalAmount, os.StatusName AS orderStatusName, ps.StatusName AS paymentStatusName,
+        ISNULL(items.itemCount, 0) AS itemCount, ISNULL(items.totalQuantity, 0) AS totalQuantity
+      FROM dbo.SalesOrder so
+      INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
+      OUTER APPLY (SELECT COUNT(*) AS itemCount, SUM(Quantity) AS totalQuantity FROM dbo.SalesOrderDetail WHERE OrderId = so.OrderId) items
+      WHERE so.CustomerId = @customerId
+        AND so.CreatedAt >= @fromDate AND so.CreatedAt < DATEADD(day, 1, @toDate)
+      ORDER BY so.CreatedAt DESC;
+    `)
+  const recordsets = result.recordsets as unknown as [Array<Record<string, unknown>>, Array<Record<string, unknown>>]
+  return { range, customer: recordsets[0][0] ?? null, orders: recordsets[1] }
 }

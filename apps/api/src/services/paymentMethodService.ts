@@ -16,7 +16,7 @@ export async function getActivePaymentMethods(): Promise<PaymentMethodDto[]> {
       MethodName AS methodName,
       Status AS status
     FROM dbo.PaymentMethod
-    WHERE Status = 'Active'
+    WHERE Status = 'Active' AND MethodCode IN ('COD', 'BANK_TRANSFER')
     ORDER BY PaymentMethodId
   `)
 

@@ -16,6 +16,7 @@ import { adminReviewsRouter } from './routes/adminReviews.js'
 import { adminUsersRouter } from './routes/adminUsers.js'
 import { authRouter } from './routes/auth.js'
 import { brandsRouter } from './routes/brands.js'
+import { cartRouter } from './routes/cart.js'
 import { categoriesRouter } from './routes/categories.js'
 import { ordersRouter } from './routes/orders.js'
 import { paymentMethodsRouter } from './routes/paymentMethods.js'
@@ -51,6 +52,7 @@ app.use('/api/products', productsRouter)
 app.use('/api/ai', aiAssistantRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/brands', brandsRouter)
+app.use('/api/cart', cartRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/payment-methods', paymentMethodsRouter)
 app.use('/api/auth', authRouter)

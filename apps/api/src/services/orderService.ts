@@ -426,6 +426,18 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
         VALUES (@orderId, @paymentMethodId, @paymentStatusId, @amount, NULL, NULL, SYSDATETIME())
       `)
 
+    if (input.userId) {
+      const purchasedSkuIds = [...new Set(input.items.map((item) => item.skuId))]
+      await tx().input('userId', sql.BigInt, input.userId).query(`
+        DELETE ci
+        FROM dbo.CartItem ci
+        INNER JOIN dbo.Cart c ON c.CartId = ci.CartId
+        WHERE c.UserId = @userId AND c.Status = 'Active'
+          AND ci.SkuId IN (${purchasedSkuIds.join(',')});
+        UPDATE dbo.Cart SET UpdatedAt = SYSDATETIME() WHERE UserId = @userId AND Status = 'Active';
+      `)
+    }
+
     await transaction.commit()
 
     return {
@@ -437,6 +449,8 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
       paymentStatusCode,
       orderStatusCode,
       paymentInstruction: buildPaymentInstruction(paymentMethod.MethodCode, orderCode, totalAmount),
+      paymentQrUrl: buildPaymentQrUrl(paymentMethod.MethodCode, orderCode, totalAmount),
+      bankAccount: paymentMethod.MethodCode === 'BANK_TRANSFER' ? getBankAccount() : null,
     }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
@@ -444,7 +458,7 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
   }
 }
 
-export async function markMockPaymentSuccess(orderCode: string, transactionCode: string) {
+export async function confirmBankTransferPayment(orderId: number, transactionCode: string, confirmedByUserId: number) {
   const pool = await getPool()
   const transaction = new sql.Transaction(pool)
 
@@ -453,20 +467,20 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
     const tx = () => new sql.Request(transaction)
 
     const current = await tx()
-      .input('orderCode', sql.VarChar(50), orderCode)
+      .input('orderId', sql.BigInt, orderId)
       .query(`
         SELECT TOP (1) so.OrderId, so.OrderStatusId, os.StatusCode AS OrderStatusCode, pm.MethodCode
         FROM dbo.SalesOrder so WITH (UPDLOCK, ROWLOCK)
         INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
         INNER JOIN dbo.Payment p ON p.OrderId = so.OrderId
         INNER JOIN dbo.PaymentMethod pm ON pm.PaymentMethodId = p.PaymentMethodId
-        WHERE so.OrderCode = @orderCode
+        WHERE so.OrderId = @orderId
         ORDER BY p.PaymentId DESC
       `)
 
     const order = current.recordset[0] as { OrderId: number; OrderStatusId: number; OrderStatusCode: string; MethodCode: string } | undefined
     if (!order) throw new Error('Không tìm thấy đơn hàng.')
-    if (order.MethodCode === 'COD') throw new Error('COD được đối soát khi giao hàng, không xác nhận online tại bước này.')
+    if (order.MethodCode !== 'BANK_TRANSFER') throw new Error('Chỉ xác nhận thủ công cho đơn chuyển khoản ngân hàng.')
 
     if (order.OrderStatusCode !== 'PendingPayment') throw new Error('Only pending-payment orders can be confirmed as paid.')
 
@@ -508,15 +522,16 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
       .input('orderId', sql.BigInt, order.OrderId)
       .input('fromStatusId', sql.TinyInt, order.OrderStatusId)
       .input('toStatusId', sql.TinyInt, confirmedOrderStatusId)
+      .input('changedByUserId', sql.BigInt, confirmedByUserId)
       .query(`
         INSERT INTO dbo.OrderStatusHistory (
           OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
         )
-        VALUES (@orderId, @fromStatusId, @toStatusId, NULL, N'Thanh toán online thành công', SYSDATETIME())
+        VALUES (@orderId, @fromStatusId, @toStatusId, @changedByUserId, N'Admin đã đối chiếu tài khoản ngân hàng và xác nhận thanh toán', SYSDATETIME())
       `)
 
     await transaction.commit()
-    return { orderCode, paymentStatusCode: 'Success', orderStatusCode: 'Confirmed' }
+    return { orderId, paymentStatusCode: 'Success', orderStatusCode: 'Confirmed' }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error
@@ -526,8 +541,27 @@ export async function markMockPaymentSuccess(orderCode: string, transactionCode:
 function buildPaymentInstruction(methodCode: string, orderCode: string, amount: number) {
   if (methodCode === 'COD') return 'Thanh toán cho shipper khi nhận hàng. Đơn không cần bước thanh toán trước.'
   if (methodCode === 'BANK_TRANSFER') {
-    return `Chuyển khoản ${amount.toLocaleString('vi-VN')}đ tới ngân hàng demo AA Smart, nội dung: ${orderCode}. Khi ngân hàng xác nhận tiền về, hệ thống sẽ chuyển đơn sang đã thanh toán.`
+    const bank = getBankAccount()
+    if (!bank) return `Chuyển khoản ${amount.toLocaleString('vi-VN')}đ với nội dung ${orderCode}. Quản trị viên sẽ đối chiếu tài khoản và xác nhận.`
+    return `Chuyển khoản ${amount.toLocaleString('vi-VN')}đ tới ${bank.bankCode} - ${bank.accountNumber} - ${bank.accountName}, nội dung: ${orderCode}. Quản trị viên sẽ đối chiếu và xác nhận.`
   }
-  if (methodCode === 'CREDIT_CARD') return 'Thanh toán thẻ đang ở chế độ mô phỏng. Sau này có thể nối cổng thanh toán để tự xác nhận giao dịch.'
-  return 'Phương thức ví/cổng thanh toán đang ở chế độ mô phỏng. Sau này callback/webhook sẽ xác nhận thanh toán tự động.'
+  return 'Phương thức thanh toán không được hỗ trợ.'
+}
+
+function getBankAccount() {
+  const bankCode = process.env.BANK_CODE?.trim()
+  const accountNumber = process.env.BANK_ACCOUNT_NUMBER?.trim()
+  const accountName = process.env.BANK_ACCOUNT_NAME?.trim()
+  if (!bankCode || !accountNumber || !accountName) return null
+  return { bankCode, accountNumber, accountName }
+}
+
+function buildPaymentQrUrl(methodCode: string, orderCode: string, amount: number) {
+  if (methodCode !== 'BANK_TRANSFER') return null
+  const bank = getBankAccount()
+  if (!bank) return null
+  const query = new URLSearchParams({
+    amount: String(Math.round(amount)), addInfo: orderCode, accountName: bank.accountName,
+  })
+  return `https://img.vietqr.io/image/${encodeURIComponent(bank.bankCode)}-${encodeURIComponent(bank.accountNumber)}-compact2.png?${query.toString()}`
 }

@@ -1,6 +1,7 @@
 import type {
   Brand,
   Category,
+  CartItem,
   AuthResponse,
   AdminDashboard,
   AdminInventoryItem,
@@ -14,6 +15,8 @@ import type {
   AdminPromotionPayload,
   AdminPromotionSkuOption,
   AdminReports,
+  CustomerSalesReport,
+  ReportCustomerSummary,
   AdminReturnRequest,
   AdminReview,
   AdminStockMovement,
@@ -139,6 +142,15 @@ async function postJsonWithToken<T>(url: string, token: string, body: unknown): 
   return response.json() as Promise<T>
 }
 
+async function deleteJsonWithToken<T>(url: string, token: string): Promise<T> {
+  const response = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.message ?? `Request failed: ${response.status}`)
+  }
+  return response.json() as Promise<T>
+}
+
 export function getProducts(filters: ProductFilters) {
   const params = new URLSearchParams()
   params.set('page', String(filters.page))
@@ -224,6 +236,26 @@ export function getPaymentMethods() {
   return getJson<{ data: PaymentMethod[] }>('/api/payment-methods')
 }
 
+export function getCart(token: string) {
+  return getJsonWithToken<{ data: CartItem[] }>('/api/cart', token)
+}
+
+export function mergeCart(items: Array<{ skuId: number; quantity: number }>, token: string) {
+  return postJsonWithToken<{ data: CartItem[] }>('/api/cart/merge', token, { items })
+}
+
+export function setCartItem(skuId: number, quantity: number, token: string) {
+  return putJsonWithToken<{ data: CartItem[] }>(`/api/cart/items/${skuId}`, token, { quantity })
+}
+
+export function deleteCartItem(skuId: number, token: string) {
+  return deleteJsonWithToken<{ data: CartItem[] }>(`/api/cart/items/${skuId}`, token)
+}
+
+export function deleteCart(token: string) {
+  return deleteJsonWithToken<{ data: CartItem[] }>('/api/cart', token)
+}
+
 export function register(payload: {
   fullName: string
   email: string
@@ -276,6 +308,22 @@ export function updateAdminOrderStatus(orderId: number, orderStatusId: number, t
     `/api/admin/orders/${orderId}/status`,
     token,
     { orderStatusId },
+  )
+}
+
+export function searchReportCustomers(token: string, filters: { fromDate: string; toDate: string }, search: string) {
+  const params = new URLSearchParams({ ...filters, search })
+  return getJsonWithToken<{ data: ReportCustomerSummary[] }>(`/api/admin/reports/customers?${params}`, token)
+}
+
+export function getCustomerSalesReport(token: string, customerId: number, filters: { fromDate: string; toDate: string }) {
+  const params = new URLSearchParams(filters)
+  return getJsonWithToken<{ data: CustomerSalesReport }>(`/api/admin/reports/customers/${customerId}?${params}`, token)
+}
+
+export function confirmAdminBankPayment(orderId: number, transactionCode: string, token: string) {
+  return postJsonWithToken<{ data: { orderId: number; paymentStatusCode: string; orderStatusCode: string } }>(
+    `/api/admin/orders/${orderId}/confirm-bank-payment`, token, { transactionCode },
   )
 }
 
