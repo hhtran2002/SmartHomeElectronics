@@ -10,6 +10,7 @@ import type {
   CustomerAddress, CustomerAddressPayload, CustomerProfile,
 } from '../types'
 import { CustomerOrdersPanel } from './CustomerOrdersPanel'
+import './ProfilePage.css'
 
 type Props = { token: string; onNameChanged: (fullName: string, email: string | null) => void }
 const emptyAddress: CustomerAddressPayload = {
@@ -132,70 +133,114 @@ export function ProfilePage({ token, onNameChanged }: Props) {
   if (!token) return <main className="profile-page"><div className="status-card error">Bạn cần đăng nhập để xem hồ sơ.</div></main>
   if (!profile) return <main className="profile-page"><div className={`status-card${error ? ' error' : ''}`}>{error || 'Đang tải hồ sơ...'}</div></main>
 
+  const initial = profile.fullName.trim().charAt(0).toUpperCase() || 'A'
+
   return (
-    <main className="profile-page">
-      <section className="section-heading">
-        <div><span className="eyebrow">Tài khoản khách hàng</span><h2>Hồ sơ của tôi</h2><p>Quản lý thông tin cá nhân, mật khẩu, địa chỉ và đơn hàng.</p></div>
-      </section>
-      {error && <div className="status-card error">{error}</div>}
-      {message && <div className="status-card success">{message}</div>}
-      <div className="profile-tabs">
+    <main className="profile-page profile-editorial">
+      <header className="profile-intro">
+        <div className="profile-intro-copy">
+          <span className="profile-kicker">Tài khoản khách hàng</span>
+          <h1>Hồ sơ của tôi</h1>
+          <p>Thông tin cá nhân, địa chỉ giao hàng và lịch sử mua sắm của bạn.</p>
+        </div>
+        <div className="profile-identity">
+          <span className="profile-identity-avatar">{initial}</span>
+          <div className="profile-identity-name">
+            <strong>{profile.fullName}</strong>
+            <small>{profile.email || profile.phone || 'Thành viên AA Smart'}</small>
+          </div>
+          <div className="profile-identity-stat">
+            <strong>{profile.loyaltyPoint}</strong>
+            <small>Điểm tích lũy</small>
+          </div>
+          <div className="profile-identity-stat">
+            <strong>{addresses.length}</strong>
+            <small>Địa chỉ</small>
+          </div>
+        </div>
+      </header>
+
+      <nav className="profile-tabs" aria-label="Nội dung tài khoản">
         <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')} type="button">Thông tin tài khoản</button>
         <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')} type="button">Đơn hàng của tôi</button>
-      </div>
+      </nav>
+
+      {error && <div className="profile-notice error">{error}</div>}
+      {message && <div className="profile-notice success">{message}</div>}
 
       {activeTab === 'orders' ? <CustomerOrdersPanel token={token} /> : (
-        <div className="profile-grid">
-          <div className="profile-column">
-            <form className="profile-card" onSubmit={saveProfile}>
-              <h3>Thông tin cá nhân</h3>
-              <label>Tên hiển thị<input required value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} /></label>
-              <label>Số điện thoại đăng nhập<input disabled value={profile.phone ?? ''} /><small>Số điện thoại đăng nhập không thể thay đổi.</small></label>
-              <label>Email<input type="email" value={profile.email ?? ''} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></label>
-              <div className="form-grid">
+        <div className="profile-workspace">
+          <section className="profile-section profile-personal-section">
+            <div className="profile-section-heading">
+              <span>01</span>
+              <div><h2>Thông tin cá nhân</h2><p>Thông tin dùng cho tài khoản và hóa đơn mua hàng.</p></div>
+            </div>
+            <form className="profile-form profile-personal-form" onSubmit={saveProfile}>
+              <div className="profile-field-grid">
+                <label>Tên hiển thị<input required value={profile.fullName} onChange={(e) => setProfile({ ...profile, fullName: e.target.value })} /></label>
+                <label>Email<input type="email" value={profile.email ?? ''} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></label>
+                <label>Số điện thoại đăng nhập<input disabled value={profile.phone ?? ''} /><small>Không thể thay đổi số dùng để đăng nhập.</small></label>
                 <label>Ngày sinh<input type="date" value={profile.dateOfBirth?.slice(0, 10) ?? ''} onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })} /></label>
                 <label>Giới tính<select value={profile.gender ?? ''} onChange={(e) => setProfile({ ...profile, gender: e.target.value })}><option value="">Không chọn</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option><option value="Khác">Khác</option></select></label>
               </div>
-              <p className="profile-points">Điểm tích lũy: <strong>{profile.loyaltyPoint}</strong></p>
-              <button>Lưu thông tin</button>
+              <div className="profile-form-actions"><button type="submit">Lưu thay đổi</button></div>
             </form>
-            <form className="profile-card" onSubmit={changePassword}>
-              <h3>Đổi mật khẩu</h3>
+          </section>
+
+          <section className="profile-section profile-security-section">
+            <div className="profile-section-heading">
+              <span>02</span>
+              <div><h2>Bảo mật</h2><p>Cập nhật mật khẩu đăng nhập định kỳ.</p></div>
+            </div>
+            <form className="profile-form profile-security-form" onSubmit={changePassword}>
               <label>Mật khẩu hiện tại<input required type="password" value={password.currentPassword} onChange={(e) => setPassword({ ...password, currentPassword: e.target.value })} /></label>
-              <label>Mật khẩu mới<input required minLength={6} type="password" value={password.newPassword} onChange={(e) => setPassword({ ...password, newPassword: e.target.value })} /></label>
+              <label>Mật khẩu mới<input required minLength={6} type="password" value={password.newPassword} onChange={(e) => setPassword({ ...password, newPassword: e.target.value })} /><small>Tối thiểu 6 ký tự.</small></label>
               <label>Xác nhận mật khẩu mới<input required type="password" value={password.confirmPassword} onChange={(e) => setPassword({ ...password, confirmPassword: e.target.value })} /></label>
-              <button>Đổi mật khẩu</button>
+              <div className="profile-form-actions"><button type="submit">Đổi mật khẩu</button></div>
             </form>
-          </div>
-          <div className="profile-column">
-            <section className="profile-card">
-              <h3>Địa chỉ nhận hàng</h3>
-              <div className="address-list">
-                {addresses.map((address) => (
-                  <article key={address.addressId}>
-                    <strong>{address.receiverName} · {address.receiverPhone}</strong>
-                    <p>{address.streetAddress}, {address.ward}, {address.province}</p>
-                    {address.isDefault && <span>Mặc định</span>}
-                    <div><button type="button" onClick={() => editAddress(address)}>Sửa</button><button type="button" onClick={() => void deleteCustomerAddress(address.addressId, token).then(loadData).catch((e) => setError(e.message))}>Xóa</button></div>
-                  </article>
-                ))}
-                {!addresses.length && <p>Chưa có địa chỉ nhận hàng.</p>}
+          </section>
+
+          <section className="profile-section profile-address-section">
+            <div className="profile-section-heading">
+              <span>03</span>
+              <div><h2>Địa chỉ nhận hàng</h2><p>Chọn địa chỉ đã lưu hoặc thêm nơi nhận hàng mới.</p></div>
+            </div>
+            <div className="profile-address-workspace">
+              <div className="profile-address-book">
+                <div className="profile-address-book-head"><strong>Địa chỉ đã lưu</strong><span>{addresses.length}</span></div>
+                <div className="address-list">
+                  {addresses.map((address) => (
+                    <article key={address.addressId}>
+                      <div className="address-copy">
+                        <div><strong>{address.receiverName}</strong><span>{address.receiverPhone}</span>{address.isDefault && <em>Mặc định</em>}</div>
+                        <p>{address.streetAddress}, {address.ward}, {address.province}</p>
+                      </div>
+                      <div className="address-actions"><button type="button" onClick={() => editAddress(address)}>Sửa</button><button type="button" onClick={() => void deleteCustomerAddress(address.addressId, token).then(loadData).catch((e) => setError(e.message))}>Xóa</button></div>
+                    </article>
+                  ))}
+                  {!addresses.length && <p className="profile-empty-address">Bạn chưa lưu địa chỉ nhận hàng.</p>}
+                </div>
               </div>
-            </section>
-            <form className="profile-card" onSubmit={saveAddress}>
-              <h3>{editingId ? 'Sửa địa chỉ' : 'Thêm địa chỉ'}</h3>
-              <div className="form-grid">
-                <label>Người nhận<input required value={addressForm.receiverName} onChange={(e) => setAddressForm({ ...addressForm, receiverName: e.target.value })} /></label>
-                <label>SĐT người nhận<input required value={addressForm.receiverPhone} onChange={(e) => setAddressForm({ ...addressForm, receiverPhone: e.target.value })} /></label>
-                <label>Tỉnh / Thành phố<select required value={addressForm.provinceCode ?? ''} onChange={(e) => chooseProvince(e.target.value)}><option value="">Chọn tỉnh/thành</option>{provinces.map((province) => <option key={province.provinceCode} value={province.provinceCode}>{province.provinceName}</option>)}</select></label>
-                <label>Xã / Phường / Đặc khu<select required value={addressForm.wardCode ?? ''} onChange={(e) => chooseWard(e.target.value)} disabled={!addressForm.provinceCode}><option value="">Chọn xã/phường</option>{wards.map((ward) => <option key={ward.wardCode} value={ward.wardCode}>{ward.wardName}</option>)}</select></label>
-              </div>
-              <label>Địa chỉ cụ thể<input required value={addressForm.streetAddress} onChange={(e) => setAddressForm({ ...addressForm, streetAddress: e.target.value })} placeholder="Số nhà, tên đường, tòa nhà..." /></label>
-              <label className="check-label"><input checked={addressForm.isDefault} onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })} type="checkbox" /> Đặt làm địa chỉ mặc định</label>
-              <button>{editingId ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ'}</button>
-              {editingId && <button className="secondary-button" onClick={() => { setEditingId(null); setAddressForm(emptyAddress) }} type="button">Hủy sửa</button>}
-            </form>
-          </div>
+
+              <form className="profile-form profile-address-form" onSubmit={saveAddress}>
+                <div className="profile-address-form-head"><strong>{editingId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới'}</strong>{editingId && <span>Đang chỉnh sửa</span>}</div>
+                <div className="profile-field-grid">
+                  <label>Người nhận<input required value={addressForm.receiverName} onChange={(e) => setAddressForm({ ...addressForm, receiverName: e.target.value })} /></label>
+                  <label>SĐT người nhận<input required value={addressForm.receiverPhone} onChange={(e) => setAddressForm({ ...addressForm, receiverPhone: e.target.value })} /></label>
+                  <label>Tỉnh / Thành phố<select required value={addressForm.provinceCode ?? ''} onChange={(e) => chooseProvince(e.target.value)}><option value="">Chọn tỉnh/thành</option>{provinces.map((province) => <option key={province.provinceCode} value={province.provinceCode}>{province.provinceName}</option>)}</select></label>
+                  <label>Xã / Phường / Đặc khu<select required value={addressForm.wardCode ?? ''} onChange={(e) => chooseWard(e.target.value)} disabled={!addressForm.provinceCode}><option value="">Chọn xã/phường</option>{wards.map((ward) => <option key={ward.wardCode} value={ward.wardCode}>{ward.wardName}</option>)}</select></label>
+                  <label className="profile-field-wide">Địa chỉ cụ thể<input required value={addressForm.streetAddress} onChange={(e) => setAddressForm({ ...addressForm, streetAddress: e.target.value })} placeholder="Số nhà, tên đường, tòa nhà..." /></label>
+                </div>
+                <div className="profile-address-form-footer">
+                  <label className="check-label"><input checked={addressForm.isDefault} onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })} type="checkbox" /> Đặt làm địa chỉ mặc định</label>
+                  <div className="profile-form-actions">
+                    {editingId && <button className="secondary-button" onClick={() => { setEditingId(null); setAddressForm(emptyAddress) }} type="button">Hủy</button>}
+                    <button type="submit">{editingId ? 'Cập nhật địa chỉ' : 'Thêm địa chỉ'}</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </section>
         </div>
       )}
     </main>

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { AuthUser } from '../types'
 
 type HeaderProps = {
@@ -70,14 +71,74 @@ function LogoutIcon() {
   )
 }
 
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+type WorkspaceLink = {
+  href: string
+  label: string
+  description: string
+}
+
+function getWorkspaceLinks(roles: string[]): WorkspaceLink[] {
+  const links: WorkspaceLink[] = []
+
+  if (roles.includes('SystemAdmin')) {
+    links.push({ href: '#/admin/dashboard', label: 'Trang quản trị', description: 'Điều hành toàn hệ thống' })
+  } else if (roles.includes('OrderAdmin')) {
+    links.push({ href: '#/admin/dashboard', label: 'Quản lý đơn hàng', description: 'Theo dõi đơn và báo cáo' })
+  }
+
+  if (roles.includes('CustomerSupport') && !roles.includes('SystemAdmin')) {
+    links.push({ href: '#/admin/reviews', label: 'Chăm sóc khách hàng', description: 'Đánh giá và yêu cầu hỗ trợ' })
+  }
+
+  if (roles.includes('WarehouseStaff') || roles.includes('SystemAdmin')) {
+    links.push({ href: '#/warehouse', label: 'Khu vực thủ kho', description: 'Tồn kho và bàn giao hàng' })
+  }
+
+  if (roles.includes('DeliveryStaff') || roles.includes('SystemAdmin')) {
+    links.push({ href: '#/shipper', label: 'Khu vực giao hàng', description: 'Chuyến giao và tiền COD' })
+  }
+
+  return links
+}
+
 export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: HeaderProps) {
-  const userAreaHref = user?.roles.includes('SystemAdmin')
-    ? '#/admin/dashboard'
-    : user?.roles.includes('WarehouseStaff')
-      ? '#/warehouse'
-      : user?.roles.includes('DeliveryStaff')
-        ? '#/shipper'
-        : '#/profile'
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const accountMenuRef = useRef<HTMLDivElement>(null)
+  const workspaceLinks = user ? getWorkspaceLinks(user.roles) : []
+
+  useEffect(() => {
+    if (!accountMenuOpen) return
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false)
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAccountMenuOpen(false)
+    }
+
+    function closeOnRouteChange() {
+      setAccountMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('hashchange', closeOnRouteChange)
+
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('hashchange', closeOnRouteChange)
+    }
+  }, [accountMenuOpen])
 
   return (
     <header className="header">
@@ -107,20 +168,63 @@ export function Header({ activePage = 'home', cartCount = 0, user, onLogout }: H
           </a>
 
           {user ? (
-            <>
-              <a className="auth-chip user-chip" href={userAreaHref}>
+            <div className="account-menu" ref={accountMenuRef}>
+              <button
+                aria-expanded={accountMenuOpen}
+                aria-haspopup="menu"
+                className={`auth-chip account-menu-trigger${accountMenuOpen ? ' open' : ''}`}
+                onClick={() => setAccountMenuOpen((open) => !open)}
+                type="button"
+              >
                 <span className="button-icon">
                   <UserIcon />
                 </span>
                 <span className="user-name">{user.fullName}</span>
-              </a>
-
-              <button className="auth-chip logout-chip" type="button" onClick={onLogout}>
-                <span className="button-icon">
-                  <LogoutIcon />
-                </span>
+                <span className="account-menu-chevron"><ChevronIcon /></span>
               </button>
-            </>
+
+              {accountMenuOpen && (
+                <div className="account-dropdown" role="menu">
+                  <div className="account-dropdown-head">
+                    <span className="account-avatar">{user.fullName.trim().charAt(0).toUpperCase() || 'A'}</span>
+                    <div>
+                      <strong>{user.fullName}</strong>
+                      <small>{user.email || user.phone || 'Tài khoản AA Smart'}</small>
+                    </div>
+                  </div>
+
+                  <div className="account-menu-group">
+                    <span className="account-menu-label">Tài khoản</span>
+                    <a href="#/profile" role="menuitem">Hồ sơ của tôi</a>
+                  </div>
+
+                  {workspaceLinks.length > 0 && (
+                    <div className="account-menu-group workspace-menu-group">
+                      <span className="account-menu-label">Không gian làm việc</span>
+                      {workspaceLinks.map((link) => (
+                        <a href={link.href} key={link.href} role="menuitem">
+                          <span>{link.label}</span>
+                          <small>{link.description}</small>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    className="account-logout"
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onLogout?.()
+                    }}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <span>Đăng xuất</span>
+                    <span className="account-logout-icon"><LogoutIcon /></span>
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <a className={`auth-chip ${activePage === 'auth' ? 'active' : ''}`} href="#/login">
               <span className="button-icon">
