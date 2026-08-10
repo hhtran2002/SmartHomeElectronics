@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   assignWarehouseDelivery,
+  confirmWarehouseOrderExport,
   getWarehouseDeliveryOptions,
   getWarehouseReadyOrders,
   handOverWarehouseDelivery,
 } from '../api'
+import { featureFlags } from '../featureFlags'
 import type { DeliveryStaffOption, DeliveryVehicle, WarehouseReadyOrder } from '../types'
 
 type Props = {
@@ -43,7 +45,9 @@ export function WarehouseReadyOrders({ refreshKey, token, onChanged }: Props) {
     try {
       const [orderPayload, optionPayload] = await Promise.all([
         getWarehouseReadyOrders(token),
-        getWarehouseDeliveryOptions(token),
+        featureFlags.extendedDeliveryWorkflow
+          ? getWarehouseDeliveryOptions(token)
+          : Promise.resolve({ data: { deliveryStaff: [], vehicles: [] } }),
       ])
       setOrders(orderPayload.data)
       setStaff(optionPayload.data.deliveryStaff)
@@ -96,13 +100,21 @@ export function WarehouseReadyOrders({ refreshKey, token, onChanged }: Props) {
   }
 
   async function handOver(order: WarehouseReadyOrder) {
-    if (!window.confirm(`Xác nhận shipper đã nhận hàng của đơn ${order.orderCode} và hàng rời kho?`)) return
+    const question = featureFlags.extendedDeliveryWorkflow
+      ? `Xác nhận shipper đã nhận hàng của đơn ${order.orderCode} và hàng rời kho?`
+      : `Xác nhận xuất kho đơn ${order.orderCode}? Tồn kho sẽ bị trừ và đơn chuyển sang trạng thái Đang giao.`
+    if (!window.confirm(question)) return
     setWorkingId(order.orderId)
     setError('')
     setMessage('')
     try {
-      const result = await handOverWarehouseDelivery(order.orderId, token)
-      setMessage(`Đã bàn giao ${result.data.orderCode} cho ${result.data.deliveryStaffName} bằng xe ${result.data.vehicleCode}.`)
+      if (featureFlags.extendedDeliveryWorkflow) {
+        const result = await handOverWarehouseDelivery(order.orderId, token)
+        setMessage(`Đã bàn giao ${result.data.orderCode} cho ${result.data.deliveryStaffName} bằng xe ${result.data.vehicleCode}.`)
+      } else {
+        const result = await confirmWarehouseOrderExport(order.orderId, token)
+        setMessage(`Đã xuất kho đơn ${result.data.orderCode}. Đơn hàng hiện ở trạng thái Đang giao.`)
+      }
       await loadData()
       onChanged()
     } catch (handoverError) {
@@ -116,19 +128,19 @@ export function WarehouseReadyOrders({ refreshKey, token, onChanged }: Props) {
     <section className="admin-panel-card warehouse-orders">
       <div className="section-heading compact">
         <div>
-          <span className="eyebrow">ReadyToShip</span>
-          <h3>Đơn chờ phân công và bàn giao</h3>
-          <p>Phân công trước để shipper thấy nhiệm vụ; chỉ trừ tồn khi shipper có mặt và kho xác nhận bàn giao.</p>
+          <span className="eyebrow">Xuất kho theo đơn hàng</span>
+          <h3>Đơn chờ xác nhận xuất kho</h3>
+          <p>Kiểm tra sản phẩm và số lượng, sau đó xác nhận xuất kho để chuyển đơn sang trạng thái Đang giao.</p>
         </div>
         <strong>{orders.length} đơn</strong>
       </div>
 
       {error && <div className="status-card error">{error}</div>}
       {message && <div className="status-card success">{message}</div>}
-      {!loading && staff.length === 0 && (
+      {featureFlags.extendedDeliveryWorkflow && !loading && staff.length === 0 && (
         <div className="status-card error">Chưa có tài khoản hoạt động mang role DeliveryStaff. Hãy tạo tại trang Nhân viên.</div>
       )}
-      {!loading && vehicles.filter((vehicle) => vehicle.status === 'Active').length === 0 && (
+      {featureFlags.extendedDeliveryWorkflow && !loading && vehicles.filter((vehicle) => vehicle.status === 'Active').length === 0 && (
         <div className="status-card error">Chưa có phương tiện hoạt động. Hãy thêm xe ở phần bên dưới.</div>
       )}
 
@@ -167,7 +179,7 @@ export function WarehouseReadyOrders({ refreshKey, token, onChanged }: Props) {
                   ))}
                 </div>
 
-                <div className="delivery-assignment-grid">
+                {featureFlags.extendedDeliveryWorkflow && <div className="delivery-assignment-grid">
                   <label>
                     Shipper
                     <select value={form.deliveryStaffId} onChange={(event) => patchForm(order.orderId, { deliveryStaffId: Number(event.target.value) })}>
@@ -194,21 +206,21 @@ export function WarehouseReadyOrders({ refreshKey, token, onChanged }: Props) {
                     Ghi chú
                     <input value={form.note} onChange={(event) => patchForm(order.orderId, { note: event.target.value })} />
                   </label>
-                </div>
+                </div>}
 
-                {assigned && (
+                {featureFlags.extendedDeliveryWorkflow && assigned && (
                   <p className="assignment-summary">
                     Đang giao cho <strong>{order.deliveryStaffName}</strong> · xe <strong>{order.vehicleCode}</strong>
                     {order.licensePlate ? ` (${order.licensePlate})` : ''}
                   </p>
                 )}
                 <div className="delivery-actions">
-                  <button disabled={workingId === order.orderId || !form.deliveryStaffId || !form.vehicleId} onClick={() => void assign(order)} type="button">
+                  {featureFlags.extendedDeliveryWorkflow && <button disabled={workingId === order.orderId || !form.deliveryStaffId || !form.vehicleId} onClick={() => void assign(order)} type="button">
                     {workingId === order.orderId ? 'Đang xử lý...' : assigned ? 'Cập nhật phân công' : 'Phân công'}
-                  </button>
-                  {assigned && (
+                  </button>}
+                  {(assigned || !featureFlags.extendedDeliveryWorkflow) && (
                     <button className="success-action" disabled={workingId === order.orderId} onClick={() => void handOver(order)} type="button">
-                      Bàn giao & xuất kho
+                      {workingId === order.orderId ? 'Đang xuất kho...' : 'Xác nhận xuất kho'}
                     </button>
                   )}
                 </div>

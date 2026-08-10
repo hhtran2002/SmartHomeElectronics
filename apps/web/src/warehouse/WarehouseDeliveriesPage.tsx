@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { WarehouseReadyOrders } from './WarehouseReadyOrders'
 import { WarehouseReturns } from './WarehouseReturns'
 import { WarehouseVehicleManager } from './WarehouseVehicleManager'
+import { featureFlags } from '../featureFlags'
 
 type Props = { roles: string[]; token: string }
 type DeliveriesTab = 'ready' | 'returns' | 'vehicles'
@@ -19,14 +20,14 @@ export function WarehouseDeliveriesPage({ roles, token }: Props) {
     <>
       <section className="section-heading" style={{ marginBottom: '20px' }}>
         <div>
-          <span className="eyebrow">Giao nhận tại kho</span>
-          <h2>Phân công và bàn giao</h2>
-          <p>Kho chuẩn bị hàng, chọn người chịu trách nhiệm và chỉ xuất tồn khi shipper thực sự nhận kiện hàng.</p>
+          <span className="eyebrow">Quản lý kho</span>
+          <h2>Xuất kho theo đơn hàng</h2>
+          <p>Thủ kho kiểm tra hàng, xác nhận xuất kho và chuyển đơn sang trạng thái Đang giao.</p>
         </div>
       </section>
 
       {/* Tab Selector Buttons */}
-      <div className="mode-tabs" style={{ marginBottom: '20px', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px', display: 'flex', gap: '8px' }}>
+      {featureFlags.extendedDeliveryWorkflow && <div className="mode-tabs" style={{ marginBottom: '20px', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px', display: 'flex', gap: '8px' }}>
         <button 
           className={activeTab === 'ready' ? 'active' : ''} 
           type="button" 
@@ -51,16 +52,16 @@ export function WarehouseDeliveriesPage({ roles, token }: Props) {
         >
           🚚 Phương tiện & Shipper
         </button>
-      </div>
+      </div>}
 
       <div style={{ marginTop: '16px' }}>
         {activeTab === 'ready' && (
           <WarehouseReadyOrders refreshKey={refreshKey} token={token} onChanged={changed} />
         )}
-        {activeTab === 'returns' && (
+        {featureFlags.extendedDeliveryWorkflow && activeTab === 'returns' && (
           <WarehouseReturns refreshKey={refreshKey} token={token} onChanged={changed} />
         )}
-        {activeTab === 'vehicles' && (
+        {featureFlags.extendedDeliveryWorkflow && activeTab === 'vehicles' && (
           <WarehouseVehicleManager refreshKey={refreshKey} token={token} onChanged={changed} />
         )}
       </div>

@@ -1988,6 +1988,9 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .bank-confirm-card p { color: var(--muted); font-size: 12px; margin: 0; }
 .bank-confirm-card input { border: 1px solid var(--blue-100); border-radius: 10px; font: inherit; padding: 11px; }
 .bank-confirm-card button { background: #166534; border: 0; border-radius: 10px; color: white; font-weight: 800; padding: 11px; }
+.order-complete-card { background: #f0fdf4; border: 1px solid #bbf7d0; display: grid; gap: 10px; margin: 18px 0; padding: 16px; }
+.order-complete-card p { color: var(--muted); font-size: 12px; margin: 0; }
+.order-complete-card button { border: 0; border-radius: 10px; font-weight: 800; padding: 11px; }
 
 @media (max-width: 640px) {
   .header-inner {

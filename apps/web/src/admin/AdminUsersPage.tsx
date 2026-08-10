@@ -17,6 +17,7 @@ import type {
   AdministrativeProvince,
   AdministrativeWard,
 } from '../types'
+import { featureFlags } from '../featureFlags'
 
 type Props = {
   currentUserId: number | null
@@ -94,7 +95,8 @@ export function AdminUsersPage({ currentUserId, roles, token }: Props) {
 
   const allowed = roles.includes('SystemAdmin')
   const employeeRoleOptions = useMemo(
-    () => roleOptions.filter((role) => role.roleCode !== 'Customer'),
+    () => roleOptions.filter((role) => role.roleCode !== 'Customer'
+      && (featureFlags.extendedDeliveryWorkflow || role.roleCode !== 'DeliveryStaff')),
     [roleOptions],
   )
   const selectedUser = users.find((user) => user.userId === selectedUserId) ?? null
@@ -310,7 +312,9 @@ export function AdminUsersPage({ currentUserId, roles, token }: Props) {
                     <small>{profile?.employeeCode ?? 'Chưa có mã nhân viên'} · {user.email || user.phone || 'Chưa có liên hệ'}</small>
                   </div>
                   <div className="admin-user-roles">
-                    {user.roles.length ? user.roles.map((role) => <span key={role}>{role}</span>) : <span>Chưa có role</span>}
+                    {user.roles.filter((role) => featureFlags.extendedDeliveryWorkflow || role !== 'DeliveryStaff').length
+                      ? user.roles.filter((role) => featureFlags.extendedDeliveryWorkflow || role !== 'DeliveryStaff').map((role) => <span key={role}>{role}</span>)
+                      : <span>Chưa có role hiển thị</span>}
                     <span className={`approval-status ${(profile?.approvalStatus ?? 'missing').toLowerCase()}`}>
                       {profile ? approvalLabels[profile.approvalStatus] : 'Chưa có hồ sơ'}
                     </span>

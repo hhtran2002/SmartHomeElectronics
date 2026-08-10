@@ -10,7 +10,7 @@ type Props = {
 
 const menu = [
   { key: 'inventory', label: 'Kho hàng', href: '#/warehouse' },
-  { key: 'deliveries', label: 'Bàn giao', href: '#/warehouse/deliveries' },
+  { key: 'deliveries', label: 'Xuất kho đơn hàng', href: '#/warehouse/deliveries' },
 ] as const
 
 export function WarehouseLayout({ active, children, user }: Props) {

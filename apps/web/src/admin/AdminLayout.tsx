@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AuthUser } from '../types'
 import './AdminTheme.css'
+import { featureFlags } from '../featureFlags'
 
 type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'returns' | 'inventory' | 'shipper' | 'cod' | 'users' | 'reports'
 
@@ -10,7 +11,7 @@ type Props = {
   user: AuthUser | null
 }
 
-const menu: Array<{ key: AdminMenuKey; label: string; href: string }> = [
+const menuItems: Array<{ key: AdminMenuKey; label: string; href: string }> = [
   { key: 'dashboard', label: 'Dashboard', href: '#/admin/dashboard' },
   { key: 'orders', label: 'Đơn hàng', href: '#/admin/orders' },
   { key: 'products', label: 'Sản phẩm', href: '#/admin/products' },
@@ -23,6 +24,8 @@ const menu: Array<{ key: AdminMenuKey; label: string; href: string }> = [
   { key: 'users', label: 'Nhân viên', href: '#/admin/users' },
   { key: 'reports', label: 'Báo cáo', href: '#/admin/reports' },
 ]
+
+const menu = menuItems.filter((item) => featureFlags.extendedDeliveryWorkflow || !['shipper', 'cod'].includes(item.key))
 
 export function AdminLayout({ active, children, user }: Props) {
   return (

@@ -196,7 +196,7 @@ export async function getReadyOrdersForExport() {
   return [...orders.values()]
 }
 
-export async function confirmOrderExport(orderId: number, userId: number) {
+async function confirmOrderExportInternal(orderId: number, userId: number, requireShipperWorkflow: boolean) {
   const pool = await getPool()
   const transaction = new sql.Transaction(pool)
 
@@ -271,7 +271,7 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         WHERE shipment.OrderId = @orderId AND shipment.WarehouseId = @warehouseId
       `)
     const shipment = shipmentResult.recordset[0]
-    if (!shipment || shipment.ShippingStatus !== 'Picking' || !shipment.DeliveryStaffId || !shipment.VehicleId) {
+    if (requireShipperWorkflow && (!shipment || shipment.ShippingStatus !== 'Picking' || !shipment.DeliveryStaffId || !shipment.VehicleId)) {
       throw new Error('Đơn phải được phân công shipper và phương tiện trước khi bàn giao xuất kho.')
     }
 
@@ -322,14 +322,16 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         .input('costOfGoodsSold', sql.Decimal(18, 2), unitCost * quantity)
         .query(`UPDATE dbo.SalesOrderDetail SET CostOfGoodsSold = CostOfGoodsSold + @costOfGoodsSold WHERE OrderDetailId = @orderDetailId`)
 
-      await tx()
-        .input('shipmentId', sql.BigInt, shipment.ShipmentId)
-        .input('orderDetailId', sql.BigInt, item.OrderDetailId)
-        .input('quantity', sql.Int, quantity)
-        .query(`
-          INSERT INTO dbo.ShipmentItem (ShipmentId, OrderDetailId, Quantity)
-          VALUES (@shipmentId, @orderDetailId, @quantity)
-        `)
+      if (requireShipperWorkflow) {
+        await tx()
+          .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+          .input('orderDetailId', sql.BigInt, item.OrderDetailId)
+          .input('quantity', sql.Int, quantity)
+          .query(`
+            INSERT INTO dbo.ShipmentItem (ShipmentId, OrderDetailId, Quantity)
+            VALUES (@shipmentId, @orderDetailId, @quantity)
+          `)
+      }
 
       await tx()
         .input('inventoryId', sql.BigInt, item.InventoryId)
@@ -371,28 +373,30 @@ export async function confirmOrderExport(orderId: number, userId: number) {
         `)
     }
 
-    await tx()
-      .input('shipmentId', sql.BigInt, shipment.ShipmentId)
-      .query(`
-        UPDATE dbo.Shipment
-        SET ShippingStatus = 'Shipping',
-            HandedOverAt = SYSDATETIME(),
-            UpdatedAt = SYSDATETIME()
-        WHERE ShipmentId = @shipmentId
-      `)
+    if (requireShipperWorkflow) {
+      await tx()
+        .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+        .query(`
+          UPDATE dbo.Shipment
+          SET ShippingStatus = 'Shipping',
+              HandedOverAt = SYSDATETIME(),
+              UpdatedAt = SYSDATETIME()
+          WHERE ShipmentId = @shipmentId
+        `)
 
-    await tx()
-      .input('shipmentId', sql.BigInt, shipment.ShipmentId)
-      .input('changedByUserId', sql.BigInt, userId)
-      .input(
-        'note',
-        sql.NVarChar(500),
-        `Kho bàn giao cho ${shipment.DeliveryStaffName}; xe ${shipment.VehicleCode}${shipment.LicensePlate ? ` (${shipment.LicensePlate})` : ''}.`,
-      )
-      .query(`
-        INSERT INTO dbo.ShipmentStatusHistory (ShipmentId, Status, ChangedByUserId, Note, ChangedAt)
-        VALUES (@shipmentId, 'Shipping', @changedByUserId, @note, SYSDATETIME())
-      `)
+      await tx()
+        .input('shipmentId', sql.BigInt, shipment.ShipmentId)
+        .input('changedByUserId', sql.BigInt, userId)
+        .input(
+          'note',
+          sql.NVarChar(500),
+          `Kho bàn giao cho ${shipment.DeliveryStaffName}; xe ${shipment.VehicleCode}${shipment.LicensePlate ? ` (${shipment.LicensePlate})` : ''}.`,
+        )
+        .query(`
+          INSERT INTO dbo.ShipmentStatusHistory (ShipmentId, Status, ChangedByUserId, Note, ChangedAt)
+          VALUES (@shipmentId, 'Shipping', @changedByUserId, @note, SYSDATETIME())
+        `)
+    }
 
     await tx()
       .input('orderId', sql.BigInt, orderId)
@@ -407,6 +411,9 @@ export async function confirmOrderExport(orderId: number, userId: number) {
       .input('orderId', sql.BigInt, orderId)
       .input('fromStatusId', sql.TinyInt, order.OrderStatusId)
       .input('changedByUserId', sql.BigInt, userId)
+      .input('note', sql.NVarChar(500), requireShipperWorkflow
+        ? 'Kho bàn giao hàng cho shipper và xác nhận xuất kho'
+        : 'Thủ kho xác nhận xuất kho; đơn chuyển sang đang giao')
       .query(`
         INSERT INTO dbo.OrderStatusHistory (
           OrderId, FromStatusId, ToStatusId, ChangedByUserId, Note, ChangedAt
@@ -416,7 +423,7 @@ export async function confirmOrderExport(orderId: number, userId: number) {
           @fromStatusId,
           (SELECT OrderStatusId FROM dbo.OrderStatus WHERE StatusCode = 'Shipping'),
           @changedByUserId,
-          N'Kho bàn giao hàng cho shipper và xác nhận xuất kho',
+          @note,
           SYSDATETIME()
         )
       `)
@@ -425,15 +432,24 @@ export async function confirmOrderExport(orderId: number, userId: number) {
     return {
       orderId,
       orderCode: order.OrderCode,
-      shipmentId: Number(shipment.ShipmentId),
-      deliveryStaffName: shipment.DeliveryStaffName,
-      vehicleCode: shipment.VehicleCode,
+      shipmentId: shipment ? Number(shipment.ShipmentId) : null,
+      deliveryStaffName: shipment?.DeliveryStaffName ?? null,
+      vehicleCode: shipment?.VehicleCode ?? null,
       receiptIds: [...receiptIds.values()],
     }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error
   }
+}
+
+export function confirmOrderExport(orderId: number, userId: number) {
+  return confirmOrderExportInternal(orderId, userId, false)
+}
+
+// Giữ lại luồng giao vận đầy đủ để có thể bật lại sau kỳ thực tập.
+export function confirmOrderExportWithShipper(orderId: number, userId: number) {
+  return confirmOrderExportInternal(orderId, userId, true)
 }
 
 export async function createStockIn(input: StockInInput) {

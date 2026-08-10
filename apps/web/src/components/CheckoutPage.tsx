@@ -258,13 +258,13 @@ function chooseAddress(address: CustomerAddress, change: Props['onCheckoutChange
 }
 
 function describePaymentMethod(methodCode: string) {
-  if (methodCode === 'COD') return 'Thanh toán khi nhận hàng, sau này đối soát COD với shipper.'
+  if (methodCode === 'COD') return 'Thanh toán tiền mặt khi nhận hàng.'
   if (methodCode === 'BANK_TRANSFER') return 'Quét VietQR để chuyển khoản, sau đó admin kiểm tra tài khoản và xác nhận.'
   return 'Phương thức thanh toán không được hỗ trợ.'
 }
 
 function describeSelectedPayment(methodCode: string) {
-  if (methodCode === 'COD') return 'COD không làm đơn bị kẹt ở bước chờ thanh toán trước. Tiền sẽ được đối soát sau khi giao.'
+  if (methodCode === 'COD') return 'Đơn được xử lý ngay. Khi giao xong, admin xác nhận đơn hoàn thành và đã thu tiền.'
   if (methodCode === 'BANK_TRANSFER') return 'Đơn ở trạng thái chờ thanh toán. Admin đối chiếu đúng số tiền và nội dung rồi xác nhận thủ công.'
   return 'Phương thức thanh toán không được hỗ trợ.'
 }

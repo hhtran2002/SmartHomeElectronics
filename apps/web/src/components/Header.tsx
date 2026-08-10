@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AuthUser } from '../types'
+import { featureFlags } from '../featureFlags'
 
 type HeaderProps = {
   activePage?: 'home' | 'products' | 'sale' | 'cart' | 'auth' | 'admin'
@@ -102,7 +103,7 @@ function getWorkspaceLinks(roles: string[]): WorkspaceLink[] {
     links.push({ href: '#/warehouse', label: 'Khu vực thủ kho', description: 'Tồn kho và bàn giao hàng' })
   }
 
-  if (roles.includes('DeliveryStaff') || roles.includes('SystemAdmin')) {
+  if (featureFlags.extendedDeliveryWorkflow && (roles.includes('DeliveryStaff') || roles.includes('SystemAdmin'))) {
     links.push({ href: '#/shipper', label: 'Khu vực giao hàng', description: 'Chuyến giao và tiền COD' })
   }
 

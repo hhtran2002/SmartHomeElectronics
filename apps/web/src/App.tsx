@@ -31,6 +31,7 @@ import { ShipperCodPage } from './shipper/ShipperCodPage'
 import { ShipperPage } from './shipper/ShipperPage'
 import { WarehouseDeliveriesPage } from './warehouse/WarehouseDeliveriesPage'
 import { WarehouseLayout } from './warehouse/WarehouseLayout'
+import { featureFlags } from './featureFlags'
 import type {
   Brand,
   Category,
@@ -65,7 +66,7 @@ const initialCheckoutForm = {
 function defaultAuthenticatedRoute(roles: string[]) {
   if (roles.includes('SystemAdmin')) return '#/admin/dashboard'
   if (roles.includes('WarehouseStaff')) return '#/warehouse'
-  if (roles.includes('DeliveryStaff')) return '#/shipper'
+  if (featureFlags.extendedDeliveryWorkflow && roles.includes('DeliveryStaff')) return '#/shipper'
   return '#/profile'
 }
 
@@ -385,21 +386,21 @@ function App() {
         <WarehouseDeliveriesPage roles={auth.user?.roles ?? []} token={auth.token} />
       </WarehouseLayout>
     )
-  } else if (hash === '#/shipper') {
+  } else if (featureFlags.extendedDeliveryWorkflow && hash === '#/shipper') {
     activePage = 'admin'
     page = (
       <ShipperLayout active="shipments" user={auth.user}>
         <ShipperPage roles={auth.user?.roles ?? []} token={auth.token} />
       </ShipperLayout>
     )
-  } else if (hash === '#/shipper/cod') {
+  } else if (featureFlags.extendedDeliveryWorkflow && hash === '#/shipper/cod') {
     activePage = 'admin'
     page = (
       <ShipperLayout active="cod" user={auth.user}>
         <ShipperCodPage roles={auth.user?.roles ?? []} token={auth.token} />
       </ShipperLayout>
     )
-  } else if (hash === '#/admin/cod-remittances') {
+  } else if (featureFlags.extendedDeliveryWorkflow && hash === '#/admin/cod-remittances') {
     activePage = 'admin'
     page = (
       <AdminLayout active="cod" user={auth.user}>

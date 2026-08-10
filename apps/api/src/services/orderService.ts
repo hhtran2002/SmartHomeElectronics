@@ -539,7 +539,7 @@ export async function confirmBankTransferPayment(orderId: number, transactionCod
 }
 
 function buildPaymentInstruction(methodCode: string, orderCode: string, amount: number) {
-  if (methodCode === 'COD') return 'Thanh toán cho shipper khi nhận hàng. Đơn không cần bước thanh toán trước.'
+  if (methodCode === 'COD') return 'Thanh toán tiền mặt khi nhận hàng. Đơn không cần thanh toán trước.'
   if (methodCode === 'BANK_TRANSFER') {
     const bank = getBankAccount()
     if (!bank) return `Chuyển khoản ${amount.toLocaleString('vi-VN')}đ với nội dung ${orderCode}. Quản trị viên sẽ đối chiếu tài khoản và xác nhận.`

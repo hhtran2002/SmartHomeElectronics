@@ -175,6 +175,24 @@ export function AdminOrdersPage({ roles, token }: Props) {
                 </div>
               )}
 
+              {detail.order.orderStatusCode === 'Shipping' && (
+                <div className="order-complete-card">
+                  <strong>Đơn hàng đang giao</strong>
+                  <p>Sau khi xác nhận khách đã nhận hàng, admin chuyển đơn sang Hoàn thành.</p>
+                  <button
+                    className="success-action"
+                    disabled={updating}
+                    onClick={() => {
+                      const completed = detail.availableTransitions.find((status) => status.code === 'Completed')
+                      if (completed) void changeStatus(completed.id)
+                    }}
+                    type="button"
+                  >
+                    {updating ? 'Đang cập nhật...' : 'Xác nhận đơn đã hoàn thành'}
+                  </button>
+                </div>
+              )}
+
               <label className="status-select">
                 Trạng thái đơn
                 <select

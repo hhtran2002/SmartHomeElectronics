@@ -7,6 +7,7 @@ import {
 } from '../api'
 import type { AdminReturnRequest, DeliveryStaffOption } from '../types'
 import { formatPrice } from '../utils'
+import { featureFlags } from '../featureFlags'
 
 type Props = {
   roles: string[]
@@ -36,7 +37,9 @@ export function AdminReturnsPage({ roles, token }: Props) {
     try {
       const [resRequests, resOptions] = await Promise.all([
         getAdminReturnRequests(token),
-        getWarehouseDeliveryOptions(token).catch(() => ({ data: { deliveryStaff: [] } })),
+        featureFlags.extendedDeliveryWorkflow
+          ? getWarehouseDeliveryOptions(token).catch(() => ({ data: { deliveryStaff: [] } }))
+          : Promise.resolve({ data: { deliveryStaff: [] } }),
       ])
       setRequests(resRequests.data)
       setDeliveryStaffOptions(resOptions.data.deliveryStaff || [])
@@ -101,9 +104,9 @@ export function AdminReturnsPage({ roles, token }: Props) {
     <section className="admin-returns-page" style={{ width: '100%', boxSizing: 'border-box' }}>
       <div className="section-heading compact" style={{ marginBottom: '20px' }}>
         <div>
-          <span className="eyebrow">Quản trị CSKH, Giao nhận & Kho hàng</span>
-          <h2>Duyệt khiếu nại hoàn hàng & Thu hồi sản phẩm</h2>
-          <p>Phân công Shipper thu hồi sản phẩm lỗi, Thủ kho xác nhận nhập kho và Kế toán hoàn tiền cho khách.</p>
+          <span className="eyebrow">Theo dõi phát sinh đơn hàng</span>
+          <h2>Duyệt và xử lý yêu cầu hoàn hàng</h2>
+          <p>Admin duyệt yêu cầu, thủ kho xác nhận hàng nhận lại và cập nhật hoàn tiền cho khách.</p>
         </div>
       </div>
 
@@ -239,11 +242,11 @@ export function AdminReturnsPage({ roles, token }: Props) {
               <div className="admin-return-workflow" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="admin-return-progress" style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Tiến trình thu hồi & hoàn tiền (3 Bước)
+                    Tiến trình xử lý hoàn hàng ({featureFlags.extendedDeliveryWorkflow ? '3' : '2'} bước)
                   </span>
 
                   {/* Stage 1: Shipper Assignment */}
-                  <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                  {featureFlags.extendedDeliveryWorkflow && <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>1. Thu hồi hàng:</strong></span>
                       {item.deliveryStaffName ? (
@@ -252,12 +255,12 @@ export function AdminReturnsPage({ roles, token }: Props) {
                         <span style={{ color: '#ea580c', fontWeight: '600' }}>⏳ Chưa phân công Shipper</span>
                       )}
                     </div>
-                  </div>
+                  </div>}
 
                   {/* Stage 2: Warehouse Stock-In */}
                   <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span><strong>2. Thủ kho nhập kho:</strong></span>
+                      <span><strong>{featureFlags.extendedDeliveryWorkflow ? '2' : '1'}. Thủ kho nhập kho:</strong></span>
                       {item.warehouseConfirmedAt ? (
                         <span style={{ color: '#16a34a', fontWeight: '700' }}>✅ Đã nhập kho ({new Date(item.warehouseConfirmedAt).toLocaleTimeString('vi-VN')})</span>
                       ) : (
@@ -278,7 +281,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                   {/* Stage 3: Refund Status */}
                   <div className="admin-return-stage" style={{ background: '#fff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span><strong>3. Chuyển khoản hoàn tiền:</strong></span>
+                      <span><strong>{featureFlags.extendedDeliveryWorkflow ? '3' : '2'}. Chuyển khoản hoàn tiền:</strong></span>
                       <span style={{ fontWeight: '700', color: item.refundStatus === 'Refunded' ? '#16a34a' : '#ca8a04' }}>
                         {item.refundStatus === 'Refunded' ? '✅ Đã hoàn tiền' : '⏳ Chờ hoàn tiền'}
                       </span>
@@ -302,7 +305,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
                       setAdminNote(item.adminNote || '')
                     }}
                   >
-                    {item.status === 'Approved' ? '⚙️ Cập nhật phân công & Hoàn tiền' : '✅ Chấp nhận thu hồi hàng'}
+                    {item.status === 'Approved' ? '⚙️ Cập nhật xử lý & hoàn tiền' : '✅ Chấp nhận hoàn hàng'}
                   </button>
                   <button
                     style={{
@@ -328,7 +331,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
 
                     {actionStatus === 'Approved' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
-                        <div>
+                        {featureFlags.extendedDeliveryWorkflow && <div>
                           <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
                             1. Phân công Shipper thu hồi sản phẩm
                           </label>
@@ -344,19 +347,19 @@ export function AdminReturnsPage({ roles, token }: Props) {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </div>}
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
                           <div>
                             <label style={{ fontSize: '12px', fontWeight: '700', color: '#166534', display: 'block', marginBottom: '4px' }}>
-                              2. Trạng thái chuyển khoản
+                              {featureFlags.extendedDeliveryWorkflow ? '2' : '1'}. Trạng thái xử lý
                             </label>
                             <select
                               value={refundStatus}
                               onChange={(e) => setRefundStatus(e.target.value as any)}
                               style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
                             >
-                              <option value="Processing">🔄 Đang thu hồi sản phẩm</option>
+                              <option value="Processing">🔄 Đang xử lý hoàn hàng</option>
                               <option value="Refunded" disabled={!item.warehouseConfirmedAt}>
                                 {!item.warehouseConfirmedAt ? '❌ [Khóa] Chờ Thủ kho nhận hàng về kho' : '✅ Đã chuyển khoản hoàn tiền xong'}
                               </option>
@@ -380,7 +383,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
 
                     <textarea
                       rows={2}
-                      placeholder="Nhập lời nhắn gửi cho khách hàng (hướng dẫn hẹn thời gian Shipper lấy hàng hoặc lý do từ chối)..."
+                      placeholder="Nhập lời nhắn xử lý hoàn hàng hoặc lý do từ chối..."
                       value={adminNote}
                       onChange={(e) => setAdminNote(e.target.value)}
                       style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'inherit', boxSizing: 'border-box' }}
