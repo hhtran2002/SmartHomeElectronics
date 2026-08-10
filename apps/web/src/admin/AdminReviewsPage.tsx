@@ -14,6 +14,7 @@ export function AdminReviewsPage({ roles, token }: Props) {
   const [replyingId, setReplyingId] = useState<number | null>(null)
   const [replyComment, setReplyComment] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'All' | AdminReview['status']>('All')
 
   const canModerate = roles.includes('SystemAdmin') || roles.includes('CustomerSupport')
 
@@ -68,8 +69,18 @@ export function AdminReviewsPage({ roles, token }: Props) {
     return <div className="status-card error">Bạn không có quyền duyệt đánh giá.</div>
   }
 
+  const statusLabels: Record<AdminReview['status'], string> = {
+    Pending: 'Chờ duyệt',
+    Approved: 'Đã duyệt',
+    Hidden: 'Đã ẩn',
+    Rejected: 'Từ chối',
+  }
+  const filteredReviews = statusFilter === 'All' ? reviews : reviews.filter((review) => review.status === statusFilter)
+  const pendingCount = reviews.filter((review) => review.status === 'Pending').length
+  const approvedCount = reviews.filter((review) => review.status === 'Approved').length
+
   return (
-    <section>
+    <section className="admin-review-page">
       <div className="section-heading compact">
         <div>
           <span className="eyebrow">Quản trị nội dung</span>
@@ -80,38 +91,55 @@ export function AdminReviewsPage({ roles, token }: Props) {
 
       {error && <div className="status-card error">{error}</div>}
 
-      <div className="admin-panel-card">
-        <div className="admin-detail-items">
+      <div className="admin-review-summary" aria-label="Tổng quan đánh giá">
+        <div><span>Tổng nội dung</span><strong>{reviews.length}</strong></div>
+        <div><span>Cần xử lý</span><strong>{pendingCount}</strong></div>
+        <div><span>Đang hiển thị</span><strong>{approvedCount}</strong></div>
+      </div>
+
+      <div className="admin-review-toolbar">
+        <div>
+          {(['All', 'Pending', 'Approved', 'Hidden', 'Rejected'] as const).map((status) => (
+            <button className={statusFilter === status ? 'active' : ''} key={status} onClick={() => setStatusFilter(status)} type="button">
+              {status === 'All' ? 'Tất cả' : statusLabels[status]}
+            </button>
+          ))}
+        </div>
+        <span>{filteredReviews.length} nội dung</span>
+      </div>
+
+      <div className="admin-panel-card admin-review-panel">
+        <div className="admin-review-list-head" aria-hidden="true">
+          <span>Nội dung đánh giá</span><span>Khách hàng</span><span>Trạng thái</span><span>Thao tác</span>
+        </div>
+        <div className="admin-review-list">
           {loading ? (
-            <p>Đang tải đánh giá...</p>
-          ) : reviews.length === 0 ? (
-            <p className="empty-hint">Chưa có đánh giá nào.</p>
-          ) : reviews.map((review) => (
-            <article className="review-moderation-row" key={review.reviewId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <strong>
-                    {review.productName}{' '}
-                    <a
-                      href={`/#/products/${encodeURIComponent(review.productSlug)}`}
-                      style={{ fontSize: '12px', color: '#0284c7', textDecoration: 'none', marginLeft: '8px', fontWeight: 'normal' }}
-                    >
-                      🔗 Xem sản phẩm
-                    </a>
-                  </strong>
-                  <small style={{ display: 'block', marginTop: '2px', color: '#64748b' }}>
-                    {review.parentReviewId ? `Reply #${review.parentReviewId}` : `${review.rating} sao`} · {review.reviewerName} ({new Date(review.createdAt).toLocaleString('vi-VN')})
-                  </small>
-                  <p style={{ marginTop: '6px', fontSize: '14px' }}>{review.comment || 'Không có nội dung.'}</p>
+            <p className="admin-review-empty">Đang tải đánh giá...</p>
+          ) : filteredReviews.length === 0 ? (
+            <p className="admin-review-empty">Không có nội dung trong trạng thái này.</p>
+          ) : filteredReviews.map((review) => (
+            <article className={`review-moderation-row${replyingId === review.reviewId ? ' replying' : ''}`} key={review.reviewId}>
+              <div className="admin-review-main">
+                <div className="admin-review-product-line">
+                  <strong>{review.productName}</strong>
+                  <a href={`/#/products/${encodeURIComponent(review.productSlug)}`}>Xem sản phẩm ↗</a>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                  <span className={`status-pill ${review.status.toLowerCase()}`}>{review.status}</span>
-                  <div className="row-actions" style={{ display: 'flex', gap: '6px' }}>
+                <p>{review.comment || 'Không có nội dung.'}</p>
+                <small>{review.parentReviewId ? `Phản hồi cho #${review.parentReviewId}` : `${review.rating}/5 sao`} · #{review.reviewId}</small>
+              </div>
+              <div className="admin-review-author">
+                <strong>{review.reviewerName}</strong>
+                <small>{new Date(review.createdAt).toLocaleDateString('vi-VN')}</small>
+                <small>{new Date(review.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</small>
+              </div>
+              <div className="admin-review-status">
+                <span className={`status-pill ${review.status.toLowerCase()}`}>{statusLabels[review.status]}</span>
+              </div>
+              <div className="row-actions admin-review-actions">
                     <button onClick={() => void changeStatus(review, 'Approved')}>Duyệt</button>
                     <button onClick={() => void changeStatus(review, 'Hidden')}>Ẩn</button>
                     <button onClick={() => void changeStatus(review, 'Rejected')}>Từ chối</button>
                     <button
-                      style={{ background: '#0284c7', color: '#fff', border: 0, borderRadius: '8px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }}
                       onClick={() => {
                         if (replyingId === review.reviewId) {
                           setReplyingId(null)
@@ -121,36 +149,27 @@ export function AdminReviewsPage({ roles, token }: Props) {
                         }
                       }}
                     >
-                      {replyingId === review.reviewId ? 'Hủy' : '↩ Trả lời'}
+                      {replyingId === review.reviewId ? 'Đóng' : 'Trả lời'}
                     </button>
-                  </div>
-                </div>
               </div>
 
               {replyingId === review.reviewId && (
-                <div style={{ background: '#f0f9ff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#0369a1' }}>Trả lời cho {review.reviewerName}:</span>
+                <div className="admin-review-reply">
+                  <div><span>Phản hồi từ cửa hàng</span><strong>Trả lời {review.reviewerName}</strong></div>
                   <textarea
-                    rows={2}
+                    rows={3}
                     placeholder="Nhập câu trả lời từ Admin/Cửa hàng..."
                     value={replyComment}
                     onChange={(e) => setReplyComment(e.target.value)}
-                    style={{ width: '100%', marginTop: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'inherit' }}
                   />
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <div>
                     <button
                       disabled={sendingReply || !replyComment.trim()}
                       onClick={() => void handleSendReply(review)}
-                      style={{ padding: '6px 16px', background: '#0284c7', color: '#fff', border: 0, borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
                     >
                       {sendingReply ? 'Đang gửi...' : 'Gửi trả lời'}
                     </button>
-                    <button
-                      onClick={() => setReplyingId(null)}
-                      style={{ padding: '6px 12px', background: '#e2e8f0', color: '#475569', border: 0, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
-                    >
-                      Hủy
-                    </button>
+                    <button onClick={() => setReplyingId(null)}>Hủy</button>
                   </div>
                 </div>
               )}

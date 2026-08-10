@@ -55,6 +55,20 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
 
   useEffect(() => { void loadOrders() }, [loadOrders])
 
+  useEffect(() => {
+    if (!showReturnModal) return
+    const previousOverflow = document.body.style.overflow
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !returnSubmitting) setShowReturnModal(false)
+    }
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [showReturnModal, returnSubmitting])
+
   async function viewOrder(orderId: number) {
     setError('')
     try {
@@ -167,182 +181,95 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
 
       {/* Return Request Modal */}
       {showReturnModal && detail && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.55)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '20px',
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowReturnModal(false) }}
+        <div className="return-request-backdrop"
+          onClick={(e) => { if (e.target === e.currentTarget && !returnSubmitting) setShowReturnModal(false) }}
         >
-          <div style={{
-            background: '#fff', borderRadius: '20px',
-            padding: '32px', maxWidth: '520px', width: '100%',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
-            maxHeight: '90vh', overflowY: 'auto',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <section aria-labelledby="return-request-title" aria-modal="true" className="return-request-modal" role="dialog">
+            <header className="return-request-modal-head">
               <div>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#ca8a04', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Khiếu nại / Đổi trả
-                </span>
-                <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#0f172a' }}>
-                  Yêu cầu hoàn hàng #{detail.order.orderCode}
-                </h3>
+                <span>Hậu mãi & đổi trả</span>
+                <h2 id="return-request-title">Yêu cầu hoàn hàng</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowReturnModal(false)}
-                style={{ background: 'none', border: 0, fontSize: '22px', cursor: 'pointer', color: '#94a3b8' }}
-              >
-                ×
-              </button>
+              <div className="return-request-order-ref">
+                <span>Đơn hàng</span><strong>{detail.order.orderCode}</strong><small>{formatPrice(detail.order.totalAmount)}</small>
+              </div>
+              <button aria-label="Đóng" disabled={returnSubmitting} onClick={() => setShowReturnModal(false)} type="button">×</button>
+            </header>
+
+            <div className="return-request-guidance">
+              <strong>Cần có ảnh hoặc video minh chứng</strong>
+              <p>Yêu cầu thiếu liên kết minh chứng có thể không đủ điều kiện để cửa hàng xác minh và xử lý.</p>
             </div>
 
-            {/* Warning Banner */}
-            <div style={{
-              background: '#fefce8', border: '1px solid #fef08a', color: '#854d0e',
-              padding: '12px 14px', borderRadius: '10px', fontSize: '12px', lineHeight: '1.5',
-              marginBottom: '20px', fontWeight: '600',
-            }}>
-              ⚠️ <strong>Lưu ý quan trọng:</strong> Shop sẽ từ chối xử lý tất cả các yêu cầu không có link ảnh hoặc video minh chứng đính kèm (link Google Drive hoặc link ảnh).
-            </div>
+            <form className="return-request-form" onSubmit={handleReturnSubmit}>
+              <div className="return-request-form-grid">
+                <section className="return-request-form-section">
+                  <header><span>01</span><div><h3>Sự cố sản phẩm</h3><p>Mô tả tình trạng và cung cấp tài liệu xác minh.</p></div></header>
+                  <div className="return-request-fields">
+                    <label>Lý do hoàn hàng <em>Bắt buộc</em>
+                      <select value={returnReason} onChange={(e) => setReturnReason(e.target.value)}>
+                        <option value="Sản phẩm lỗi/hỏng">Sản phẩm bị lỗi hoặc hỏng</option>
+                        <option value="Giao sai sản phẩm">Giao sai sản phẩm đã đặt</option>
+                        <option value="Thiếu phụ kiện/quà tặng">Thiếu phụ kiện hoặc quà tặng</option>
+                        <option value="Hàng hư hỏng khi vận chuyển">Hàng bị hư hỏng khi vận chuyển</option>
+                        <option value="Sản phẩm không như mô tả">Sản phẩm không đúng mô tả</option>
+                        <option value="Lý do khác">Lý do khác</option>
+                      </select>
+                    </label>
+                    <label>Liên kết ảnh hoặc video <em>Bắt buộc</em>
+                      <input type="url" required placeholder="https://drive.google.com/... hoặc liên kết ảnh" value={returnEvidenceUrl} onChange={(e) => setReturnEvidenceUrl(e.target.value)} />
+                      <small>Hỗ trợ liên kết Google Drive hoặc ảnh có quyền truy cập.</small>
+                    </label>
+                    <label>Mô tả chi tiết
+                      <textarea rows={4} placeholder="Tình trạng sản phẩm, thời điểm phát hiện và mong muốn xử lý..." value={returnNote} onChange={(e) => setReturnNote(e.target.value)} />
+                    </label>
+                  </div>
+                </section>
 
-            <form onSubmit={handleReturnSubmit}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
-                  Lý do hoàn hàng <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 14px', borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1', fontSize: '14px', background: '#fff',
-                  }}
-                >
-                  <option value="Sản phẩm lỗi/hỏng">Sản phẩm bị lỗi hoặc hỏng</option>
-                  <option value="Giao sai sản phẩm">Giao sai sản phẩm đã đặt</option>
-                  <option value="Thiếu phụ kiện/quà tặng">Thiếu phụ kiện hoặc quà tặng</option>
-                  <option value="Hàng hư hỏng khi vận chuyển">Hàng bị hư hỏng khi vận chuyển</option>
-                  <option value="Sản phẩm không như mô tả">Sản phẩm không đúng mô tả</option>
-                  <option value="Lý do khác">Lý do khác</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
-                  Link minh chứng (Ảnh / Google Drive Video) <span style={{ color: '#dc2626' }}>* (Bắt buộc)</span>
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/... hoặc link ảnh sản phẩm bị lỗi"
-                  value={returnEvidenceUrl}
-                  onChange={(e) => setReturnEvidenceUrl(e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 14px', borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>
-                  Mô tả chi tiết sự cố
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Mô tả cụ thể tình trạng sản phẩm hoặc lý do bạn muốn hoàn hàng..."
-                  value={returnNote}
-                  onChange={(e) => setReturnNote(e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 14px', borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1', fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              {/* Bank Transfer Details Section */}
-              <div style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '4px' }}>
-                  🏦 Thông tin ngân hàng nhận tiền hoàn (Chuyển khoản) <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#64748b' }}>
-                  Sau khi sản phẩm được thu hồi về kho, shop sẽ chuyển khoản lại số tiền hoàn vào tài khoản này.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tên Ngân hàng (VD: Vietcombank, Techcombank, MBBank...)</label>
+                <section className="return-request-form-section return-refund-section">
+                  <header><span>02</span><div><h3>Tài khoản nhận hoàn tiền</h3><p>Tiền được chuyển sau khi hàng đã thu hồi và xác nhận tại kho.</p></div></header>
+                  <div className="return-request-fields">
+                    <label>Ngân hàng <em>Bắt buộc</em>
                     <input
                       type="text"
                       required
-                      placeholder="VD: Vietcombank - Chi nhánh Hà Nội"
+                        placeholder="Ví dụ: Vietcombank"
                       value={returnBankName}
                       onChange={(e) => setReturnBankName(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
                     />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Số tài khoản</label>
+                    </label>
+                    <label>Số tài khoản <em>Bắt buộc</em>
                       <input
                         type="text"
                         required
-                        placeholder="VD: 10123456789"
+                        inputMode="numeric"
+                        placeholder="Nhập số tài khoản"
                         value={returnBankAccountNumber}
                         onChange={(e) => setReturnBankAccountNumber(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
                       />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tên chủ tài khoản</label>
+                    </label>
+                    <label>Tên chủ tài khoản <em>Bắt buộc</em>
                       <input
                         type="text"
                         required
-                        placeholder="VD: NGUYEN VAN A"
+                        placeholder="NGUYEN VAN A"
                         value={returnBankAccountName}
                         onChange={(e) => setReturnBankAccountName(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', marginTop: '4px', boxSizing: 'border-box' }}
                       />
-                    </div>
+                      <small>Nhập đúng tên hiển thị trên tài khoản ngân hàng.</small>
+                    </label>
                   </div>
-                </div>
+                </section>
               </div>
 
-              {returnError && (
-                <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#fef2f2', borderRadius: '10px', color: '#dc2626', fontSize: '13px' }}>
-                  {returnError}
-                </div>
-              )}
+              {returnError && <div className="return-request-error">{returnError}</div>}
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="submit"
-                  disabled={returnSubmitting}
-                  style={{
-                    flex: 1, padding: '12px', borderRadius: '12px', border: 0,
-                    background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                    color: '#fff', fontWeight: '700', fontSize: '14px', cursor: 'pointer',
-                  }}
-                >
-                  {returnSubmitting ? 'Đang gửi...' : '🔄 Gửi yêu cầu hoàn hàng'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowReturnModal(false)}
-                  style={{
-                    padding: '12px 20px', borderRadius: '12px',
-                    border: '1.5px solid #e2e8f0', background: '#fff',
-                    color: '#64748b', fontWeight: '600', fontSize: '14px', cursor: 'pointer',
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
+              <footer className="return-request-actions">
+                <p>Bằng việc gửi yêu cầu, bạn xác nhận thông tin cung cấp là chính xác.</p>
+                <div><button type="button" disabled={returnSubmitting} onClick={() => setShowReturnModal(false)}>Hủy</button><button type="submit" disabled={returnSubmitting}>{returnSubmitting ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu hoàn hàng'}</button></div>
+              </footer>
             </form>
-          </div>
+          </section>
         </div>
       )}
 

@@ -419,6 +419,116 @@
 .admin-shell .review-moderation-row .row-actions button:last-child { background: var(--admin-accent) !important; border-color: var(--admin-accent) !important; color: #fff !important; }
 .admin-shell .review-moderation-row:has(textarea) > div:last-child { background: var(--admin-surface-subtle) !important; border: 1px solid var(--admin-line) !important; border-radius: 4px !important; }
 
+/* Review moderation queue */
+.admin-review-page .section-heading { margin-bottom: 28px; }
+.admin-review-summary {
+  border-bottom: 1px solid var(--admin-line);
+  border-top: 1px solid var(--admin-line);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin-review-summary > div { border-right: 1px solid var(--admin-line); display: grid; gap: 7px; padding: 16px 18px; }
+.admin-review-summary > div:last-child { border-right: 0; }
+.admin-review-summary span { color: var(--admin-muted); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.admin-review-summary strong { color: var(--admin-ink); font-size: 24px; font-weight: 600; }
+.admin-review-toolbar { align-items: center; display: flex; justify-content: space-between; padding: 20px 0 12px; }
+.admin-review-toolbar > div { display: flex; gap: 4px; }
+.admin-review-toolbar button {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+  padding: 7px 9px;
+}
+.admin-review-toolbar button.active { border-bottom-color: var(--admin-ink); color: var(--admin-ink); }
+.admin-review-toolbar > span { color: var(--admin-muted); font-size: 9px; }
+.admin-shell .admin-review-panel { padding: 0; }
+.admin-review-list-head,
+.admin-shell .admin-review-list .review-moderation-row {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) 150px 90px 245px;
+}
+.admin-review-list-head {
+  background: var(--admin-surface-subtle);
+  border-bottom: 1px solid var(--admin-line);
+  color: var(--admin-muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 9px 14px;
+  text-transform: uppercase;
+}
+.admin-shell .admin-review-list .review-moderation-row {
+  align-items: start;
+  gap: 0;
+  padding: 0;
+}
+.admin-review-main,
+.admin-review-author,
+.admin-review-status,
+.admin-review-actions { min-height: 102px; padding: 16px 14px; }
+.admin-review-author,
+.admin-review-status,
+.admin-review-actions { border-left: 1px solid var(--admin-line); }
+.admin-review-product-line { align-items: baseline; display: flex; gap: 12px; }
+.admin-review-product-line strong { color: var(--admin-ink); font-size: 12px; }
+.admin-review-product-line a { border-bottom: 1px solid var(--admin-accent); color: var(--admin-accent); font-size: 9px; white-space: nowrap; }
+.admin-review-main p { color: var(--admin-ink); font-size: 12px; line-height: 1.55; margin: 13px 0 8px; }
+.admin-review-main small,
+.admin-review-author small { color: var(--admin-muted); display: block; font-size: 9px; margin-top: 4px; }
+.admin-review-author strong { color: var(--admin-ink); display: block; font-size: 11px; margin-bottom: 8px; }
+.admin-review-actions { align-content: start; display: grid !important; gap: 5px !important; grid-template-columns: repeat(2, 1fr); }
+.admin-shell .admin-review-actions button { padding: 7px 8px !important; }
+.admin-shell .admin-review-actions button:last-child { background: var(--admin-accent) !important; border-color: var(--admin-accent) !important; color: #fff !important; }
+.admin-review-reply {
+  align-items: end;
+  background: var(--admin-surface-subtle);
+  border-top: 1px solid var(--admin-line);
+  display: grid;
+  gap: 16px;
+  grid-column: 1 / -1;
+  grid-template-columns: 180px minmax(0, 1fr) auto;
+  padding: 16px !important;
+}
+.admin-review-reply > div:first-child span,
+.admin-review-reply > div:first-child strong { display: block; }
+.admin-review-reply > div:first-child span { color: var(--admin-accent); font-size: 8px; font-weight: 700; letter-spacing: .08em; margin-bottom: 5px; text-transform: uppercase; }
+.admin-review-reply > div:first-child strong { font-size: 11px; }
+.admin-review-reply textarea { min-height: 68px; resize: vertical; }
+.admin-review-reply > div:last-child { display: flex; gap: 6px; }
+.admin-review-reply button { background: var(--admin-accent); border: 1px solid var(--admin-accent); border-radius: 3px; color: #fff; cursor: pointer; font-size: 9px; padding: 9px 11px; }
+.admin-review-reply button:last-child { background: #fff; border-color: var(--admin-line-strong); color: var(--admin-ink); }
+.admin-review-empty { color: var(--admin-muted); font-size: 11px; margin: 0; padding: 42px 16px; text-align: center; }
+
+@media (max-width: 1100px) {
+  .admin-review-list-head { display: none; }
+  .admin-shell .admin-review-list .review-moderation-row { grid-template-columns: minmax(0, 1fr) 150px; }
+  .admin-review-main { grid-row: span 2; }
+  .admin-review-author,
+  .admin-review-status { min-height: auto; }
+  .admin-review-actions { border-top: 1px solid var(--admin-line); grid-column: 1 / -1; min-height: auto; }
+  .admin-review-reply { grid-template-columns: 150px minmax(0, 1fr); }
+  .admin-review-reply > div:last-child { grid-column: 2; justify-content: flex-end; }
+}
+
+@media (max-width: 700px) {
+  .admin-review-summary { grid-template-columns: 1fr; }
+  .admin-review-summary > div { border-bottom: 1px solid var(--admin-line); border-right: 0; }
+  .admin-review-summary > div:last-child { border-bottom: 0; }
+  .admin-review-toolbar { align-items: start; flex-direction: column; gap: 10px; }
+  .admin-review-toolbar > div { flex-wrap: wrap; }
+  .admin-shell .admin-review-list .review-moderation-row { grid-template-columns: 1fr; }
+  .admin-review-main { grid-row: auto; }
+  .admin-review-author,
+  .admin-review-status,
+  .admin-review-actions { border-left: 0; border-top: 1px solid var(--admin-line); }
+  .admin-review-reply { grid-template-columns: 1fr; }
+  .admin-review-reply > div:last-child { grid-column: auto; justify-content: flex-start; }
+}
+
 /* Warehouse and delivery are linked from the admin navigation. */
 .admin-shell .warehouse-orders,
 .admin-shell .warehouse-returns { margin: 20px 0; }
