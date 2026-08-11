@@ -283,7 +283,6 @@
 .admin-shell .mode-tabs { border-color: var(--admin-line); border-radius: 4px; gap: 0; padding: 3px; }
 .admin-shell .mode-tabs button { border-radius: 3px; color: var(--admin-muted); font-size: 10px; }
 .admin-shell .mode-tabs button.active { background: var(--admin-ink); color: #fff; }
-.admin-shell .stock-summary { background: var(--admin-surface-subtle); border-color: var(--admin-line); border-radius: 4px; }
 .admin-shell .stock-form label > small { color: var(--admin-muted); display: block; font-size: 9px; font-weight: 500; margin: 4px 0 2px; }
 .admin-shell .stock-cost-warning {
   background: #fff8e6;

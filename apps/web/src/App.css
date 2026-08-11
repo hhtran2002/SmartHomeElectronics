@@ -719,11 +719,6 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
   background: transparent; border: 0; border-radius: 999px; color: var(--blue-900); font-weight: 900; padding: 10px;
 }
 .mode-tabs button.active { background: var(--blue-600); color: white; }
-.stock-summary {
-  background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 18px; display: grid; gap: 8px; padding: 12px;
-}
-.stock-summary span { color: var(--muted); display: flex; justify-content: space-between; }
-.stock-summary strong { color: var(--blue-900); }
 .movement-list { display: grid; gap: 10px; margin-top: 18px; }
 .movement-list div {
   align-items: center; background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 16px;

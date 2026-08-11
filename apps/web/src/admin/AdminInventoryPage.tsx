@@ -469,15 +469,6 @@ export function AdminInventoryPage({ roles, token }: Props) {
               </div>
             </label>
 
-            {selectedItem && (
-              <div className="stock-summary">
-                <span>Tồn thực tế: <strong>{selectedItem.quantityOnHand}</strong></span>
-                <span>Đang giữ: <strong>{selectedItem.quantityReserved}</strong></span>
-                <span>Khả dụng: <strong>{selectedItem.availableQuantity}</strong></span>
-                <span>Giá vốn bình quân: <strong>{selectedItem.averageUnitCost.toLocaleString('vi-VN')}đ</strong></span>
-              </div>
-            )}
-
             <label>
               Số lượng
               <input
