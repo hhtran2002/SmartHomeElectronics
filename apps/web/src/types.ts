@@ -250,6 +250,7 @@ export type AdminOrder = {
   orderCode: string
   receiverName: string
   receiverPhone: string
+  receiverEmail: string | null
   totalAmount: number
   createdAt: string
   orderStatusId: number

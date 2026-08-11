@@ -673,6 +673,7 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
   margin-bottom: 18px;
   padding: 14px;
 }
+.admin-order-filters { grid-template-columns: minmax(240px, 1.3fr) repeat(4, minmax(130px, .65fr)) auto; }
 .admin-product-filters label { color: var(--muted); display: grid; font-size: 10px; font-weight: 800; gap: 6px; }
 .admin-product-filters input,
 .admin-product-filters select { border: 1px solid var(--blue-100); border-radius: 10px; min-height: 40px; padding: 9px 11px; }

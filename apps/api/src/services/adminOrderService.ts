@@ -21,6 +21,7 @@ export async function getAdminOrders() {
       so.OrderCode AS orderCode,
       so.ReceiverName AS receiverName,
       so.ReceiverPhone AS receiverPhone,
+      ua.Email AS receiverEmail,
       so.TotalAmount AS totalAmount,
       so.CreatedAt AS createdAt,
       os.OrderStatusId AS orderStatusId,
@@ -32,6 +33,8 @@ export async function getAdminOrders() {
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
     INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
+    LEFT JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+    LEFT JOIN dbo.UserAccount ua ON ua.UserId = cp.UserId
     ORDER BY so.OrderId DESC
   `)
 
@@ -49,6 +52,7 @@ export async function getAdminOrderDetail(orderId: number) {
         so.OrderCode AS orderCode,
         so.ReceiverName AS receiverName,
         so.ReceiverPhone AS receiverPhone,
+        ua.Email AS receiverEmail,
         so.ShippingAddressSnapshot AS shippingAddress,
         so.SubtotalAmount AS subtotalAmount,
         so.DiscountAmount AS discountAmount,
@@ -69,6 +73,8 @@ export async function getAdminOrderDetail(orderId: number) {
       INNER JOIN dbo.PaymentStatus ps ON ps.PaymentStatusId = so.PaymentStatusId
       LEFT JOIN dbo.Payment p ON p.OrderId = so.OrderId
       LEFT JOIN dbo.PaymentMethod pm ON pm.PaymentMethodId = p.PaymentMethodId
+      LEFT JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+      LEFT JOIN dbo.UserAccount ua ON ua.UserId = cp.UserId
       WHERE so.OrderId = @orderId
       ORDER BY p.PaymentId DESC
     `)

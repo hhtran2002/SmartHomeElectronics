@@ -17,6 +17,14 @@ function canManageOrders(roles: string[]) {
   return roles.includes('OrderAdmin') || roles.includes('SystemAdmin')
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+}
+
 export function AdminOrdersPage({ roles, token }: Props) {
   const [detail, setDetail] = useState<AdminOrderDetail | null>(null)
   const [error, setError] = useState('')
@@ -24,13 +32,49 @@ export function AdminOrdersPage({ roles, token }: Props) {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [updating, setUpdating] = useState(false)
   const [page, setPage] = useState(1)
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderStatusFilter, setOrderStatusFilter] = useState('All')
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('All')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const pageSize = 10
 
-  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize))
+  const orderStatusOptions = useMemo(() => [...new Map(
+    orders.map((order) => [order.orderStatusCode, order.orderStatusName]),
+  ).entries()], [orders])
+  const paymentStatusOptions = useMemo(() => [...new Map(
+    orders.map((order) => [order.paymentStatusCode, order.paymentStatusName]),
+  ).entries()], [orders])
+
+  const filteredOrders = useMemo(() => {
+    const query = normalizeSearchText(orderSearch.trim())
+    const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null
+    const to = toDate ? new Date(`${toDate}T23:59:59.999`) : null
+    return orders.filter((order) => {
+      const createdAt = new Date(order.createdAt)
+      const matchesSearch = !query || normalizeSearchText([
+        order.orderCode,
+        order.receiverName,
+        order.receiverPhone,
+        order.receiverEmail ?? '',
+      ].join(' ')).includes(query)
+      return matchesSearch
+        && (orderStatusFilter === 'All' || order.orderStatusCode === orderStatusFilter)
+        && (paymentStatusFilter === 'All' || order.paymentStatusCode === paymentStatusFilter)
+        && (!from || createdAt >= from)
+        && (!to || createdAt <= to)
+    })
+  }, [fromDate, orderSearch, orderStatusFilter, orders, paymentStatusFilter, toDate])
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize))
   const paginatedOrders = useMemo(() => {
     const start = (page - 1) * pageSize
-    return orders.slice(start, start + pageSize)
-  }, [page, orders])
+    return filteredOrders.slice(start, start + pageSize)
+  }, [filteredOrders, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [fromDate, orderSearch, orderStatusFilter, paymentStatusFilter, toDate])
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
@@ -112,12 +156,61 @@ export function AdminOrdersPage({ roles, token }: Props) {
 
       {error && <div className="status-card error">{error}</div>}
 
+      <section className="admin-product-filters admin-order-filters" aria-label="Tìm kiếm và lọc đơn hàng">
+        <label className="admin-product-search">
+          <span>Tìm kiếm</span>
+          <input
+            onChange={(event) => setOrderSearch(event.target.value)}
+            placeholder="Mã đơn, tên, SĐT hoặc email..."
+            type="search"
+            value={orderSearch}
+          />
+        </label>
+        <label>
+          <span>Trạng thái đơn</span>
+          <select onChange={(event) => setOrderStatusFilter(event.target.value)} value={orderStatusFilter}>
+            <option value="All">Tất cả trạng thái</option>
+            {orderStatusOptions.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Thanh toán</span>
+          <select onChange={(event) => setPaymentStatusFilter(event.target.value)} value={paymentStatusFilter}>
+            <option value="All">Tất cả thanh toán</option>
+            {paymentStatusOptions.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Từ ngày</span>
+          <input max={toDate || undefined} onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
+        </label>
+        <label>
+          <span>Đến ngày</span>
+          <input min={fromDate || undefined} onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
+        </label>
+        <div className="admin-product-filter-result">
+          <strong>{filteredOrders.length}</strong>
+          <span>/ {orders.length} đơn</span>
+          {(orderSearch || orderStatusFilter !== 'All' || paymentStatusFilter !== 'All' || fromDate || toDate) && (
+            <button onClick={() => {
+              setOrderSearch('')
+              setOrderStatusFilter('All')
+              setPaymentStatusFilter('All')
+              setFromDate('')
+              setToDate('')
+            }} type="button">Xóa lọc</button>
+          )}
+        </div>
+      </section>
+
       <section className="admin-orders-layout">
         <div className="admin-orders-list">
           {loading ? (
             <div className="status-card">Đang tải danh sách đơn...</div>
           ) : orders.length === 0 ? (
             <div className="status-card">Chưa có đơn hàng.</div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="status-card">Không tìm thấy đơn hàng phù hợp với bộ lọc.</div>
           ) : (
             paginatedOrders.map((order) => (
               <button
@@ -127,7 +220,7 @@ export function AdminOrdersPage({ roles, token }: Props) {
               >
                 <span>
                   <strong>{order.orderCode}</strong>
-                  <small>{order.receiverName} · {order.receiverPhone}</small>
+                  <small>{order.receiverName} · {order.receiverPhone}{order.receiverEmail ? ` · ${order.receiverEmail}` : ''}</small>
                 </span>
                 <span>
                   <strong>{formatPrice(order.totalAmount)}</strong>
@@ -136,12 +229,12 @@ export function AdminOrdersPage({ roles, token }: Props) {
               </button>
             ))
           )}
-          {!loading && orders.length > 0 && (
+          {!loading && filteredOrders.length > 0 && (
             <div className="admin-pagination" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
               <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
                 Trang trước
               </button>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '750' }}>Trang {page} / {totalPages} · {orders.length} đơn</span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '750' }}>Trang {page} / {totalPages} · {filteredOrders.length} đơn</span>
               <button disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} style={{ padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
                 Trang sau
               </button>
