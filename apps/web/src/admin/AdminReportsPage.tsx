@@ -17,6 +17,13 @@ function defaultRange() {
   return { fromDate: from.toISOString().slice(0, 10), toDate: now.toISOString().slice(0, 10) }
 }
 
+function formatReportDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('vi-VN', {
+    weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+}
+
 export function AdminReportsPage({ roles, token }: Props) {
   const [mode, setMode] = useState<ReportMode>('time')
   const [filters, setFilters] = useState(defaultRange)
@@ -28,6 +35,7 @@ export function AdminReportsPage({ roles, token }: Props) {
   const [customers, setCustomers] = useState<ReportCustomerSummary[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(0)
   const [customerReport, setCustomerReport] = useState<CustomerSalesReport | null>(null)
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
 
   const products = useMemo(() => {
     const query = productSearch.trim().toLocaleLowerCase('vi-VN')
@@ -66,6 +74,7 @@ export function AdminReportsPage({ roles, token }: Props) {
 
   async function loadCustomerDetail(customerId: number) {
     if (!customerId) { setCustomerReport(null); return }
+    setExpandedOrderId(null)
     const payload = await getCustomerSalesReport(token, customerId, filters)
     setCustomerReport(payload.data)
   }
@@ -120,11 +129,17 @@ export function AdminReportsPage({ roles, token }: Props) {
           </section>
           <section className="admin-panel-card">
             <div className="section-heading compact"><div><span className="eyebrow">Theo thời gian</span><h3>Kết quả bán hàng từng ngày</h3></div></div>
-            <div className="report-table">
+            <p className="report-explanation">Doanh thu đơn hợp lệ không tính đơn đã hủy. Giá trị đã xuất kho chỉ tính các đơn đang giao hoặc đã hoàn thành.</p>
+            <div className="report-time-table">
+              <div className="report-time-header" aria-hidden="true">
+                <span>Ngày ghi nhận</span><span>Số đơn</span><span>Doanh thu đơn hợp lệ</span><span>Giá trị đã xuất kho</span>
+              </div>
               {reports.salesByDay.length === 0 ? <p className="form-hint">Chưa có đơn trong khoảng ngày này.</p> : reports.salesByDay.map((row) => (
-                <div key={row.reportDate}>
-                  <span>{row.reportDate}</span><span>{row.orderCount} đơn</span>
-                  <span className="report-profit-value"><small>Doanh thu {formatPrice(row.revenue)}</small><strong>Đã xuất {formatPrice(row.fulfilledRevenue)}</strong></span>
+                <div className="report-time-row" key={row.reportDate}>
+                  <strong>{formatReportDate(row.reportDate)}</strong>
+                  <span><small>Số đơn</small>{row.orderCount} đơn</span>
+                  <span><small>Doanh thu đơn hợp lệ</small>{formatPrice(row.revenue)}</span>
+                  <span><small>Giá trị đã xuất kho</small>{formatPrice(row.fulfilledRevenue)}</span>
                 </div>
               ))}
             </div>
@@ -167,9 +182,36 @@ export function AdminReportsPage({ roles, token }: Props) {
               </section>
               <section className="admin-panel-card">
                 <div className="section-heading compact"><div><span className="eyebrow">Chi tiết khách hàng</span><h3>{customerReport.customer.phone || 'Chưa có SĐT'} · {customerReport.customer.email || 'Chưa có email'}</h3></div></div>
-                <div className="report-list">
+                <div className="report-order-list">
                   {customerReport.orders.length === 0 ? <p className="form-hint">Khách hàng chưa có đơn trong khoảng thời gian này.</p> : customerReport.orders.map((order) => (
-                    <div key={order.orderId}><span><strong>{order.orderCode}</strong><small>{new Date(order.createdAt).toLocaleDateString('vi-VN')} · {order.totalQuantity} sản phẩm · {order.orderStatusName} · {order.paymentStatusName}</small></span><strong>{formatPrice(order.totalAmount)}</strong></div>
+                    <article className={expandedOrderId === order.orderId ? 'expanded' : ''} key={order.orderId}>
+                      <button
+                        className="report-order-summary"
+                        type="button"
+                        aria-expanded={expandedOrderId === order.orderId}
+                        onClick={() => setExpandedOrderId((current) => current === order.orderId ? null : order.orderId)}
+                      >
+                        <span><strong>{order.orderCode}</strong><small>{new Date(order.createdAt).toLocaleDateString('vi-VN')} · {order.totalQuantity} sản phẩm · {order.orderStatusName} · {order.paymentStatusName}</small></span>
+                        <strong>{formatPrice(order.totalAmount)}</strong>
+                        <span className="report-order-chevron" aria-hidden="true">⌄</span>
+                      </button>
+                      {expandedOrderId === order.orderId && (
+                        <div className="report-order-items">
+                          <div className="report-order-item report-order-item-header" aria-hidden="true">
+                            <span>Mặt hàng</span><span>Đơn giá</span><span>Số lượng</span><span>Thành tiền</span>
+                          </div>
+                          {(order.items ?? []).map((item) => (
+                            <div className="report-order-item" key={item.orderDetailId}>
+                              <span><strong>{item.productName}</strong><small>SKU {item.skuCode}</small></span>
+                              <span data-label="Đơn giá">{formatPrice(item.unitPrice)}</span>
+                              <span data-label="Số lượng">{item.quantity}</span>
+                              <strong data-label="Thành tiền">{formatPrice(item.lineTotal)}</strong>
+                            </div>
+                          ))}
+                          {(order.items ?? []).length === 0 && <p className="form-hint">Đơn hàng chưa có chi tiết mặt hàng.</p>}
+                        </div>
+                      )}
+                    </article>
                   ))}
                 </div>
               </section>

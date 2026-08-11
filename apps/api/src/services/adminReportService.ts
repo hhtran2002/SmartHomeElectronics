@@ -221,7 +221,37 @@ export async function getCustomerReport(range: ReportRange, customerId: number) 
       WHERE so.CustomerId = @customerId
         AND so.CreatedAt >= @fromDate AND so.CreatedAt < DATEADD(day, 1, @toDate)
       ORDER BY so.CreatedAt DESC;
+
+      SELECT
+        sod.OrderId AS orderId,
+        sod.OrderDetailId AS orderDetailId,
+        sod.ProductNameSnapshot AS productName,
+        sod.SkuCodeSnapshot AS skuCode,
+        sod.UnitPrice AS unitPrice,
+        sod.Quantity AS quantity,
+        sod.DiscountAmount AS discountAmount,
+        sod.LineTotal AS lineTotal
+      FROM dbo.SalesOrderDetail sod
+      INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+      WHERE so.CustomerId = @customerId
+        AND so.CreatedAt >= @fromDate AND so.CreatedAt < DATEADD(day, 1, @toDate)
+      ORDER BY sod.OrderId, sod.OrderDetailId;
     `)
-  const recordsets = result.recordsets as unknown as [Array<Record<string, unknown>>, Array<Record<string, unknown>>]
-  return { range, customer: recordsets[0][0] ?? null, orders: recordsets[1] }
+  const recordsets = result.recordsets as unknown as [
+    Array<Record<string, unknown>>,
+    Array<Record<string, unknown>>,
+    Array<Record<string, unknown>>,
+  ]
+  const itemsByOrder = new Map<number, Array<Record<string, unknown>>>()
+  for (const item of recordsets[2]) {
+    const orderId = Number(item.orderId)
+    const items = itemsByOrder.get(orderId) ?? []
+    items.push(item)
+    itemsByOrder.set(orderId, items)
+  }
+  const orders = recordsets[1].map((order) => ({
+    ...order,
+    items: itemsByOrder.get(Number(order.orderId)) ?? [],
+  }))
+  return { range, customer: recordsets[0][0] ?? null, orders }
 }

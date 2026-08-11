@@ -389,6 +389,15 @@ export type CustomerSalesReport = {
     paymentStatusName: string
     itemCount: number
     totalQuantity: number
+    items: Array<{
+      orderDetailId: number
+      productName: string
+      skuCode: string
+      unitPrice: number
+      quantity: number
+      discountAmount: number
+      lineTotal: number
+    }>
   }>
 }
 

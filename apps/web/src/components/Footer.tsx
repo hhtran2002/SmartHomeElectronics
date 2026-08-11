@@ -21,23 +21,13 @@ export function Footer() {
             <img src={logoUrl} alt="AA Smart" />
           </a>
           <p>
-            Cửa hàng thiết bị điện tử gia dụng thông minh, giúp việc mua sắm trở nên tiện lợi,
-            nhanh chóng và an toàn hơn.
+            Cửa hàng thiết bị điện tử gia dụng thông minh, mang đến trải nghiệm tiện lợi,
+            nhanh chóng và an toàn.
           </p>
         </div>
 
-        <div className="footer-column">
-          <h4>Mua sắm</h4>
+        <div className="footer-column footer-home-link">
           <a href="#/">Trang chủ</a>
-          <a href="#/products">Sản phẩm</a>
-          <a href="#/cart">Giỏ hàng</a>
-        </div>
-
-        <div className="footer-column">
-          <h4>Hỗ trợ</h4>
-          <a href="#/products">Bảo hành</a>
-          <a href="#/products">Giao hàng</a>
-          <a href="#/products">Thanh toán</a>
         </div>
 
         <div className="footer-column">
