@@ -30,7 +30,10 @@ export async function getWarehouses() {
     FROM dbo.Warehouse
     ORDER BY WarehouseName
   `)
-  return result.recordset
+  return result.recordset.map((warehouse) => ({
+    ...warehouse,
+    warehouseId: Number(warehouse.warehouseId),
+  }))
 }
 
 export async function getInventoryItems() {
@@ -59,7 +62,12 @@ export async function getInventoryItems() {
     INNER JOIN dbo.Brand b ON b.BrandId = p.BrandId
     ORDER BY availableQuantity ASC, p.ProductName
   `)
-  return result.recordset
+  return result.recordset.map((item) => ({
+    ...item,
+    inventoryId: Number(item.inventoryId),
+    warehouseId: Number(item.warehouseId),
+    skuId: Number(item.skuId),
+  }))
 }
 
 export async function getStockableSkus() {
@@ -72,7 +80,11 @@ export async function getStockableSkus() {
     WHERE ps.Status = 'Active' AND p.Status = 'Active'
     ORDER BY p.ProductName, ps.SkuCode
   `)
-  return result.recordset
+  return result.recordset.map((item) => ({
+    ...item,
+    skuId: Number(item.skuId),
+    sellingPrice: Number(item.sellingPrice),
+  }))
 }
 
 export async function getStockMovements() {

@@ -53,11 +53,14 @@ export function AdminInventoryPage({ roles, token }: Props) {
   const [costWarning, setCostWarning] = useState('')
 
   const selectedItem = useMemo(
-    () => inventory.find((item) => item.skuId === Number(form.skuId) && item.warehouseId === Number(form.warehouseId)),
+    () => inventory.find((item) =>
+      Number(item.skuId) === Number(form.skuId)
+      && Number(item.warehouseId) === Number(form.warehouseId)
+    ),
     [form.skuId, form.warehouseId, inventory],
   )
   const selectedStockableSku = useMemo(
-    () => stockableSkus.find((item) => item.skuId === Number(form.skuId)),
+    () => stockableSkus.find((item) => Number(item.skuId) === Number(form.skuId)),
     [form.skuId, stockableSkus],
   )
 
@@ -136,8 +139,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
       if (firstItem && form.warehouseId === 0 && form.skuId === 0) {
         setForm((current) => ({
           ...current,
-          warehouseId: firstItem.warehouseId,
-          skuId: firstItem.skuId,
+          warehouseId: Number(firstItem.warehouseId),
+          skuId: Number(firstItem.skuId),
           unitCost: '',
         }))
         setSkuSearchQuery(`${firstItem.skuCode} · ${firstItem.productName}`)
@@ -230,8 +233,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
   function chooseItem(item: AdminInventoryItem) {
     setForm((current) => ({
       ...current,
-      warehouseId: item.warehouseId,
-      skuId: item.skuId,
+      warehouseId: Number(item.warehouseId),
+      skuId: Number(item.skuId),
       unitCost: '',
     }))
     setCostWarning('')
@@ -407,6 +410,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
                   onFocus={() => setSkuDropdownOpen(true)}
                   onChange={(e) => {
                     setSkuSearchQuery(e.target.value)
+                    setForm((current) => ({ ...current, skuId: 0 }))
+                    setCostWarning('')
                     setSkuDropdownOpen(true)
                   }}
                   style={{ width: '100%', padding: '12px 14px', borderRadius: '14px', border: '1px solid var(--blue-100)', outline: 'none' }}
@@ -438,7 +443,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
                           type="button"
                           onMouseDown={(e) => {
                             e.preventDefault()
-                            setForm({ ...form, skuId: item.skuId })
+                            setForm({ ...form, skuId: Number(item.skuId) })
                             setCostWarning('')
                             setSkuSearchQuery(`${item.skuCode} · ${item.productName}`)
                             setSkuDropdownOpen(false)
@@ -448,7 +453,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
                             textAlign: 'left',
                             padding: '10px 14px',
                             border: 0,
-                            background: form.skuId === item.skuId ? '#e0f2fe' : 'transparent',
+                            background: Number(form.skuId) === Number(item.skuId) ? '#e0f2fe' : 'transparent',
                             cursor: 'pointer',
                             fontSize: '13px',
                             color: '#0f172a',
