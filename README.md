@@ -100,6 +100,8 @@ Nhóm đánh giá sự trưởng thành của dự án bằng khả năng trả 
 
 **React, TypeScript, Vite, Node.js/Express, SQL Server, Gemini AI và Qdrant.**
 
+**Báo cáo chi tiết kỹ thuật:** `NguyenNgocDuy_C24_BCDK2.doc`
+
 ## Cấu hình QR chuyển khoản
 
 Hệ thống chỉ hiển thị COD và chuyển khoản ngân hàng. Để VietQR chứa đúng tài khoản nhận tiền, cấu hình ba biến sau trong `.env` rồi khởi động lại API:
