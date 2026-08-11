@@ -21,8 +21,8 @@ type FormMode = 'in' | 'out'
 const emptyForm = {
   warehouseId: 0,
   skuId: 0,
-  quantity: 1,
-  unitCost: 0,
+  quantity: '',
+  unitCost: '',
   reason: 'Adjustment',
   note: '',
 }
@@ -50,10 +50,15 @@ export function AdminInventoryPage({ roles, token }: Props) {
   const [skuDropdownOpen, setSkuDropdownOpen] = useState(false)
   const [selectedMovement, setSelectedMovement] = useState<AdminStockMovement | null>(null)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [costWarning, setCostWarning] = useState('')
 
   const selectedItem = useMemo(
     () => inventory.find((item) => item.skuId === Number(form.skuId) && item.warehouseId === Number(form.warehouseId)),
     [form.skuId, form.warehouseId, inventory],
+  )
+  const selectedStockableSku = useMemo(
+    () => stockableSkus.find((item) => item.skuId === Number(form.skuId)),
+    [form.skuId, stockableSkus],
   )
 
   const filteredInventory = useMemo(() => {
@@ -133,7 +138,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
           ...current,
           warehouseId: firstItem.warehouseId,
           skuId: firstItem.skuId,
-          unitCost: 0,
+          unitCost: '',
         }))
         setSkuSearchQuery(`${firstItem.skuCode} · ${firstItem.productName}`)
       }
@@ -150,8 +155,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roles, token])
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
+  async function saveInventory(costWarningAccepted = false) {
     setSaving(true)
     setError('')
     setSuccess('')
@@ -163,6 +167,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
           skuId: Number(form.skuId),
           quantity: Number(form.quantity),
           unitCost: Number(form.unitCost),
+          costWarningAccepted,
           note: form.note,
         }, token)
         setSuccess(`Đã tạo phiếu nhập ${payload.data.receiptCode}.`)
@@ -177,7 +182,8 @@ export function AdminInventoryPage({ roles, token }: Props) {
         setSuccess(`Đã tạo phiếu xuất ${payload.data.receiptCode}.`)
       }
 
-      setForm((current) => ({ ...current, quantity: 1, unitCost: 0, note: '' }))
+      setCostWarning('')
+      setForm((current) => ({ ...current, quantity: '', unitCost: '', note: '' }))
       await loadData()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không lưu được phiếu kho.')
@@ -186,13 +192,49 @@ export function AdminInventoryPage({ roles, token }: Props) {
     }
   }
 
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+
+    const quantity = Number(form.quantity)
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setError('Số lượng phải là số nguyên lớn hơn 0.')
+      return
+    }
+
+    if (mode === 'in') {
+      const unitCost = Number(form.unitCost)
+      if (!form.unitCost.trim() || !Number.isFinite(unitCost) || unitCost <= 0) {
+        setError('Giá nhập phải lớn hơn 0.')
+        return
+      }
+      if (!selectedStockableSku) {
+        setError('Vui lòng chọn SKU hợp lệ trước khi nhập kho.')
+        return
+      }
+
+      if (unitCost > selectedStockableSku.sellingPrice) {
+        setCostWarning(`Giá nhập ${formatPrice(unitCost)} đang cao hơn giá bán ${formatPrice(selectedStockableSku.sellingPrice)}.`)
+        return
+      }
+      if (unitCost <= selectedStockableSku.sellingPrice * 0.8) {
+        setCostWarning(`Giá nhập ${formatPrice(unitCost)} đang thấp hơn hoặc bằng 80% giá bán ${formatPrice(selectedStockableSku.sellingPrice)}.`)
+        return
+      }
+    }
+
+    await saveInventory(false)
+  }
+
   function chooseItem(item: AdminInventoryItem) {
     setForm((current) => ({
       ...current,
       warehouseId: item.warehouseId,
       skuId: item.skuId,
-      unitCost: 0,
+      unitCost: '',
     }))
+    setCostWarning('')
     setSkuSearchQuery(`${item.skuCode} · ${item.productName}`)
   }
 
@@ -314,6 +356,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
               onClick={() => {
                 setMode('in')
                 setForm((current) => ({ ...current, skuId: 0 }))
+                setCostWarning('')
                 setSkuSearchQuery('')
               }}
             >
@@ -325,6 +368,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
               onClick={() => {
                 setMode('out')
                 setForm((current) => ({ ...current, skuId: 0 }))
+                setCostWarning('')
                 setSkuSearchQuery('')
               }}
             >
@@ -395,6 +439,7 @@ export function AdminInventoryPage({ roles, token }: Props) {
                           onMouseDown={(e) => {
                             e.preventDefault()
                             setForm({ ...form, skuId: item.skuId })
+                            setCostWarning('')
                             setSkuSearchQuery(`${item.skuCode} · ${item.productName}`)
                             setSkuDropdownOpen(false)
                           }}
@@ -435,19 +480,26 @@ export function AdminInventoryPage({ roles, token }: Props) {
                 required
                 type="number"
                 value={form.quantity}
-                onChange={(event) => setForm({ ...form, quantity: Number(event.target.value) })}
+                onChange={(event) => {
+                  setForm({ ...form, quantity: event.target.value })
+                  setCostWarning('')
+                }}
               />
             </label>
 
             {mode === 'in' ? (
               <label>
                 Giá nhập / đơn vị
+                {selectedStockableSku && <small>Giá bán hiện tại: {formatPrice(selectedStockableSku.sellingPrice)}</small>}
                 <input
-                  min={0}
+                  min={1}
                   required
                   type="number"
                   value={form.unitCost}
-                  onChange={(event) => setForm({ ...form, unitCost: Number(event.target.value) })}
+                  onChange={(event) => {
+                    setForm({ ...form, unitCost: event.target.value })
+                    setCostWarning('')
+                  }}
                 />
               </label>
             ) : (
@@ -464,6 +516,20 @@ export function AdminInventoryPage({ roles, token }: Props) {
                   <option value="ReturnHandling">Xử lý hàng trả</option>
                 </select>
               </label>
+            )}
+
+            {mode === 'in' && costWarning && (
+              <div className="stock-cost-warning" role="alert">
+                <strong>⚠ Giá nhập bất thường</strong>
+                <p>{costWarning} Giá này sẽ tác động trực tiếp đến giá vốn bình quân và báo cáo lợi nhuận.</p>
+                <p>Bạn có chắc chắn số lượng <strong>{form.quantity}</strong> và giá nhập trên chứng từ là chính xác?</p>
+                <div>
+                  <button disabled={saving} onClick={() => setCostWarning('')} type="button">Kiểm tra lại</button>
+                  <button disabled={saving} onClick={() => void saveInventory(true)} type="button">
+                    {saving ? 'Đang lưu...' : 'Tôi chắc chắn, tiếp tục'}
+                  </button>
+                </div>
+              </div>
             )}
 
             <label>

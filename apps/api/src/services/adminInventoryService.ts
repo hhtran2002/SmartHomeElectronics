@@ -5,6 +5,7 @@ type StockInInput = {
   skuId: number
   quantity: number
   unitCost: number
+  costWarningAccepted: boolean
   note: string | null
   userId: number
 }
@@ -64,7 +65,8 @@ export async function getInventoryItems() {
 export async function getStockableSkus() {
   const pool = await getPool()
   const result = await pool.request().query(`
-    SELECT ps.SkuId AS skuId, ps.SkuCode AS skuCode, p.ProductName AS productName
+    SELECT ps.SkuId AS skuId, ps.SkuCode AS skuCode, p.ProductName AS productName,
+      ps.Price AS sellingPrice
     FROM dbo.ProductSku ps
     INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
     WHERE ps.Status = 'Active' AND p.Status = 'Active'
@@ -461,11 +463,35 @@ export async function createStockIn(input: StockInInput) {
     const tx = () => new sql.Request(transaction)
     const receiptCode = makeReceiptCode('IN')
 
+    const skuResult = await tx()
+      .input('skuId', sql.BigInt, input.skuId)
+      .query(`
+        SELECT TOP (1) ps.Price AS SellingPrice
+        FROM dbo.ProductSku ps WITH (UPDLOCK, HOLDLOCK)
+        INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
+        WHERE ps.SkuId = @skuId
+          AND ps.Status = 'Active'
+          AND p.Status = 'Active'
+      `)
+    const sellingPrice = Number(skuResult.recordset[0]?.SellingPrice)
+    if (!Number.isFinite(sellingPrice) || sellingPrice <= 0) {
+      throw new Error('SKU không tồn tại hoặc chưa có giá bán hợp lệ.')
+    }
+
+    const unusualCost = input.unitCost <= sellingPrice * 0.8 || input.unitCost > sellingPrice
+    if (unusualCost && !input.costWarningAccepted) {
+      throw new Error('Giá nhập bất thường so với giá bán. Vui lòng kiểm tra và xác nhận trước khi tiếp tục.')
+    }
+    const warningAudit = unusualCost
+      ? `[Đã xác nhận giá bất thường: giá nhập ${input.unitCost}, giá bán ${sellingPrice}, tỷ lệ ${((input.unitCost / sellingPrice) * 100).toFixed(2)}%]`
+      : ''
+    const recordedNote = [input.note, warningAudit].filter(Boolean).join('\n').slice(0, 500) || null
+
     const receipt = await tx()
       .input('receiptCode', sql.VarChar(50), receiptCode)
       .input('warehouseId', sql.BigInt, input.warehouseId)
       .input('userId', sql.BigInt, input.userId)
-      .input('note', sql.NVarChar(500), input.note)
+      .input('note', sql.NVarChar(500), recordedNote)
       .query(`
         INSERT INTO dbo.StockInReceipt (ReceiptCode, WarehouseId, SupplierId, CreatedByUserId, ReceiptDate, Status, Note)
         OUTPUT INSERTED.StockInReceiptId
@@ -520,7 +546,7 @@ export async function createStockIn(input: StockInInput) {
       .input('quantity', sql.Int, input.quantity)
       .input('unitCost', sql.Decimal(18, 2), input.unitCost)
       .input('receiptId', sql.BigInt, receiptId)
-      .input('note', sql.NVarChar(500), input.note)
+      .input('note', sql.NVarChar(500), recordedNote)
       .input('userId', sql.BigInt, input.userId)
       .query(`
         INSERT INTO dbo.StockMovement (

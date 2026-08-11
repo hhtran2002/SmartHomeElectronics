@@ -523,6 +523,7 @@ export type AdminStockableSku = {
   skuId: number
   skuCode: string
   productName: string
+  sellingPrice: number
 }
 
 export type AdminStockMovement = {

@@ -80,10 +80,11 @@ export async function createStockInReceipt(request: AuthRequest, response: Respo
   const warehouseId = toPositiveInt(request.body.warehouseId)
   const skuId = toPositiveInt(request.body.skuId)
   const quantity = toPositiveInt(request.body.quantity)
-  const unitCost = Number(request.body.unitCost ?? 0)
+  const unitCost = Number(request.body.unitCost)
+  const costWarningAccepted = request.body.costWarningAccepted === true
   const note = readText(request.body.note) || null
 
-  if (!warehouseId || !skuId || !quantity || !Number.isFinite(unitCost) || unitCost < 0) {
+  if (!warehouseId || !skuId || !quantity || !Number.isFinite(unitCost) || unitCost <= 0) {
     response.status(400).json({ message: 'Dữ liệu nhập kho không hợp lệ.' })
     return
   }
@@ -94,11 +95,16 @@ export async function createStockInReceipt(request: AuthRequest, response: Respo
       skuId,
       quantity,
       unitCost,
+      costWarningAccepted,
       note,
       userId: request.user!.userId,
     })
     response.status(201).json({ data: result })
   } catch (error) {
+    if (error instanceof Error) {
+      response.status(400).json({ message: error.message })
+      return
+    }
     next(error)
   }
 }

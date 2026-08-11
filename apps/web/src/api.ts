@@ -455,6 +455,7 @@ export function createAdminStockIn(payload: {
   skuId: number
   quantity: number
   unitCost: number
+  costWarningAccepted?: boolean
   note?: string
 }, token: string) {
   return postJsonWithToken<{ data: { stockInReceiptId: number; receiptCode: string } }>(

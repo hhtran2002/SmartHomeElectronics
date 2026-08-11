@@ -284,6 +284,21 @@
 .admin-shell .mode-tabs button { border-radius: 3px; color: var(--admin-muted); font-size: 10px; }
 .admin-shell .mode-tabs button.active { background: var(--admin-ink); color: #fff; }
 .admin-shell .stock-summary { background: var(--admin-surface-subtle); border-color: var(--admin-line); border-radius: 4px; }
+.admin-shell .stock-form label > small { color: var(--admin-muted); display: block; font-size: 9px; font-weight: 500; margin: 4px 0 2px; }
+.admin-shell .stock-cost-warning {
+  background: #fff8e6;
+  border: 1px solid #e7bd62;
+  color: #62430b;
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+}
+.admin-shell .stock-cost-warning > strong { font-size: 11px; }
+.admin-shell .stock-cost-warning p { font-size: 10px; line-height: 1.5; margin: 0; }
+.admin-shell .stock-cost-warning > div { display: grid; gap: 7px; grid-template-columns: 1fr 1.35fr; }
+.admin-shell .stock-cost-warning button { border: 1px solid #c89a3e; font-size: 9px; padding: 9px 7px; }
+.admin-shell .stock-cost-warning button:first-child { background: #fff; color: #62430b; }
+.admin-shell .stock-cost-warning button:last-child { background: #7a4d08; color: #fff; }
 
 /* Statuses: compact, not decorative */
 .admin-shell .status-pill,
