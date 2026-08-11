@@ -133,7 +133,7 @@ export function AdminDashboardPage({ roles, token }: Props) {
         <div>
           <span className="eyebrow">Tổng quan</span>
           <h2>Dashboard vận hành</h2>
-          <p>Theo dõi nhanh đơn hàng, doanh thu, lãi gộp và cảnh báo tồn kho.</p>
+          <p>Theo dõi nhanh đơn hàng, tiền hàng đã xuất kho, lãi gộp và cảnh báo tồn kho.</p>
         </div>
       </section>
 
@@ -161,12 +161,12 @@ export function AdminDashboardPage({ roles, token }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
               <span className="eyebrow">7 ngày gần nhất</span>
-              <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>Doanh thu & Lãi gộp</h3>
+              <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>Tiền hàng đã xuất & Lãi gộp</h3>
             </div>
             <div style={{ display: 'flex', gap: '16px', fontSize: '12px', fontWeight: '700' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0ea5e9' }}>
                 <span style={{ display: 'inline-block', width: '24px', height: '2.5px', background: '#0ea5e9', borderRadius: '2px' }} />
-                Doanh thu
+                Tiền hàng đã xuất
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#10b981' }}>
                 <span style={{ display: 'inline-block', width: '20px', borderTop: '2px dashed #10b981' }} />
@@ -196,7 +196,7 @@ export function AdminDashboardPage({ roles, token }: Props) {
               </thead>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '12px 0', color: '#0f172a', fontWeight: '700' }}>Doanh thu</td>
+                  <td style={{ padding: '12px 0', color: '#0f172a', fontWeight: '700' }}>Tiền hàng đã xuất</td>
                   <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '700', color: '#0369a1' }}>{formatPrice(summary.todayRevenue)}</td>
                   <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: '700', color: '#0369a1' }}>{formatPrice(summary.monthRevenue)}</td>
                 </tr>
@@ -213,7 +213,7 @@ export function AdminDashboardPage({ roles, token }: Props) {
               </tbody>
             </table>
             <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '16px', lineHeight: '1.5', margin: '16px 0 0' }}>
-              * Lãi gộp = doanh thu hàng đã xuất sau giảm giá (không gồm phí vận chuyển) − giá vốn bình quân đã chốt khi xuất kho.
+              * Tiền hàng đã xuất chỉ tính đơn đang giao hoặc hoàn thành, sau giảm giá và không gồm phí vận chuyển. Lãi gộp = tiền hàng đã xuất − giá vốn bình quân đã chốt khi xuất kho.
             </p>
           </div>
         </section>

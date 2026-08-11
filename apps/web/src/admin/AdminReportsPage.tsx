@@ -122,27 +122,27 @@ export function AdminReportsPage({ roles, token }: Props) {
         <>
           <section className="admin-metrics report-metrics">
             <div><span>Tổng đơn</span><strong>{reports.summary.totalOrders}</strong></div>
-            <div><span>Doanh thu</span><strong>{formatPrice(reports.summary.grossRevenue)}</strong></div>
-            <div><span>Đã thanh toán</span><strong>{formatPrice(reports.summary.paidRevenue)}</strong></div>
-            <div><span>Giá trị đơn TB</span><strong>{formatPrice(reports.summary.averageOrderValue)}</strong></div>
+            <div><span>Giá trị đơn chưa hủy</span><strong>{formatPrice(reports.summary.grossRevenue)}</strong></div>
+            <div><span>Giá trị đã thanh toán</span><strong>{formatPrice(reports.summary.paidRevenue)}</strong></div>
+            <div><span>TB đơn chưa hủy</span><strong>{formatPrice(reports.summary.averageOrderValue)}</strong></div>
             <div><span>Đơn hủy</span><strong>{reports.summary.cancelledOrders}</strong></div>
           </section>
           <section className="admin-panel-card">
             <div className="section-heading compact"><div><span className="eyebrow">Theo thời gian</span><h3>Kết quả bán hàng từng ngày</h3></div></div>
             <div className="report-time-definitions">
-              <p><strong>Doanh thu đơn hợp lệ</strong><span>Tổng tiền của các đơn được tạo trong ngày và chưa bị hủy, bao gồm phí vận chuyển; có thể gồm đơn chưa thanh toán.</span></p>
-              <p><strong>Giá trị đã xuất kho</strong><span>Tiền hàng sau giảm giá, không gồm phí vận chuyển, của các đơn tạo trong ngày đang giao hoặc đã hoàn thành.</span></p>
+              <p><strong>Giá trị đơn chưa hủy</strong><span>Tổng tiền của các đơn được tạo trong ngày và chưa bị hủy, bao gồm phí vận chuyển; có thể gồm đơn chưa thanh toán nên không phải doanh thu thực nhận.</span></p>
+              <p><strong>Tiền hàng đã xuất kho</strong><span>Tiền hàng sau giảm giá, không gồm phí vận chuyển, của các đơn tạo trong ngày đang giao hoặc đã hoàn thành.</span></p>
             </div>
             <div className="report-time-table">
               <div className="report-time-header" aria-hidden="true">
-                <span>Ngày ghi nhận</span><span>Số đơn</span><span>Doanh thu đơn hợp lệ</span><span>Giá trị đã xuất kho</span>
+                <span>Ngày ghi nhận</span><span>Số đơn</span><span>Giá trị đơn chưa hủy</span><span>Tiền hàng đã xuất kho</span>
               </div>
               {reports.salesByDay.length === 0 ? <p className="form-hint">Chưa có đơn trong khoảng ngày này.</p> : reports.salesByDay.map((row) => (
                 <div className="report-time-row" key={row.reportDate}>
                   <strong>{formatReportDate(row.reportDate)}</strong>
                   <span><small>Số đơn</small>{row.orderCount} đơn</span>
-                  <span><small>Doanh thu đơn hợp lệ</small>{formatPrice(row.revenue)}</span>
-                  <span><small>Giá trị đã xuất kho</small>{formatPrice(row.fulfilledRevenue)}</span>
+                  <span><small>Giá trị đơn chưa hủy</small>{formatPrice(row.revenue)}</span>
+                  <span><small>Tiền hàng đã xuất kho</small>{formatPrice(row.fulfilledRevenue)}</span>
                 </div>
               ))}
             </div>
@@ -152,7 +152,7 @@ export function AdminReportsPage({ roles, token }: Props) {
 
       {reports && mode === 'product' && (
         <section className="admin-panel-card">
-          <div className="section-heading compact"><div><span className="eyebrow">Theo mặt hàng</span><h3>Số lượng và doanh thu từng mặt hàng</h3></div></div>
+          <div className="section-heading compact"><div><span className="eyebrow">Theo mặt hàng</span><h3>Số lượng và giá trị đơn theo mặt hàng</h3><p>Giá trị tiền hàng sau khuyến mãi sản phẩm trên các đơn chưa hủy; chưa phân bổ mã giảm giá cấp đơn.</p></div></div>
           <label className="report-search">Tìm mặt hàng<input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Tên sản phẩm hoặc mã SKU" /></label>
           <div className="report-list">
             {products.length === 0 ? <p className="form-hint">Không có mặt hàng phù hợp.</p> : products.map((item) => (
