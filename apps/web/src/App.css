@@ -662,6 +662,24 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .admin-recent-orders small { color: var(--muted); margin-top: 4px; }
 .admin-orders-list { display: grid; gap: 12px; }
 .admin-products-list { display: grid; gap: 12px; }
+.admin-product-filters {
+  align-items: end;
+  background: white;
+  border: 1px solid var(--blue-100);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(150px, .7fr)) auto;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+.admin-product-filters label { color: var(--muted); display: grid; font-size: 10px; font-weight: 800; gap: 6px; }
+.admin-product-filters input,
+.admin-product-filters select { border: 1px solid var(--blue-100); border-radius: 10px; min-height: 40px; padding: 9px 11px; }
+.admin-product-filter-result { align-items: baseline; display: flex; gap: 4px; min-height: 40px; white-space: nowrap; }
+.admin-product-filter-result strong { color: var(--blue-900); font-size: 18px; }
+.admin-product-filter-result span { color: var(--muted); font-size: 10px; }
+.admin-product-filter-result button { background: transparent; border: 0; color: var(--blue-700); cursor: pointer; font-size: 10px; margin-left: 6px; text-decoration: underline; }
 .admin-inventory-list { display: grid; gap: 10px; }
 .admin-order-row {
   align-items: center; background: white; border: 1px solid var(--blue-100); border-radius: 20px; color: inherit;
@@ -822,6 +840,7 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .admin-total strong { color: var(--blue-900); }
 
 @media (max-width: 1000px) {
+  .admin-product-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .catalog-layout, .detail-card, .detail-layout, .detail-two-columns, .cart-layout, .checkout-layout, .admin-orders-layout, .admin-products-layout, .admin-inventory-layout, .admin-promotion-layout, .admin-users-layout, .reports-grid, .report-filter-card, .admin-shell { grid-template-columns: 1fr; }
   .profile-grid { grid-template-columns: 1fr; }
   .customer-orders-layout { grid-template-columns: 1fr; }
@@ -838,6 +857,7 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
   .hero { gap: 34px; grid-template-columns: 1fr; padding-top: 60px; }
 }
 @media (max-width: 560px) {
+  .admin-product-filters { grid-template-columns: 1fr; }
   .header { padding: 12px 16px; }
   .header-actions { gap: 6px; }
   .auth-chip { display: none; }

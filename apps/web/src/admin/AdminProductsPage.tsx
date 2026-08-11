@@ -35,6 +35,14 @@ type ProductFormProps = {
 
 const pageSize = 10
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+}
+
 const emptyForm: AdminProductPayload = {
   productName: '',
   categoryId: 0,
@@ -618,6 +626,10 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [saving, setSaving] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [productSearch, setProductSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('All')
+  const [brandFilter, setBrandFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
 
   const [localBrands, setLocalBrands] = useState<Brand[]>(brands)
   const [localCategories, setLocalCategories] = useState<Category[]>(categories)
@@ -660,11 +672,31 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
     void loadProducts()
   }, [loadProducts, roles, token])
 
-  const totalPages = Math.max(1, Math.ceil(products.length / pageSize))
+  const filteredProducts = useMemo(() => {
+    const query = normalizeSearchText(productSearch.trim())
+    return products.filter((product) => {
+      const matchesSearch = !query || normalizeSearchText([
+        product.productName,
+        product.skuCode ?? '',
+        product.categoryName,
+        product.brandName,
+      ].join(' ')).includes(query)
+      const matchesCategory = categoryFilter === 'All' || Number(product.categoryId) === Number(categoryFilter)
+      const matchesBrand = brandFilter === 'All' || Number(product.brandId) === Number(brandFilter)
+      const matchesStatus = statusFilter === 'All' || product.status === statusFilter
+      return matchesSearch && matchesCategory && matchesBrand && matchesStatus
+    })
+  }, [brandFilter, categoryFilter, productSearch, products, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
-    return products.slice(start, start + pageSize)
-  }, [page, products])
+    return filteredProducts.slice(start, start + pageSize)
+  }, [filteredProducts, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [brandFilter, categoryFilter, productSearch, statusFilter])
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
@@ -765,12 +797,60 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
 
       {error && <div className="status-card error">{error}</div>}
 
+      <section className="admin-product-filters" aria-label="Tìm kiếm và lọc sản phẩm">
+        <label className="admin-product-search">
+          <span>Tìm kiếm</span>
+          <input
+            onChange={(event) => setProductSearch(event.target.value)}
+            placeholder="Tên sản phẩm, mã SKU, thương hiệu..."
+            type="search"
+            value={productSearch}
+          />
+        </label>
+        <label>
+          <span>Danh mục</span>
+          <select onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+            <option value="All">Tất cả danh mục</option>
+            {localCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Thương hiệu</span>
+          <select onChange={(event) => setBrandFilter(event.target.value)} value={brandFilter}>
+            <option value="All">Tất cả thương hiệu</option>
+            {localBrands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Trạng thái</span>
+          <select onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+            <option value="All">Tất cả trạng thái</option>
+            <option value="Active">Đang hiển thị</option>
+            <option value="Inactive">Đang ẩn</option>
+          </select>
+        </label>
+        <div className="admin-product-filter-result">
+          <strong>{filteredProducts.length}</strong>
+          <span>/ {products.length} sản phẩm</span>
+          {(productSearch || categoryFilter !== 'All' || brandFilter !== 'All' || statusFilter !== 'All') && (
+            <button onClick={() => {
+              setProductSearch('')
+              setCategoryFilter('All')
+              setBrandFilter('All')
+              setStatusFilter('All')
+            }} type="button">Xóa lọc</button>
+          )}
+        </div>
+      </section>
+
       <section className="admin-products-layout">
         <div className="admin-products-list">
           {loading ? (
             <div className="status-card">Đang tải sản phẩm...</div>
           ) : products.length === 0 ? (
             <div className="status-card">Chưa có sản phẩm.</div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="status-card">Không tìm thấy sản phẩm phù hợp với bộ lọc.</div>
           ) : (
             paginatedProducts.map((product) => (
               <article className="admin-product-row" key={product.productId}>
@@ -791,12 +871,12 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
               </article>
             ))
           )}
-          {!loading && products.length > 0 && (
+          {!loading && filteredProducts.length > 0 && (
             <div className="admin-pagination">
               <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
                 Trang trước
               </button>
-              <span>Trang {page} / {totalPages} · {products.length} sản phẩm</span>
+              <span>Trang {page} / {totalPages} · {filteredProducts.length} sản phẩm</span>
               <button disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>
                 Trang sau
               </button>

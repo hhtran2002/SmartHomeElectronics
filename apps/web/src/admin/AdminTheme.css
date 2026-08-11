@@ -245,6 +245,12 @@
 .admin-shell .admin-inventory-layout,
 .admin-shell .admin-users-layout { gap: 20px; margin-top: 0; }
 .admin-shell .admin-products-layout { grid-template-columns: minmax(650px, 1fr); }
+.admin-shell .admin-product-filters { background: var(--admin-surface-subtle); border-color: var(--admin-line); border-radius: 4px; }
+.admin-shell .admin-product-filters input,
+.admin-shell .admin-product-filters select { background: #fff; border-color: var(--admin-line); border-radius: 3px; color: var(--admin-ink); font-size: 10px; }
+.admin-shell .admin-product-filters label { color: var(--admin-muted); letter-spacing: .04em; text-transform: uppercase; }
+.admin-shell .admin-product-filter-result strong { color: var(--admin-accent); }
+.admin-shell .admin-product-filter-result button { color: var(--admin-accent); }
 .admin-shell .admin-inventory-layout { grid-template-columns: minmax(620px, 1fr) 340px; }
 .admin-shell .reports-grid { gap: 20px; }
 .admin-shell .admin-order-detail { padding: 20px; top: 98px; }
