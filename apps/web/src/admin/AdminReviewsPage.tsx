@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import {
   getAdminReviews,
   getAdminReviewSettings,
+  submitProductQuestion,
   submitProductReview,
   updateAdminReviewSettings,
   updateAdminReviewStatus,
@@ -113,11 +114,18 @@ export function AdminReviewsPage({ roles, token }: Props) {
     if (!replyComment.trim()) return
     setSendingReply(true)
     try {
-      await submitProductReview(review.productSlug, token, {
-        rating: 5,
-        comment: replyComment,
-        parentReviewId: review.reviewId,
-      })
+      if (review.contentType === 'Question') {
+        await submitProductQuestion(review.productSlug, token, {
+          comment: replyComment,
+          parentQuestionId: review.reviewId,
+        })
+      } else {
+        await submitProductReview(review.productSlug, token, {
+          rating: 5,
+          comment: replyComment,
+          parentReviewId: review.reviewId,
+        })
+      }
       setReplyingId(null)
       setReplyComment('')
       await loadReviews()
@@ -158,7 +166,11 @@ export function AdminReviewsPage({ roles, token }: Props) {
         >
           <div className="admin-review-main">
             <div className="admin-review-thread-label">
-              <span>{isReply ? `Phản hồi cho #${review.parentReviewId}` : 'Đánh giá gốc'}</span>
+              <span>
+                {isReply
+                  ? `Phản hồi ${review.contentType === 'Question' ? 'hỏi đáp' : 'đánh giá'} #${review.parentReviewId}`
+                  : review.contentType === 'Question' ? 'Câu hỏi sản phẩm' : 'Đánh giá đã mua hàng'}
+              </span>
               {review.children.length > 0 && <small>{review.children.length} phản hồi trực tiếp</small>}
             </div>
             <div className="admin-review-product-line">
@@ -166,7 +178,11 @@ export function AdminReviewsPage({ roles, token }: Props) {
               <a href={`/#/products/${encodeURIComponent(review.productSlug)}`}>Xem sản phẩm ↗</a>
             </div>
             <p>{review.comment || 'Không có nội dung.'}</p>
-            <small>{isReply ? `Nội dung #${review.reviewId}` : `${review.rating}/5 sao · #${review.reviewId}`}</small>
+            <small>
+              {review.contentType === 'Question' || isReply
+                ? `Nội dung #${review.reviewId}`
+                : `${review.rating}/5 sao · #${review.reviewId}`}
+            </small>
           </div>
           <div className="admin-review-author">
             <strong>{review.reviewerName}</strong>
@@ -226,7 +242,7 @@ export function AdminReviewsPage({ roles, token }: Props) {
       <div className="section-heading compact">
         <div>
           <span className="eyebrow">Quản trị nội dung</span>
-          <h2>Duyệt & Phản hồi đánh giá sản phẩm</h2>
+          <h2>Duyệt đánh giá & hỏi đáp sản phẩm</h2>
           <p>
             {moderationRequired
               ? 'Review/comment khách gửi sẽ chờ duyệt.'

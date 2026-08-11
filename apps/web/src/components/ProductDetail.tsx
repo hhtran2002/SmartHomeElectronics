@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { submitProductReview } from '../api'
-import type { Product, ProductAttribute, ProductReview } from '../types'
+import { getProductReviewEligibility, submitProductQuestion, submitProductReview } from '../api'
+import type { Product, ProductAttribute, ProductQuestion, ProductReview } from '../types'
 import { formatPrice } from '../utils'
 import './ProductDetail.css'
 
@@ -72,19 +72,49 @@ function buildReviewTree(reviews: ProductReview[]) {
   return roots
 }
 
-function ReviewNode({ review, onReply }: {
-  review: ProductReview
-  onReply: (review: ProductReview) => void
-}) {
+function ReviewNode({ review, depth = 0 }: { review: ProductReview; depth?: number }) {
   return (
     <div className="review-node">
-      <strong>{review.reviewerName} · ★ {review.rating}</strong>
+      <strong>
+        {review.reviewerName} · {depth === 0 ? `Đã mua hàng · ★ ${review.rating}` : 'Phản hồi từ cửa hàng'}
+      </strong>
       <p>{review.comment || 'Khách hàng chưa để lại nội dung.'}</p>
-      <button type="button" onClick={() => onReply(review)}>Trả lời</button>
       {review.replies && review.replies.length > 0 && (
         <div className="review-replies">
           {review.replies.map((reply) => (
-            <ReviewNode key={reply.reviewId} review={reply} onReply={onReply} />
+            <ReviewNode depth={depth + 1} key={reply.reviewId} review={reply} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function buildQuestionTree(questions: ProductQuestion[]) {
+  const map = new Map<number, ProductQuestion>()
+  const roots: ProductQuestion[] = []
+  questions.forEach((question) => map.set(question.questionId, { ...question, replies: [] }))
+  map.forEach((question) => {
+    const parent = question.parentQuestionId ? map.get(question.parentQuestionId) : undefined
+    if (parent) parent.replies!.push(question)
+    else roots.push(question)
+  })
+  return roots
+}
+
+function QuestionNode({ question, onReply }: {
+  question: ProductQuestion
+  onReply: (question: ProductQuestion) => void
+}) {
+  return (
+    <div className={`product-question-node${question.isStaff ? ' staff-answer' : ''}`}>
+      <strong>{question.authorName}{question.isStaff ? ' · Cửa hàng' : ''}</strong>
+      <p>{question.comment || 'Không có nội dung.'}</p>
+      <button type="button" onClick={() => onReply(question)}>Trả lời</button>
+      {question.replies && question.replies.length > 0 && (
+        <div className="product-question-replies">
+          {question.replies.map((reply) => (
+            <QuestionNode key={reply.questionId} onReply={onReply} question={reply} />
           ))}
         </div>
       )}
@@ -100,7 +130,14 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
   const [reviewError, setReviewError] = useState('')
   const [reviewMessage, setReviewMessage] = useState('')
   const [reviewSaving, setReviewSaving] = useState(false)
-  const [replyTo, setReplyTo] = useState<ProductReview | null>(null)
+  const [canReview, setCanReview] = useState(false)
+  const [hasPurchased, setHasPurchased] = useState(false)
+  const [eligibilityLoading, setEligibilityLoading] = useState(false)
+  const [questionComment, setQuestionComment] = useState('')
+  const [questionError, setQuestionError] = useState('')
+  const [questionMessage, setQuestionMessage] = useState('')
+  const [questionSaving, setQuestionSaving] = useState(false)
+  const [replyQuestion, setReplyQuestion] = useState<ProductQuestion | null>(null)
 
   const skus = useMemo(() => product?.skus ?? [], [product])
   const initialSku = useMemo(() => skus.find(s => s.skuId === product?.skuId) || skus[0] || null, [skus, product])
@@ -111,6 +148,34 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
       setSelectedSkuId(initialSku.skuId)
     }
   }, [initialSku])
+
+  useEffect(() => {
+    if (!token || !product?.slug) {
+      setCanReview(false)
+      setHasPurchased(false)
+      return
+    }
+
+    let cancelled = false
+    setEligibilityLoading(true)
+    void getProductReviewEligibility(product.slug, token)
+      .then((payload) => {
+        if (cancelled) return
+        setCanReview(payload.data.canReview)
+        setHasPurchased(payload.data.hasPurchased)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCanReview(false)
+          setHasPurchased(false)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEligibilityLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [product?.slug, token])
 
   if (loading) {
     return <main className="detail-page"><div className="status-card">Đang tải chi tiết sản phẩm...</div></main>
@@ -152,6 +217,8 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
   const reviewSummary = product.reviewSummary ?? { reviewCount: 0, averageRating: 0 }
   const reviews = product.reviews ?? []
   const reviewTree = buildReviewTree(reviews)
+  const questions = product.questions ?? []
+  const questionTree = buildQuestionTree(questions)
   const productSlug = product.slug
 
   async function handleSubmitReview(event: FormEvent) {
@@ -160,7 +227,7 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
     setReviewMessage('')
 
     if (!token) {
-      setReviewError('Bạn cần đăng nhập để đánh giá hoặc bình luận.')
+      setReviewError('Bạn cần đăng nhập để đánh giá.')
       return
     }
 
@@ -169,10 +236,9 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
       const res = await submitProductReview(productSlug, token, {
         rating: reviewRating,
         comment: reviewComment,
-        parentReviewId: replyTo?.reviewId ?? null,
       })
       setReviewComment('')
-      setReplyTo(null)
+      setCanReview(false)
       const isApproved = res?.data?.status === 'Approved'
       setReviewMessage(isApproved ? 'Đã gửi phản hồi thành công!' : 'Đã gửi. Nội dung sẽ hiển thị sau khi admin duyệt.')
       onReviewSubmitted()
@@ -180,6 +246,38 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
       setReviewError(error instanceof Error ? error.message : 'Không gửi được đánh giá.')
     } finally {
       setReviewSaving(false)
+    }
+  }
+
+  async function handleSubmitQuestion(event: FormEvent) {
+    event.preventDefault()
+    setQuestionError('')
+    setQuestionMessage('')
+    if (!token) {
+      setQuestionError('Bạn cần đăng nhập để đặt câu hỏi hoặc trả lời.')
+      return
+    }
+    if (questionComment.trim().length < 3) {
+      setQuestionError('Nội dung hỏi đáp quá ngắn.')
+      return
+    }
+
+    setQuestionSaving(true)
+    try {
+      const response = await submitProductQuestion(productSlug, token, {
+        comment: questionComment.trim(),
+        parentQuestionId: replyQuestion?.questionId ?? null,
+      })
+      setQuestionComment('')
+      setReplyQuestion(null)
+      setQuestionMessage(response.data.status === 'Approved'
+        ? 'Nội dung hỏi đáp đã được đăng.'
+        : 'Đã gửi. Nội dung hỏi đáp sẽ hiển thị sau khi được duyệt.')
+      onReviewSubmitted()
+    } catch (error) {
+      setQuestionError(error instanceof Error ? error.message : 'Không gửi được nội dung hỏi đáp.')
+    } finally {
+      setQuestionSaving(false)
     }
   }
 
@@ -352,21 +450,15 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
                 </div>
               ) : (
                 <div className="review-list">
-                  {reviewTree.map((review) => <ReviewNode key={review.reviewId} review={review} onReply={setReplyTo} />)}
+                  {reviewTree.map((review) => <ReviewNode key={review.reviewId} review={review} />)}
                 </div>
               )}
             </div>
 
             <div className="product-review-composer">
-              <h3>{replyTo ? `Trả lời ${replyTo.reviewerName}` : 'Viết đánh giá của bạn'}</h3>
-              {replyTo && (
-                <div className="product-review-reply-context">
-                  <span><strong>{replyTo.reviewerName}:</strong> {replyTo.comment?.slice(0, 100)}{(replyTo.comment?.length ?? 0) > 100 ? '...' : ''}</span>
-                  <button type="button" onClick={() => setReplyTo(null)} aria-label="Hủy trả lời">×</button>
-                </div>
-              )}
-              <form className="review-form" onSubmit={handleSubmitReview}>
-                {!replyTo && (
+              <h3>Viết đánh giá của bạn</h3>
+              {canReview ? (
+                <form className="review-form" onSubmit={handleSubmitReview}>
                   <div className="product-review-rating-input">
                     <label>Chất lượng sản phẩm</label>
                     <div>
@@ -376,23 +468,81 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
                       <span>{['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc'][reviewRating]}</span>
                     </div>
                   </div>
-                )}
-                <label htmlFor="product-review-comment">Nội dung đánh giá</label>
-                <textarea
-                  id="product-review-comment"
-                  placeholder="Chia sẻ trải nghiệm thực tế sau khi dùng sản phẩm..."
-                  value={reviewComment}
-                  onChange={(event) => setReviewComment(event.target.value)}
-                  rows={4}
-                />
-                {reviewError && <p className="form-error">{reviewError}</p>}
-                {reviewMessage && <p className="form-hint product-review-success">{reviewMessage}</p>}
-                <div className="product-review-submit">
-                  <button disabled={reviewSaving}>{reviewSaving ? 'Đang gửi...' : (replyTo ? 'Gửi trả lời' : 'Gửi đánh giá')}</button>
-                  {!token && <p>Bạn cần đăng nhập để đánh giá.</p>}
+                  <label htmlFor="product-review-comment">Nội dung đánh giá</label>
+                  <textarea
+                    id="product-review-comment"
+                    placeholder="Chia sẻ trải nghiệm thực tế sau khi dùng sản phẩm..."
+                    value={reviewComment}
+                    onChange={(event) => setReviewComment(event.target.value)}
+                    rows={4}
+                  />
+                  {reviewError && <p className="form-error">{reviewError}</p>}
+                  <div className="product-review-submit">
+                    <button disabled={reviewSaving}>{reviewSaving ? 'Đang gửi...' : 'Gửi đánh giá'}</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="product-review-eligibility-note">
+                  <strong>{eligibilityLoading ? 'Đang kiểm tra quyền đánh giá...' : hasPurchased ? 'Bạn đã đánh giá lần mua này' : 'Chỉ dành cho khách đã mua hàng'}</strong>
+                  <p>
+                    {!token
+                      ? 'Hãy đăng nhập bằng tài khoản đã hoàn thành đơn hàng chứa sản phẩm này.'
+                      : hasPurchased
+                        ? 'Mỗi sản phẩm trong một đơn hàng hoàn thành chỉ được đánh giá một lần.'
+                        : 'Bạn vẫn có thể đặt câu hỏi về sản phẩm ở mục Hỏi đáp bên dưới.'}
+                  </p>
                 </div>
-              </form>
+              )}
+              {reviewMessage && <p className="form-hint product-review-success">{reviewMessage}</p>}
             </div>
+          </section>
+        </div>
+      </article>
+
+      <article className="detail-section-card detail-questions-section" id="product-questions">
+        <header className="detail-section-heading">
+          <div><span className="eyebrow">Hỏi đáp</span><h2>Câu hỏi về sản phẩm</h2></div>
+          <p>Nội dung tư vấn, không phải đánh giá và không ảnh hưởng điểm sao.</p>
+        </header>
+        <div className="product-question-layout">
+          <section className="product-question-list">
+            <h3>Câu hỏi gần đây</h3>
+            {questionTree.length === 0 ? (
+              <div className="product-review-empty">
+                <strong>Chưa có câu hỏi nào</strong>
+                <p>Bạn có thể hỏi về tính năng, lắp đặt, bảo hành hoặc cách sử dụng.</p>
+              </div>
+            ) : questionTree.map((question) => (
+              <QuestionNode key={question.questionId} onReply={(item) => {
+                setReplyQuestion(item)
+                setQuestionComment('')
+              }} question={question} />
+            ))}
+          </section>
+          <section className="product-question-composer">
+            <h3>{replyQuestion ? `Trả lời ${replyQuestion.authorName}` : 'Đặt câu hỏi'}</h3>
+            {replyQuestion && (
+              <div className="product-review-reply-context">
+                <span><strong>{replyQuestion.authorName}:</strong> {replyQuestion.comment?.slice(0, 100)}</span>
+                <button aria-label="Hủy trả lời" onClick={() => setReplyQuestion(null)} type="button">×</button>
+              </div>
+            )}
+            <form className="review-form" onSubmit={handleSubmitQuestion}>
+              <label htmlFor="product-question-comment">Nội dung hỏi đáp</label>
+              <textarea
+                id="product-question-comment"
+                onChange={(event) => setQuestionComment(event.target.value)}
+                placeholder="Bạn muốn biết thêm điều gì về sản phẩm?"
+                rows={4}
+                value={questionComment}
+              />
+              {questionError && <p className="form-error">{questionError}</p>}
+              {questionMessage && <p className="form-hint product-review-success">{questionMessage}</p>}
+              <div className="product-review-submit">
+                <button disabled={questionSaving}>{questionSaving ? 'Đang gửi...' : replyQuestion ? 'Gửi trả lời' : 'Gửi câu hỏi'}</button>
+                {!token && <p>Bạn cần đăng nhập để tham gia hỏi đáp.</p>}
+              </div>
+            </form>
           </section>
         </div>
       </article>

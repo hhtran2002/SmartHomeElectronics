@@ -41,6 +41,7 @@ export type Product = {
   attributes?: ProductAttribute[]
   reviewSummary?: ProductReviewSummary
   reviews?: ProductReview[]
+  questions?: ProductQuestion[]
   skus?: ProductSku[]
   
   aiScore?: number
@@ -81,6 +82,16 @@ export type ProductReview = {
   replies?: ProductReview[]
 }
 
+export type ProductQuestion = {
+  questionId: number
+  parentQuestionId: number | null
+  comment: string | null
+  createdAt: string
+  authorName: string
+  isStaff: boolean
+  replies?: ProductQuestion[]
+}
+
 export type AdminReview = {
   reviewId: number
   parentReviewId: number | null
@@ -91,6 +102,7 @@ export type AdminReview = {
   rating: number
   comment: string | null
   status: 'Pending' | 'Approved' | 'Hidden' | 'Rejected'
+  contentType: 'Review' | 'Question'
   createdAt: string
 }
 

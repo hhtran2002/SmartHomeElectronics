@@ -211,6 +211,24 @@ export function submitProductReview(slug: string, token: string, payload: {
   )
 }
 
+export function getProductReviewEligibility(slug: string, token: string) {
+  return getJsonWithToken<{ data: { canReview: boolean; hasPurchased: boolean } }>(
+    `/api/products/${encodeURIComponent(slug)}/review-eligibility`,
+    token,
+  )
+}
+
+export function submitProductQuestion(slug: string, token: string, payload: {
+  comment: string
+  parentQuestionId?: number | null
+}) {
+  return postJsonWithToken<{ data: { questionId: number; status: string } }>(
+    `/api/products/${encodeURIComponent(slug)}/questions`,
+    token,
+    payload,
+  )
+}
+
 export function getCategories() {
   return getJson<{ data: Category[] }>('/api/categories')
 }

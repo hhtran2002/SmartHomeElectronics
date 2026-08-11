@@ -311,6 +311,7 @@ export async function getProductBySlug(slug: string) {
       FROM dbo.Review
       WHERE ProductId = @productId
         AND Status = 'Approved'
+        AND ContentType = 'Review'
         AND ParentReviewId IS NULL
     `)
 
@@ -327,7 +328,34 @@ export async function getProductBySlug(slug: string) {
         ua.FullName AS reviewerName
       FROM dbo.Review r
       INNER JOIN dbo.UserAccount ua ON ua.UserId = r.UserId
-      WHERE r.ProductId = @productId AND r.Status = 'Approved'
+      WHERE r.ProductId = @productId
+        AND r.Status = 'Approved'
+        AND r.ContentType = 'Review'
+      ORDER BY r.CreatedAt ASC
+    `)
+
+  const questions = await pool
+    .request()
+    .input('productId', sql.BigInt, product.id)
+    .query(`
+      SELECT TOP (100)
+        CAST(r.ReviewId AS INT) AS questionId,
+        CAST(r.ParentReviewId AS INT) AS parentQuestionId,
+        r.Comment AS comment,
+        r.CreatedAt AS createdAt,
+        ua.FullName AS authorName,
+        CAST(CASE WHEN EXISTS (
+          SELECT 1
+          FROM dbo.UserRole ur
+          INNER JOIN dbo.Role role ON role.RoleId = ur.RoleId
+          WHERE ur.UserId = r.UserId
+            AND role.RoleCode IN ('SystemAdmin', 'CustomerSupport', 'OrderAdmin', 'WarehouseStaff', 'Employee')
+        ) THEN 1 ELSE 0 END AS BIT) AS isStaff
+      FROM dbo.Review r
+      INNER JOIN dbo.UserAccount ua ON ua.UserId = r.UserId
+      WHERE r.ProductId = @productId
+        AND r.Status = 'Approved'
+        AND r.ContentType = 'Question'
       ORDER BY r.CreatedAt ASC
     `)
 
@@ -408,6 +436,7 @@ export async function getProductBySlug(slug: string) {
     attributes: attributes.recordset,
     reviewSummary: reviewSummary.recordset[0] ?? { reviewCount: 0, averageRating: 0 },
     reviews: reviews.recordset,
+    questions: questions.recordset,
     skus: skus.recordset,
   }
 }

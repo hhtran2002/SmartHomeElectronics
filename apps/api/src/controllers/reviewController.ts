@@ -1,9 +1,54 @@
 import type { NextFunction, Response } from 'express'
 import type { AuthRequest } from '../auth.js'
-import { createProductReview } from '../services/reviewService.js'
+import {
+  createProductQuestion,
+  createProductReview,
+  getProductReviewEligibility,
+} from '../services/reviewService.js'
 
 function readText(value: unknown) {
   return String(value ?? '').trim()
+}
+
+export async function getReviewEligibility(request: AuthRequest, response: Response, next: NextFunction) {
+  try {
+    response.json({
+      data: await getProductReviewEligibility(request.user!.userId, String(request.params.slug ?? '')),
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function submitProductQuestion(request: AuthRequest, response: Response, next: NextFunction) {
+  const comment = String(request.body.comment ?? '').trim()
+  const parentQuestionId = request.body.parentQuestionId ? Number(request.body.parentQuestionId) : null
+  if (!comment) {
+    response.status(400).json({ message: 'Vui lòng nhập nội dung câu hỏi hoặc phản hồi.' })
+    return
+  }
+  if (parentQuestionId !== null && (!Number.isInteger(parentQuestionId) || parentQuestionId <= 0)) {
+    response.status(400).json({ message: 'Câu hỏi gốc không hợp lệ.' })
+    return
+  }
+
+  try {
+    const result = await createProductQuestion({
+      userId: request.user!.userId,
+      roles: request.user!.roles,
+      slug: String(request.params.slug ?? ''),
+      rating: 5,
+      comment,
+      parentReviewId: parentQuestionId,
+    })
+    response.status(201).json({ data: result })
+  } catch (error) {
+    if (error instanceof Error) {
+      response.status(400).json({ message: error.message })
+      return
+    }
+    next(error)
+  }
 }
 
 export async function submitProductReview(request: AuthRequest, response: Response, next: NextFunction) {

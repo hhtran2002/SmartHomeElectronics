@@ -538,7 +538,9 @@ export async function createReviewByOrderDetail(
     .input('orderDetailId', sql.BigInt, orderDetailId)
     .query(`
       SELECT TOP 1 ReviewId FROM dbo.Review
-      WHERE OrderDetailId = @orderDetailId AND UserId = @userId
+      WHERE OrderDetailId = @orderDetailId
+        AND UserId = @userId
+        AND ContentType = 'Review'
     `)
 
   if (existingResult.recordset[0]) {
@@ -558,12 +560,12 @@ export async function createReviewByOrderDetail(
     .query(`
       INSERT INTO dbo.Review (
         ProductId, OrderDetailId, UserId, Rating, Comment,
-        Status, CreatedAt, ParentReviewId
+        Status, CreatedAt, ParentReviewId, ContentType
       )
       OUTPUT INSERTED.ReviewId
       VALUES (
         @productId, @orderDetailId, @userId, @rating, @comment,
-        @status, SYSDATETIME(), NULL
+        @status, SYSDATETIME(), NULL, 'Review'
       )
     `)
 
@@ -577,7 +579,7 @@ export async function getMyReviewedOrderDetails(userId: number) {
     .query(`
       SELECT DISTINCT OrderDetailId AS orderDetailId
       FROM dbo.Review
-      WHERE UserId = @userId
+      WHERE UserId = @userId AND ContentType = 'Review'
     `)
   return result.recordset.map((r: { orderDetailId: number }) => r.orderDetailId)
 }

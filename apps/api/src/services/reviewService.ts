@@ -34,6 +34,7 @@ export async function createProductReview(input: ReviewInput) {
         FROM dbo.Review
         WHERE ReviewId = @parentReviewId
           AND ProductId = @productId
+          AND ContentType = 'Review'
           AND Status = 'Approved'
       `)
     if (!parentResult.recordset[0]) throw new Error('Bình luận cha không hợp lệ.')
@@ -46,6 +47,10 @@ export async function createProductReview(input: ReviewInput) {
   )
 
   const isReply = Boolean(input.parentReviewId)
+
+  if (isReply && !isAdminOrStaff) {
+    throw new Error('Chỉ nhân viên cửa hàng mới có thể phản hồi đánh giá. Vui lòng dùng mục Hỏi đáp sản phẩm.')
+  }
 
   // Replies belong to a review thread, not to the order line that allowed the
   // author to create a root review. Keeping this NULL also prevents replies
@@ -66,18 +71,25 @@ export async function createProductReview(input: ReviewInput) {
         WHERE cp.UserId = @userId
           AND ps.ProductId = @productId
           AND os.StatusCode = 'Completed'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM dbo.Review existing
+            WHERE existing.OrderDetailId = sod.OrderDetailId
+              AND existing.UserId = @userId
+              AND existing.ContentType = 'Review'
+          )
         ORDER BY so.CreatedAt DESC
       `)
 
     orderDetailId = (purchasedResult.recordset[0]?.OrderDetailId as number | undefined) ?? null
   }
 
-  if (!isReply && !isAdminOrStaff && !orderDetailId) {
+  if (!isReply && !orderDetailId) {
     throw new Error('Bạn chỉ có thể đánh giá sản phẩm đã mua và đơn đã hoàn thành.')
   }
 
   const moderationRequired = await getReviewModerationRequired()
-  const status = isAdminOrStaff || isReply || !moderationRequired ? 'Approved' : 'Pending'
+  const status = isReply || !moderationRequired ? 'Approved' : 'Pending'
 
   const inserted = await pool
     .request()
@@ -91,12 +103,12 @@ export async function createProductReview(input: ReviewInput) {
     .query(`
       INSERT INTO dbo.Review (
         ProductId, OrderDetailId, UserId, Rating, Comment,
-        Status, CreatedAt, ParentReviewId
+        Status, CreatedAt, ParentReviewId, ContentType
       )
       OUTPUT INSERTED.ReviewId
       VALUES (
         @productId, @orderDetailId, @userId, @rating, @comment,
-        @status, SYSDATETIME(), @parentReviewId
+        @status, SYSDATETIME(), @parentReviewId, 'Review'
       )
     `)
 
@@ -116,6 +128,7 @@ export async function listAdminReviews() {
       r.Rating AS rating,
       r.Comment AS comment,
       r.Status AS status,
+      r.ContentType AS contentType,
       r.CreatedAt AS createdAt
     FROM dbo.Review r
     INNER JOIN dbo.Product p ON p.ProductId = r.ProductId
@@ -125,6 +138,97 @@ export async function listAdminReviews() {
       r.CreatedAt DESC
   `)
   return result.recordset
+}
+
+export async function getProductReviewEligibility(userId: number, slug: string) {
+  const pool = await getPool()
+  const result = await pool
+    .request()
+    .input('userId', sql.BigInt, userId)
+    .input('slug', sql.VarChar(255), slug)
+    .query(`
+      SELECT
+        CAST(CASE WHEN EXISTS (
+          SELECT 1
+          FROM dbo.SalesOrderDetail sod
+          INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
+          INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+          INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+          INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+          INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
+          WHERE cp.UserId = @userId
+            AND p.Slug = @slug
+            AND os.StatusCode = 'Completed'
+            AND NOT EXISTS (
+              SELECT 1 FROM dbo.Review r
+              WHERE r.OrderDetailId = sod.OrderDetailId
+                AND r.UserId = @userId
+                AND r.ContentType = 'Review'
+            )
+        ) THEN 1 ELSE 0 END AS BIT) AS canReview,
+        CAST(CASE WHEN EXISTS (
+          SELECT 1
+          FROM dbo.SalesOrderDetail sod
+          INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
+          INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
+          INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
+          INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+          INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
+          WHERE cp.UserId = @userId
+            AND p.Slug = @slug
+            AND os.StatusCode = 'Completed'
+        ) THEN 1 ELSE 0 END AS BIT) AS hasPurchased
+    `)
+
+  const row = result.recordset[0]
+  return { canReview: Boolean(row?.canReview), hasPurchased: Boolean(row?.hasPurchased) }
+}
+
+export async function createProductQuestion(input: ReviewInput) {
+  const pool = await getPool()
+  const productResult = await pool.request()
+    .input('slug', sql.VarChar(255), input.slug)
+    .query(`SELECT TOP (1) ProductId FROM dbo.Product WHERE Slug = @slug AND Status = 'Active'`)
+  const productId = productResult.recordset[0]?.ProductId as number | undefined
+  if (!productId) throw new Error('Không tìm thấy sản phẩm.')
+
+  if (input.parentReviewId) {
+    const parentResult = await pool.request()
+      .input('parentReviewId', sql.BigInt, input.parentReviewId)
+      .input('productId', sql.BigInt, productId)
+      .query(`
+        SELECT TOP (1) ReviewId FROM dbo.Review
+        WHERE ReviewId = @parentReviewId
+          AND ProductId = @productId
+          AND ContentType = 'Question'
+          AND Status = 'Approved'
+      `)
+    if (!parentResult.recordset[0]) throw new Error('Câu hỏi hoặc phản hồi gốc không hợp lệ.')
+  }
+
+  const isStaff = Boolean(input.roles?.some((role) =>
+    ['SystemAdmin', 'CustomerSupport', 'OrderAdmin', 'WarehouseStaff', 'Employee'].includes(role)
+  ))
+  const status = isStaff ? 'Approved' : 'Pending'
+  const inserted = await pool.request()
+    .input('productId', sql.BigInt, productId)
+    .input('userId', sql.BigInt, input.userId)
+    .input('comment', sql.NVarChar(1000), input.comment)
+    .input('parentReviewId', sql.BigInt, input.parentReviewId ?? null)
+    .input('status', sql.VarChar(20), status)
+    .query(`
+      INSERT INTO dbo.Review (
+        ProductId, OrderDetailId, UserId, Rating, Comment,
+        Status, CreatedAt, ParentReviewId, ContentType
+      )
+      OUTPUT INSERTED.ReviewId
+      VALUES (
+        @productId, NULL, @userId, 5, @comment,
+        @status, SYSDATETIME(), @parentReviewId, 'Question'
+      )
+    `)
+
+  return { questionId: inserted.recordset[0].ReviewId as number, status }
 }
 
 export async function updateReviewStatus(reviewId: number, status: string, moderatorId: number) {
