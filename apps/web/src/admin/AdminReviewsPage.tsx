@@ -1,6 +1,12 @@
 import { Fragment, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { getAdminReviews, submitProductReview, updateAdminReviewStatus } from '../api'
+import {
+  getAdminReviews,
+  getAdminReviewSettings,
+  submitProductReview,
+  updateAdminReviewSettings,
+  updateAdminReviewStatus,
+} from '../api'
 import type { AdminReview } from '../types'
 
 type Props = {
@@ -48,6 +54,9 @@ export function AdminReviewsPage({ roles, token }: Props) {
   const [replyComment, setReplyComment] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'All' | AdminReview['status']>('All')
+  const [moderationRequired, setModerationRequired] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState('')
 
   const canModerate = roles.includes('SystemAdmin') || roles.includes('CustomerSupport')
 
@@ -56,8 +65,12 @@ export function AdminReviewsPage({ roles, token }: Props) {
     setLoading(true)
     setError('')
     try {
-      const payload = await getAdminReviews(token)
-      setReviews(payload.data)
+      const [reviewsPayload, settingsPayload] = await Promise.all([
+        getAdminReviews(token),
+        getAdminReviewSettings(token),
+      ])
+      setReviews(reviewsPayload.data)
+      setModerationRequired(settingsPayload.data.moderationRequired)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không tải được danh sách đánh giá.')
     } finally {
@@ -76,6 +89,23 @@ export function AdminReviewsPage({ roles, token }: Props) {
       await loadReviews()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không cập nhật được đánh giá.')
+    }
+  }
+
+  async function changeModerationSetting(required: boolean) {
+    setSavingSettings(true)
+    setSettingsMessage('')
+    setError('')
+    try {
+      const payload = await updateAdminReviewSettings(required, token)
+      setModerationRequired(payload.data.moderationRequired)
+      setSettingsMessage(required
+        ? 'Đã bật duyệt trước khi hiển thị đánh giá.'
+        : 'Đã tắt duyệt. Khách đã mua hàng có thể đăng đánh giá trực tiếp.')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Không cập nhật được chế độ duyệt đánh giá.')
+    } finally {
+      setSavingSettings(false)
     }
   }
 
@@ -197,11 +227,41 @@ export function AdminReviewsPage({ roles, token }: Props) {
         <div>
           <span className="eyebrow">Quản trị nội dung</span>
           <h2>Duyệt & Phản hồi đánh giá sản phẩm</h2>
-          <p>Review/comment khách gửi sẽ chờ duyệt. Admin cũng có thể trả lời phản hồi trực tiếp cho khách hàng.</p>
+          <p>
+            {moderationRequired
+              ? 'Review/comment khách gửi sẽ chờ duyệt.'
+              : 'Review của khách đã mua hàng sẽ được đăng tự động.'}
+            {' '}Admin cũng có thể trả lời phản hồi trực tiếp cho khách hàng.
+          </p>
         </div>
       </div>
 
       {error && <div className="status-card error">{error}</div>}
+
+      <div className="admin-review-setting">
+        <div>
+          <span className="eyebrow">Chế độ đăng đánh giá</span>
+          <strong>{moderationRequired ? 'Cần admin duyệt' : 'Tự động đăng'}</strong>
+          <p>
+            {moderationRequired
+              ? 'Đánh giá mới của khách sẽ ở trạng thái chờ duyệt.'
+              : 'Khách đã mua sản phẩm và hoàn thành đơn hàng sẽ được đăng đánh giá ngay.'}
+          </p>
+          {settingsMessage && <small>{settingsMessage}</small>}
+        </div>
+        <label className="admin-review-switch">
+          <input
+            aria-label="Yêu cầu admin duyệt đánh giá trước khi hiển thị"
+            checked={moderationRequired}
+            disabled={savingSettings}
+            onChange={(event) => void changeModerationSetting(event.target.checked)}
+            role="switch"
+            type="checkbox"
+          />
+          <span aria-hidden="true" />
+          <em>{savingSettings ? 'Đang lưu...' : moderationRequired ? 'Đang bật' : 'Đang tắt'}</em>
+        </label>
+      </div>
 
       <div className="admin-review-summary" aria-label="Tổng quan đánh giá">
         <div><span>Tổng nội dung</span><strong>{reviews.length}</strong></div>

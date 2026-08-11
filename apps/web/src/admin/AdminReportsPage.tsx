@@ -129,7 +129,10 @@ export function AdminReportsPage({ roles, token }: Props) {
           </section>
           <section className="admin-panel-card">
             <div className="section-heading compact"><div><span className="eyebrow">Theo thời gian</span><h3>Kết quả bán hàng từng ngày</h3></div></div>
-            <p className="report-explanation">Doanh thu đơn hợp lệ không tính đơn đã hủy. Giá trị đã xuất kho chỉ tính các đơn đang giao hoặc đã hoàn thành.</p>
+            <div className="report-time-definitions">
+              <p><strong>Doanh thu đơn hợp lệ</strong><span>Tổng tiền của các đơn được tạo trong ngày và chưa bị hủy, bao gồm phí vận chuyển; có thể gồm đơn chưa thanh toán.</span></p>
+              <p><strong>Giá trị đã xuất kho</strong><span>Tiền hàng sau giảm giá, không gồm phí vận chuyển, của các đơn tạo trong ngày đang giao hoặc đã hoàn thành.</span></p>
+            </div>
             <div className="report-time-table">
               <div className="report-time-header" aria-hidden="true">
                 <span>Ngày ghi nhận</span><span>Số đơn</span><span>Doanh thu đơn hợp lệ</span><span>Giá trị đã xuất kho</span>

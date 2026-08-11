@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { getPool, sql } from '../config/database.js'
+import { getReviewModerationRequired } from './reviewSettingsService.js'
 
 export type ProfileUpdateInput = {
   userId: number
@@ -544,12 +545,16 @@ export async function createReviewByOrderDetail(
     throw new Error('Bạn đã đánh giá sản phẩm này rồi.')
   }
 
+  const moderationRequired = await getReviewModerationRequired()
+  const status = moderationRequired ? 'Pending' : 'Approved'
+
   const inserted = await pool.request()
     .input('productId', sql.BigInt, eligible.ProductId as number)
     .input('orderDetailId', sql.BigInt, orderDetailId)
     .input('userId', sql.BigInt, userId)
     .input('rating', sql.TinyInt, rating)
     .input('comment', sql.NVarChar(1000), comment)
+    .input('status', sql.VarChar(20), status)
     .query(`
       INSERT INTO dbo.Review (
         ProductId, OrderDetailId, UserId, Rating, Comment,
@@ -558,11 +563,11 @@ export async function createReviewByOrderDetail(
       OUTPUT INSERTED.ReviewId
       VALUES (
         @productId, @orderDetailId, @userId, @rating, @comment,
-        'Pending', SYSDATETIME(), NULL
+        @status, SYSDATETIME(), NULL
       )
     `)
 
-  return { reviewId: inserted.recordset[0].ReviewId as number, status: 'Pending' }
+  return { reviewId: inserted.recordset[0].ReviewId as number, status }
 }
 
 export async function getMyReviewedOrderDetails(userId: number) {
@@ -576,4 +581,3 @@ export async function getMyReviewedOrderDetails(userId: number) {
     `)
   return result.recordset.map((r: { orderDetailId: number }) => r.orderDetailId)
 }
-

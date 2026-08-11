@@ -104,12 +104,14 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
     setReviewSubmitting(true)
     setReviewError('')
     try {
-      await submitCustomerReview({
+      const response = await submitCustomerReview({
         orderDetailId: reviewingItem.orderDetailId,
         rating: reviewRating,
         comment: reviewComment.trim(),
       }, token)
-      setReviewSuccess('Đánh giá của bạn đã được gửi và đang chờ duyệt. Cảm ơn!')
+      setReviewSuccess(response.data.status === 'Approved'
+        ? 'Đánh giá của bạn đã được đăng. Cảm ơn!'
+        : 'Đánh giá của bạn đã được gửi và đang chờ duyệt. Cảm ơn!')
       // Reload order detail so hasReview updates
       if (detail) {
         const refreshed = await getCustomerOrder(detail.order.orderId, token)

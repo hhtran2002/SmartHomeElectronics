@@ -334,6 +334,13 @@
 .admin-shell .report-list > div { background: var(--admin-surface-subtle); }
 .admin-shell .report-table strong,
 .admin-shell .report-list strong { color: var(--admin-ink); }
+.admin-shell .report-time-definitions p { background: var(--admin-surface-subtle); border-left-color: var(--admin-accent); color: var(--admin-muted); }
+.admin-shell .report-time-definitions strong { color: var(--admin-ink); }
+.admin-shell .report-time-table { border-color: var(--admin-line); border-radius: 4px; }
+.admin-shell .report-time-header { background: var(--admin-accent-soft); color: #496159; }
+.admin-shell .report-time-row { border-color: var(--admin-line); }
+.admin-shell .report-time-row > strong { color: var(--admin-accent); }
+.admin-shell .report-time-row > span { color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .admin-shell .admin-cod-remittances > article { border-color: var(--admin-line); border-radius: 4px; }
 .admin-shell .admin-cod-remittances header { background: var(--admin-surface-subtle); }
 .admin-shell .cod-remittance-detail span { background: var(--admin-surface-subtle); border-radius: 3px; }
@@ -421,6 +428,47 @@
 
 /* Review moderation queue */
 .admin-review-page .section-heading { margin-bottom: 28px; }
+.admin-review-setting {
+  align-items: center;
+  background: var(--admin-surface-subtle);
+  border: 1px solid var(--admin-line);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+.admin-review-setting > div { display: grid; gap: 6px; }
+.admin-review-setting strong { color: var(--admin-ink); font-size: 16px; }
+.admin-review-setting p { color: var(--admin-muted); font-size: 11px; line-height: 1.5; margin: 0; }
+.admin-review-setting small { color: var(--admin-accent); font-size: 10px; }
+.admin-review-switch { align-items: center; cursor: pointer; display: flex; flex-shrink: 0; gap: 10px; }
+.admin-review-switch input { height: 1px; opacity: 0; position: absolute; width: 1px; }
+.admin-review-switch > span {
+  background: #a9b5b1;
+  border-radius: 999px;
+  height: 24px;
+  position: relative;
+  transition: background .2s ease;
+  width: 44px;
+}
+.admin-review-switch > span::after {
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+  content: '';
+  height: 18px;
+  left: 3px;
+  position: absolute;
+  top: 3px;
+  transition: transform .2s ease;
+  width: 18px;
+}
+.admin-review-switch input:checked + span { background: var(--admin-accent); }
+.admin-review-switch input:checked + span::after { transform: translateX(20px); }
+.admin-review-switch input:focus-visible + span { outline: 2px solid var(--admin-accent); outline-offset: 3px; }
+.admin-review-switch input:disabled + span { cursor: wait; opacity: .6; }
+.admin-review-switch em { color: var(--admin-ink); font-size: 10px; font-style: normal; min-width: 62px; }
 .admin-review-summary {
   border-bottom: 1px solid var(--admin-line);
   border-top: 1px solid var(--admin-line);
@@ -548,6 +596,7 @@
 }
 
 @media (max-width: 700px) {
+  .admin-review-setting { align-items: flex-start; flex-direction: column; }
   .admin-review-summary { grid-template-columns: 1fr; }
   .admin-review-summary > div { border-bottom: 1px solid var(--admin-line); border-right: 0; }
   .admin-review-summary > div:last-child { border-bottom: 0; }

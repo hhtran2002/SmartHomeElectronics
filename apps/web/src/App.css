@@ -347,12 +347,15 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 .report-table strong, .report-list strong { color: var(--blue-900); }
 .report-table small { display: block; font-size: 11px; margin-top: 4px; }
 .report-profit-value { text-align: right; }
-.report-explanation { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 8px 0 18px; }
+.report-time-definitions { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 8px 0 18px; }
+.report-time-definitions p { border-left: 3px solid var(--blue-500); color: var(--muted); display: grid; font-size: 12px; gap: 4px; line-height: 1.5; margin: 0; padding: 8px 11px; }
+.report-time-definitions strong { color: var(--ink); font-size: 13px; }
 .report-time-table { border: 1px solid var(--blue-100); border-radius: 14px; overflow: hidden; }
 .report-time-header, .report-time-row {
-  align-items: center; display: grid; gap: 18px; grid-template-columns: minmax(180px, 1.2fr) minmax(80px, .55fr) minmax(170px, 1fr) minmax(170px, 1fr); padding: 13px 16px;
+  align-items: center; display: grid; gap: 24px; grid-template-columns: minmax(210px, 1.25fr) minmax(90px, .5fr) minmax(190px, 1fr) minmax(190px, 1fr); padding: 13px 16px;
 }
 .report-time-header { background: var(--blue-50); color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.report-time-header span:not(:first-child) { text-align: right; }
 .report-time-row { background: white; border-top: 1px solid var(--blue-100); }
 .report-time-row > span { color: var(--ink); text-align: right; }
 .report-time-row > strong { color: var(--blue-900); }
@@ -381,6 +384,7 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 
 @media (max-width: 760px) {
   .customer-report-picker { grid-template-columns: 1fr; }
+  .report-time-definitions { grid-template-columns: 1fr; }
   .report-time-header { display: none; }
   .report-time-row { gap: 9px; grid-template-columns: 1fr; }
   .report-time-row:first-of-type { border-top: 0; }

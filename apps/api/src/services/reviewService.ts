@@ -1,4 +1,5 @@
 import { getPool, sql } from '../config/database.js'
+import { getReviewModerationRequired } from './reviewSettingsService.js'
 
 export type ReviewInput = {
   userId: number
@@ -75,7 +76,8 @@ export async function createProductReview(input: ReviewInput) {
     throw new Error('Bạn chỉ có thể đánh giá sản phẩm đã mua và đơn đã hoàn thành.')
   }
 
-  const status = isAdminOrStaff || isReply ? 'Approved' : 'Pending'
+  const moderationRequired = await getReviewModerationRequired()
+  const status = isAdminOrStaff || isReply || !moderationRequired ? 'Approved' : 'Pending'
 
   const inserted = await pool
     .request()

@@ -291,6 +291,18 @@ export function getAdminReviews(token: string) {
   return getJsonWithToken<{ data: AdminReview[] }>('/api/admin/reviews', token)
 }
 
+export function getAdminReviewSettings(token: string) {
+  return getJsonWithToken<{ data: { moderationRequired: boolean } }>('/api/admin/reviews/settings', token)
+}
+
+export function updateAdminReviewSettings(moderationRequired: boolean, token: string) {
+  return patchJsonWithToken<{ data: { moderationRequired: boolean } }>(
+    '/api/admin/reviews/settings',
+    token,
+    { moderationRequired },
+  )
+}
+
 export function updateAdminReviewStatus(reviewId: number, status: string, token: string) {
   return patchJsonWithToken<{ data: { reviewId: number; status: string } }>(
     `/api/admin/reviews/${reviewId}/status`,
