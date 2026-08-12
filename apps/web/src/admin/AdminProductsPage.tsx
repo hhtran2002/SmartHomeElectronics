@@ -600,13 +600,15 @@ function ProductForm({
         Cần lắp đặt
       </label>
 
-      <label>
-        Ảnh chính nhanh
-        <input
-          value={form.imageUrl ?? ''}
-          onChange={(event) => onChange({ ...form, imageUrl: event.target.value })}
-        />
-      </label>
+      {!editingId && (
+        <label>
+          Ảnh chính
+          <input
+            value={form.imageUrl ?? ''}
+            onChange={(event) => onChange({ ...form, imageUrl: event.target.value })}
+          />
+        </label>
+      )}
 
       <div className="product-form-actions">
         <button disabled={saving}>{saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Thêm sản phẩm'}</button>
@@ -709,7 +711,9 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
 
     try {
       if (!editingId) return
-      await updateAdminProduct(editingId, form, token)
+      // Product images are managed separately below. The URL captured when
+      // opening this modal may be stale after choosing another primary image.
+      await updateAdminProduct(editingId, { ...form, imageUrl: undefined }, token)
       cancelEdit()
       await loadProducts()
     } catch (error) {

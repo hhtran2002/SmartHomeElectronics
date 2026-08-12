@@ -293,41 +293,6 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
       }
     }
 
-    if (input.imageUrl) {
-      const existingImage = await tx()
-        .input('productId', sql.BigInt, productId)
-        .query(`
-          SELECT TOP (1) ImageId
-          FROM dbo.ProductImage
-          WHERE ProductId = @productId
-          ORDER BY IsPrimary DESC, SortOrder, ImageId
-        `)
-
-      const imageId = existingImage.recordset[0]?.ImageId
-      if (imageId) {
-        await tx()
-          .input('imageId', sql.BigInt, imageId)
-          .input('imageUrl', sql.NVarChar(500), input.imageUrl)
-          .input('altText', sql.NVarChar(255), input.productName)
-          .query(`
-            UPDATE dbo.ProductImage
-            SET ImageUrl = @imageUrl,
-                AltText = @altText,
-                IsPrimary = 1
-            WHERE ImageId = @imageId
-          `)
-      } else {
-        await tx()
-          .input('productId', sql.BigInt, productId)
-          .input('imageUrl', sql.NVarChar(500), input.imageUrl)
-          .input('altText', sql.NVarChar(255), input.productName)
-          .query(`
-            INSERT INTO dbo.ProductImage (ProductId, ImageUrl, AltText, IsPrimary, SortOrder, CreatedAt)
-            VALUES (@productId, @imageUrl, @altText, 1, 1, SYSDATETIME())
-          `)
-      }
-    }
-
     await transaction.commit()
     return { productId }
   } catch (error) {
@@ -381,17 +346,39 @@ export async function setAdminProductPrimaryImage(productId: number, imageId: nu
     await transaction.begin()
     const tx = () => new sql.Request(transaction)
 
-    await tx()
+    const target = await tx()
       .input('productId', sql.BigInt, productId)
-      .query('UPDATE dbo.ProductImage SET IsPrimary = 0 WHERE ProductId = @productId')
+      .input('imageId', sql.BigInt, imageId)
+      .query(`
+        SELECT ImageId
+        FROM dbo.ProductImage WITH (UPDLOCK, HOLDLOCK)
+        WHERE ProductId = @productId AND ImageId = @imageId
+      `)
+
+    if (!target.recordset.length) {
+      throw new Error('Không tìm thấy ảnh thuộc sản phẩm này.')
+    }
 
     await tx()
       .input('productId', sql.BigInt, productId)
       .input('imageId', sql.BigInt, imageId)
       .query(`
         UPDATE dbo.ProductImage
-        SET IsPrimary = 1, SortOrder = 1
-        WHERE ProductId = @productId AND ImageId = @imageId
+        SET IsPrimary = CASE WHEN ImageId = @imageId THEN 1 ELSE 0 END
+        WHERE ProductId = @productId;
+
+        ;WITH RankedImages AS (
+          SELECT ImageId,
+            ROW_NUMBER() OVER (
+              ORDER BY CASE WHEN ImageId = @imageId THEN 0 ELSE 1 END, SortOrder, ImageId
+            ) AS NewSortOrder
+          FROM dbo.ProductImage
+          WHERE ProductId = @productId
+        )
+        UPDATE image
+        SET SortOrder = ranked.NewSortOrder
+        FROM dbo.ProductImage image
+        INNER JOIN RankedImages ranked ON ranked.ImageId = image.ImageId;
       `)
 
     await transaction.commit()
@@ -404,12 +391,59 @@ export async function setAdminProductPrimaryImage(productId: number, imageId: nu
 
 export async function deleteAdminProductImage(productId: number, imageId: number) {
   const pool = await getPool()
-  await pool
-    .request()
-    .input('productId', sql.BigInt, productId)
-    .input('imageId', sql.BigInt, imageId)
-    .query('DELETE FROM dbo.ProductImage WHERE ProductId = @productId AND ImageId = @imageId')
-  return { productId, imageId }
+  const transaction = new sql.Transaction(pool)
+
+  try {
+    await transaction.begin()
+    const result = await new sql.Request(transaction)
+      .input('productId', sql.BigInt, productId)
+      .input('imageId', sql.BigInt, imageId)
+      .query(`
+        DECLARE @WasPrimary bit = 0;
+        SELECT @WasPrimary = IsPrimary
+        FROM dbo.ProductImage WITH (UPDLOCK, HOLDLOCK)
+        WHERE ProductId = @productId AND ImageId = @imageId;
+
+        DELETE FROM dbo.ProductImage
+        WHERE ProductId = @productId AND ImageId = @imageId;
+
+        DECLARE @DeletedCount int = @@ROWCOUNT;
+        IF @DeletedCount = 1 AND @WasPrimary = 1
+        BEGIN
+          DECLARE @NextImageId bigint = (
+            SELECT TOP (1) ImageId
+            FROM dbo.ProductImage
+            WHERE ProductId = @productId
+            ORDER BY SortOrder, ImageId
+          );
+          UPDATE dbo.ProductImage
+          SET IsPrimary = CASE WHEN ImageId = @NextImageId THEN 1 ELSE 0 END
+          WHERE ProductId = @productId;
+        END;
+
+        ;WITH RankedImages AS (
+          SELECT ImageId, ROW_NUMBER() OVER (ORDER BY IsPrimary DESC, SortOrder, ImageId) AS NewSortOrder
+          FROM dbo.ProductImage
+          WHERE ProductId = @productId
+        )
+        UPDATE image
+        SET SortOrder = ranked.NewSortOrder
+        FROM dbo.ProductImage image
+        INNER JOIN RankedImages ranked ON ranked.ImageId = image.ImageId;
+
+        SELECT @DeletedCount AS deletedCount;
+      `)
+
+    if (!Number(result.recordset[0]?.deletedCount)) {
+      throw new Error('Không tìm thấy ảnh thuộc sản phẩm này.')
+    }
+
+    await transaction.commit()
+    return { productId, imageId }
+  } catch (error) {
+    await transaction.rollback().catch(() => undefined)
+    throw error
+  }
 }
 
 export async function updateAdminProductStatus(productId: number, status: string) {
