@@ -233,7 +233,7 @@ export async function updateReturnRequestStatus(input: {
     const returnReqResult = await tx()
       .input('returnRequestId', sql.BigInt, input.returnRequestId)
       .query(`
-        SELECT ReturnRequestId, OrderId, Status, RefundStatus, InventoryRestockedAt
+        SELECT ReturnRequestId, OrderId, Status, RefundStatus, WarehouseConfirmedAt, InventoryRestockedAt
         FROM dbo.OrderReturnRequest WITH (UPDLOCK, ROWLOCK)
         WHERE ReturnRequestId = @returnRequestId
       `)
@@ -251,8 +251,12 @@ export async function updateReturnRequestStatus(input: {
       if (input.refundStatus && input.refundStatus !== 'Pending') {
         throw new Error('Yêu cầu bị từ chối không thể đồng thời bắt đầu hoặc hoàn tất hoàn tiền.')
       }
-      if (!['Pending', 'Approved'].includes(String(currentReq.Status)) || currentReq.RefundStatus !== 'Pending') {
-        throw new Error('Chỉ yêu cầu chưa bắt đầu hoàn hàng mới có thể bị từ chối.')
+      const canRejectBeforeApproval = currentReq.Status === 'Pending' && currentReq.RefundStatus === 'Pending'
+      const canCancelDuringReturn = currentReq.Status === 'Approved'
+        && ['Pending', 'Processing'].includes(String(currentReq.RefundStatus))
+        && !currentReq.WarehouseConfirmedAt
+      if (!canRejectBeforeApproval && !canCancelDuringReturn) {
+        throw new Error('Chỉ có thể hủy yêu cầu trước khi hàng hoàn được xác nhận nhận lại, nhập kho hoặc hoàn tiền.')
       }
     }
 
