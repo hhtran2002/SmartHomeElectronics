@@ -311,6 +311,64 @@ h2 { color: var(--ink); font-size: clamp(30px,4vw,44px); letter-spacing: -.04em;
 }
 .auth-card p { color: var(--muted); margin: 0; }
 .auth-card a { color: var(--blue-700); font-weight: 900; }
+.checkout-auth-page {
+  display: grid;
+  margin: auto;
+  max-width: 1228px;
+  min-height: 620px;
+  padding: 76px 24px 100px;
+  place-items: center;
+}
+.checkout-auth-card {
+  background: #f7f7f3;
+  border: 1px solid #dedfd9;
+  display: grid;
+  justify-items: center;
+  max-width: 700px;
+  padding: clamp(40px, 7vw, 76px);
+  text-align: center;
+  width: 100%;
+}
+.checkout-auth-card .eyebrow { background: transparent; color: #16624f; padding: 0; }
+.checkout-auth-icon {
+  align-items: center;
+  border: 1px solid #16624f;
+  border-radius: 50%;
+  color: #16624f;
+  display: flex;
+  font-size: 24px;
+  height: 54px;
+  justify-content: center;
+  margin: 12px 0 22px;
+  width: 54px;
+}
+.checkout-auth-card h1 {
+  font-family: Cambria, 'Times New Roman', serif;
+  font-size: clamp(38px, 5vw, 58px);
+  font-weight: 400;
+  letter-spacing: -.04em;
+  line-height: 1.02;
+  margin: 0;
+}
+.checkout-auth-card > p { color: #696c66; line-height: 1.7; margin: 24px 0; max-width: 540px; }
+.checkout-auth-summary {
+  border-bottom: 1px solid #dedfd9;
+  border-top: 1px solid #dedfd9;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 26px;
+  padding: 16px 0;
+  width: 100%;
+}
+.checkout-auth-actions { display: grid; gap: 12px; width: 100%; }
+.checkout-auth-actions a { font-size: 14px; font-weight: 800; padding: 15px 22px; text-decoration: none; }
+.checkout-auth-primary { background: #171916; color: #fff; }
+.checkout-auth-secondary { border: 1px solid #171916; color: #171916; }
+.checkout-auth-back { color: #696c66; font-size: 12px; font-weight: 700; margin-top: 24px; }
+@media (max-width: 600px) {
+  .checkout-auth-page { min-height: auto; padding: 40px 16px 70px; }
+  .checkout-auth-card { padding: 38px 22px; }
+}
 .admin-orders-layout { align-items: start; display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr) 420px; margin-top: 34px; }
 .admin-products-layout { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(760px, 1fr) 360px; margin-top: 24px; }
 .admin-inventory-layout { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(760px, 1fr) 360px; margin-top: 24px; }

@@ -17,6 +17,7 @@ import { AdminReturnsPage } from './admin/AdminReturnsPage'
 import { AdminReviewsPage } from './admin/AdminReviewsPage'
 import { AdminUsersPage } from './admin/AdminUsersPage'
 import { CartPage } from './components/CartPage'
+import { CheckoutAuthGate } from './components/CheckoutAuthGate'
 import { CheckoutPage } from './components/CheckoutPage'
 import { HomePage } from './pages/HomePage'
 import { AdminOrdersPage } from './pages/AdminOrdersPage'
@@ -297,13 +298,10 @@ function App() {
     )
   } else if (hash === '#/checkout') {
     if (!auth.token) {
-      activePage = 'auth'
+      activePage = 'cart'
       page = (
-        <LoginPage
-          onLoginSuccess={(user, token) => {
-            auth.signIn(user, token)
-            window.location.hash = '#/checkout'
-          }}
+        <CheckoutAuthGate
+          selectedItemCount={checkoutItems.reduce((count, item) => count + item.quantity, 0)}
         />
       )
     } else {
@@ -331,6 +329,28 @@ function App() {
       )
     }
 
+  } else if (hash === '#/checkout/login') {
+    activePage = 'auth'
+    page = (
+      <LoginPage
+        registerHref="#/checkout/register"
+        onLoginSuccess={(user, token) => {
+          auth.signIn(user, token)
+          window.location.hash = '#/checkout'
+        }}
+      />
+    )
+  } else if (hash === '#/checkout/register') {
+    activePage = 'auth'
+    page = (
+      <RegisterPage
+        loginHref="#/checkout/login"
+        onRegisterSuccess={(user, token) => {
+          auth.signIn(user, token)
+          window.location.hash = '#/checkout'
+        }}
+      />
+    )
   } else if (hash === '#/login') {
     activePage = 'auth'
     page = (
@@ -347,6 +367,7 @@ function App() {
       <RegisterPage
         onRegisterSuccess={(user, token) => {
           auth.signIn(user, token)
+          window.location.hash = '#/'
         }}
       />
     )

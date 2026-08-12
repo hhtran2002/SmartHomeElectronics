@@ -5,9 +5,10 @@ import type { AuthUser } from '../types'
 
 type Props = {
   onLoginSuccess: (user: AuthUser, token: string) => void
+  registerHref?: string
 }
 
-export function LoginPage({ onLoginSuccess }: Props) {
+export function LoginPage({ onLoginSuccess, registerHref = '#/register' }: Props) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -21,7 +22,6 @@ export function LoginPage({ onLoginSuccess }: Props) {
     try {
       const payload = await login({ identifier, password })
       onLoginSuccess(payload.data.user, payload.data.token)
-      window.location.hash = '#/'
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không đăng nhập được.')
     } finally {
@@ -44,7 +44,7 @@ export function LoginPage({ onLoginSuccess }: Props) {
         </label>
         {error && <p className="form-error">{error}</p>}
         <button disabled={loading}>{loading ? 'Đang đăng nhập...' : 'Đăng nhập'}</button>
-        <p>Chưa có tài khoản? <a href="#/register">Đăng ký ngay</a></p>
+        <p>Chưa có tài khoản? <a href={registerHref}>Đăng ký ngay</a></p>
       </form>
     </main>
   )
