@@ -73,6 +73,30 @@ function employeePayload(form: EmployeeForm): AdminEmployeePayload {
   return payload
 }
 
+function localIsoDate(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function validateEmployeeForm(form: EmployeeForm, includePassword: boolean) {
+  const today = localIsoDate()
+  if (!form.fullName.trim()) return { step: 1, message: 'Vui lòng nhập họ tên nhân viên.' }
+  if (!form.phone.trim()) return { step: 1, message: 'Vui lòng nhập số điện thoại nhân viên.' }
+  if (!form.dateOfBirth || form.dateOfBirth >= today) return { step: 1, message: 'Ngày sinh phải là một ngày hợp lệ trước hôm nay.' }
+  if (!form.gender) return { step: 1, message: 'Vui lòng chọn giới tính nhân viên.' }
+  if (!form.position.trim()) return { step: 2, message: 'Vui lòng nhập chức danh nhân viên.' }
+  if (!form.department.trim()) return { step: 2, message: 'Vui lòng nhập phòng ban nhân viên.' }
+  if (!form.hireDate || form.hireDate > today) return { step: 2, message: 'Ngày vào làm không được lớn hơn ngày hiện tại.' }
+  if (!form.provinceCode) return { step: 2, message: 'Vui lòng chọn tỉnh/thành.' }
+  if (!form.wardCode) return { step: 2, message: 'Vui lòng chọn xã/phường.' }
+  if (!form.streetAddress.trim()) return { step: 2, message: 'Vui lòng nhập địa chỉ nhà.' }
+  if (form.roleIds.length === 0) return { step: 3, message: 'Vui lòng chọn ít nhất một vai trò nhân viên.' }
+  if (includePassword && form.password.length < 6) return { step: 3, message: 'Mật khẩu ban đầu phải có ít nhất 6 ký tự.' }
+  return null
+}
+
 export function AdminUsersPage({ currentUserId, roles, token }: Props) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [roleOptions, setRoleOptions] = useState<AdminRole[]>([])
@@ -204,6 +228,12 @@ export function AdminUsersPage({ currentUserId, roles, token }: Props) {
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault()
+    const validationError = validateEmployeeForm(createForm, true)
+    if (validationError) {
+      setCreateStep(validationError.step)
+      setError(validationError.message)
+      return
+    }
     setSaving(true); setError(''); setMessage('')
     try {
       const result = await createAdminUser(createForm, token)
@@ -222,6 +252,12 @@ export function AdminUsersPage({ currentUserId, roles, token }: Props) {
   async function saveProfile(event: FormEvent) {
     event.preventDefault()
     if (!selectedUser) return
+    const validationError = validateEmployeeForm(editForm, false)
+    if (validationError) {
+      setDetailTab(validationError.step === 3 ? 'roles' : 'profile')
+      setError(validationError.message)
+      return
+    }
     setSaving(true); setError(''); setMessage('')
     try {
       const hadProfile = Boolean(selectedUser.employeeProfile)
@@ -439,12 +475,13 @@ function FormSection({ title, copy, children }: { title: string; copy?: string; 
 }
 
 function PersonalFields({ form, onChange }: { form: EmployeeForm; onChange: (form: EmployeeForm) => void }) {
+  const today = localIsoDate()
   return (
     <div className="employee-field-grid">
       <label className="field-span-2">Họ tên<input required value={form.fullName} onChange={(event) => onChange({ ...form, fullName: event.target.value })} /></label>
       <label>Email<input type="email" value={form.email} onChange={(event) => onChange({ ...form, email: event.target.value })} /></label>
       <label>Số điện thoại<input required value={form.phone} onChange={(event) => onChange({ ...form, phone: event.target.value })} /></label>
-      <label>Ngày sinh<input required type="date" value={form.dateOfBirth} onChange={(event) => onChange({ ...form, dateOfBirth: event.target.value })} /></label>
+      <label>Ngày sinh<input max={today} required type="date" value={form.dateOfBirth} onChange={(event) => onChange({ ...form, dateOfBirth: event.target.value })} /></label>
       <label>Giới tính
         <select required value={form.gender} onChange={(event) => onChange({ ...form, gender: event.target.value as EmployeeForm['gender'] })}>
           <option value="">Chọn giới tính</option><option value="Male">Nam</option><option value="Female">Nữ</option><option value="Other">Khác</option>
@@ -460,11 +497,12 @@ function EmploymentFields({ form, provinces, wards, onChange }: {
   wards: AdministrativeWard[]
   onChange: (form: EmployeeForm) => void
 }) {
+  const today = localIsoDate()
   return (
     <div className="employee-field-grid">
       <label>Chức danh<input required placeholder="Nhân viên giao hàng" value={form.position} onChange={(event) => onChange({ ...form, position: event.target.value })} /></label>
       <label>Phòng ban<input required placeholder="Vận chuyển / Kho vận" value={form.department} onChange={(event) => onChange({ ...form, department: event.target.value })} /></label>
-      <label>Ngày vào làm<input required type="date" value={form.hireDate} onChange={(event) => onChange({ ...form, hireDate: event.target.value })} /></label>
+      <label>Ngày vào làm<input max={today} required type="date" value={form.hireDate} onChange={(event) => onChange({ ...form, hireDate: event.target.value })} /></label>
       <label>Tỉnh/thành
         <select required value={form.provinceCode} onChange={(event) => onChange({ ...form, provinceCode: event.target.value, wardCode: '' })}>
           <option value="">Chọn tỉnh/thành</option>

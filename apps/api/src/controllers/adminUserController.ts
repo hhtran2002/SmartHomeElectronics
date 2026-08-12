@@ -27,7 +27,22 @@ function isIsoDate(value: string) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
 }
 
-function readEmployeeInput(request: AuthRequest): EmployeeProfileInput | null {
+function vietnamDate() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${value.year}-${value.month}-${value.day}`
+}
+
+type EmployeeInputResult =
+  | { data: EmployeeProfileInput; error: null }
+  | { data: null; error: string }
+
+function readEmployeeInput(request: AuthRequest): EmployeeInputResult {
   const fullName = text(request.body.fullName)
   const email = text(request.body.email).toLowerCase() || null
   const phone = text(request.body.phone)
@@ -40,17 +55,27 @@ function readEmployeeInput(request: AuthRequest): EmployeeProfileInput | null {
   const wardCode = text(request.body.wardCode)
   const streetAddress = text(request.body.streetAddress)
   const hireDate = text(request.body.hireDate)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = vietnamDate()
 
-  if (
-    !fullName || !phone || roleIds.length === 0 || !position || !department
-    || !isIsoDate(dateOfBirth) || dateOfBirth >= today
-    || !['Male', 'Female', 'Other'].includes(gender)
-    || !provinceCode || !wardCode || !streetAddress
-    || !isIsoDate(hireDate) || hireDate > today
-  ) return null
+  if (!fullName) return { data: null, error: 'Vui lòng nhập họ tên nhân viên.' }
+  if (!phone) return { data: null, error: 'Vui lòng nhập số điện thoại nhân viên.' }
+  if (!isIsoDate(dateOfBirth) || dateOfBirth >= today) {
+    return { data: null, error: 'Ngày sinh phải là một ngày hợp lệ trước hôm nay.' }
+  }
+  if (!['Male', 'Female', 'Other'].includes(gender)) {
+    return { data: null, error: 'Vui lòng chọn giới tính nhân viên.' }
+  }
+  if (!position) return { data: null, error: 'Vui lòng nhập chức danh nhân viên.' }
+  if (!department) return { data: null, error: 'Vui lòng nhập phòng ban nhân viên.' }
+  if (!isIsoDate(hireDate) || hireDate > today) {
+    return { data: null, error: 'Ngày vào làm không được lớn hơn ngày hiện tại.' }
+  }
+  if (!provinceCode) return { data: null, error: 'Vui lòng chọn tỉnh/thành.' }
+  if (!wardCode) return { data: null, error: 'Vui lòng chọn xã/phường.' }
+  if (!streetAddress) return { data: null, error: 'Vui lòng nhập địa chỉ nhà.' }
+  if (roleIds.length === 0) return { data: null, error: 'Vui lòng chọn ít nhất một vai trò nhân viên.' }
 
-  return {
+  return { data: {
     fullName,
     email,
     phone,
@@ -63,7 +88,7 @@ function readEmployeeInput(request: AuthRequest): EmployeeProfileInput | null {
     wardCode,
     streetAddress,
     hireDate,
-  }
+  }, error: null }
 }
 
 function sendBadRequest(error: unknown, response: Response, next: NextFunction) {
@@ -93,17 +118,19 @@ export async function listAdminUsers(_request: AuthRequest, response: Response, 
 export async function createUser(request: AuthRequest, response: Response, next: NextFunction) {
   const employee = readEmployeeInput(request)
   const password = String(request.body.password ?? '')
-  if (!employee || password.length < 6) {
-    response.status(400).json({
-      message: 'Vui lòng nhập đầy đủ hồ sơ nhân viên, số điện thoại, vai trò và mật khẩu từ 6 ký tự.',
-    })
+  if (employee.data === null) {
+    response.status(400).json({ message: employee.error })
+    return
+  }
+  if (password.length < 6) {
+    response.status(400).json({ message: 'Mật khẩu ban đầu phải có ít nhất 6 ký tự.' })
     return
   }
 
   try {
     response.status(201).json({
       data: await createAdminUser({
-        ...employee,
+        ...employee.data,
         password,
         createdByUserId: request.user!.userId,
       }),
@@ -116,15 +143,19 @@ export async function createUser(request: AuthRequest, response: Response, next:
 export async function saveEmployeeProfile(request: AuthRequest, response: Response, next: NextFunction) {
   const userId = Number(request.params.userId)
   const employee = readEmployeeInput(request)
-  if (!Number.isInteger(userId) || userId < 1 || !employee) {
-    response.status(400).json({ message: 'Người dùng hoặc hồ sơ nhân viên không hợp lệ.' })
+  if (!Number.isInteger(userId) || userId < 1) {
+    response.status(400).json({ message: 'Người dùng không hợp lệ.' })
+    return
+  }
+  if (employee.data === null) {
+    response.status(400).json({ message: employee.error })
     return
   }
 
   try {
     response.json({
       data: await saveAdminEmployeeProfile({
-        ...employee,
+        ...employee.data,
         currentUserId: request.user!.userId,
         userId,
       }),
