@@ -350,6 +350,11 @@
 .return-workflow-badge { background: var(--admin-surface-subtle); color: var(--admin-muted); font-size: 10px; font-weight: 750; letter-spacing: .04em; padding: 6px 9px; text-transform: uppercase; }
 .return-workflow-badge.returning { background: #fff7ed; color: #9a3412; }
 .return-workflow-badge.refunded { background: #f0fdf4; color: #166534; }
+.return-workflow-badge.rejected { background: #fef2f2; color: #b91c1c; }
+.return-review-actions { display: grid; gap: 10px; margin-top: 18px; max-width: 520px; }
+.return-review-actions label { color: var(--admin-muted); display: grid; font-size: 12px; font-weight: 700; gap: 6px; }
+.return-review-actions textarea { min-height: 76px; resize: vertical; }
+.return-review-actions p { color: var(--admin-muted); margin: 0; }
 .admin-shell .report-table > div,
 .admin-shell .report-list > div { background: var(--admin-surface-subtle); }
 .admin-shell .report-table strong,

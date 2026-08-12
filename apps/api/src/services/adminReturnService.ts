@@ -38,6 +38,7 @@ export async function getAdminReturnRequests() {
       whUa.FullName AS warehouseConfirmedByName,
       rr.InventoryRestockedAt AS inventoryRestockedAt,
       CASE
+        WHEN rr.Status = 'Rejected' THEN 'Rejected'
         WHEN rr.RefundStatus = 'Refunded' AND rr.InventoryRestockedAt IS NOT NULL THEN 'Refunded'
         WHEN rr.RefundStatus IN ('Processing', 'Refunded') THEN 'Returning'
         ELSE 'Reviewing'
@@ -83,19 +84,27 @@ export async function updateReturnWorkflow(input: {
       throw new Error('Yêu cầu đã hoàn tiền và trả tồn kho nên không thể chuyển về trạng thái trước đó.')
     }
 
+    if (current.Status === 'Rejected') {
+      throw new Error('Yêu cầu đã bị từ chối nên không thể tiếp tục xử lý hoàn hàng.')
+    }
+
     if (input.workflowStatus === 'Reviewing') {
-      await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).input('adminUserId', sql.BigInt, input.adminUserId).query(`
-        UPDATE dbo.OrderReturnRequest SET Status = 'Pending', RefundStatus = 'Pending',
-          ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
-        WHERE ReturnRequestId = @returnRequestId
-      `)
+      if (current.Status !== 'Pending' || current.RefundStatus !== 'Pending') {
+        throw new Error('Không thể chuyển yêu cầu đã duyệt về trạng thái chờ xử lý.')
+      }
     } else if (input.workflowStatus === 'Returning') {
+      if (!['Pending', 'Approved'].includes(String(current.Status)) || !['Pending', 'Processing'].includes(String(current.RefundStatus))) {
+        throw new Error('Chỉ yêu cầu đang chờ xử lý mới có thể được duyệt hoàn hàng.')
+      }
       await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).input('adminUserId', sql.BigInt, input.adminUserId).query(`
         UPDATE dbo.OrderReturnRequest SET Status = 'Approved', RefundStatus = 'Processing',
           ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
         WHERE ReturnRequestId = @returnRequestId
       `)
     } else if (!current.InventoryRestockedAt) {
+      if (current.Status !== 'Approved' || current.RefundStatus !== 'Processing') {
+        throw new Error('Phải duyệt yêu cầu hoàn hàng trước khi xác nhận đã nhận hàng và hoàn tiền.')
+      }
       const exportedItems = await tx().input('orderId', sql.BigInt, current.OrderId).query(`
         SELECT receipt.WarehouseId, detail.OrderDetailId, detail.SkuId,
           SUM(detail.Quantity) AS Quantity, MAX(detail.UnitCost) AS UnitCost
@@ -224,22 +233,33 @@ export async function updateReturnRequestStatus(input: {
     const returnReqResult = await tx()
       .input('returnRequestId', sql.BigInt, input.returnRequestId)
       .query(`
-        SELECT ReturnRequestId, OrderId, Status, WarehouseConfirmedAt
+        SELECT ReturnRequestId, OrderId, Status, RefundStatus, InventoryRestockedAt
         FROM dbo.OrderReturnRequest WITH (UPDLOCK, ROWLOCK)
         WHERE ReturnRequestId = @returnRequestId
       `)
     const currentReq = returnReqResult.recordset[0]
     if (!currentReq) throw new Error('Không tìm thấy yêu cầu hoàn hàng.')
 
-    // If trying to set refundStatus = 'Refunded', ensure WarehouseConfirmedAt is NOT NULL
-    if (input.refundStatus === 'Refunded' && !currentReq.WarehouseConfirmedAt && input.status === 'Approved') {
-      throw new Error('Chưa thể bấm hoàn tiền thành công! Thủ kho phải bấm xác nhận sản phẩm đã nhập kho hoàn trả trước khi kế toán hoàn tiền.')
+    if (currentReq.InventoryRestockedAt || currentReq.RefundStatus === 'Refunded') {
+      throw new Error('Yêu cầu đã hoàn tất nên không thể thay đổi kết quả xử lý.')
+    }
+    if (input.refundStatus === 'Refunded') {
+      throw new Error('Hãy dùng bước xác nhận đã nhận hàng và hoàn tiền để hệ thống đồng thời nhập trả tồn kho và cập nhật thanh toán.')
+    }
+    if (input.status === 'Rejected') {
+      if (!input.adminNote?.trim()) throw new Error('Vui lòng nhập lý do từ chối yêu cầu hoàn hàng.')
+      if (input.refundStatus && input.refundStatus !== 'Pending') {
+        throw new Error('Yêu cầu bị từ chối không thể đồng thời bắt đầu hoặc hoàn tất hoàn tiền.')
+      }
+      if (!['Pending', 'Approved'].includes(String(currentReq.Status)) || currentReq.RefundStatus !== 'Pending') {
+        throw new Error('Chỉ yêu cầu chưa bắt đầu hoàn hàng mới có thể bị từ chối.')
+      }
     }
 
     await tx()
       .input('returnRequestId', sql.BigInt, input.returnRequestId)
       .input('status', sql.VarChar(20), input.status)
-      .input('refundStatus', sql.VarChar(20), input.refundStatus || (input.status === 'Approved' ? 'Processing' : 'Pending'))
+      .input('refundStatus', sql.VarChar(20), input.status === 'Rejected' ? 'Pending' : input.refundStatus || (input.status === 'Approved' ? 'Processing' : 'Pending'))
       .input('refundAmount', sql.Decimal(18, 2), input.refundAmount ?? null)
       .input('adminNote', sql.NVarChar(1000), input.adminNote || null)
       .input('deliveryStaffId', sql.BigInt, input.deliveryStaffId ?? null)

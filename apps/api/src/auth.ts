@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
+import { randomBytes } from 'node:crypto'
 import jwt from 'jsonwebtoken'
+import { getPool, sql } from './config/database.js'
 
 export type AuthUser = {
   userId: number
@@ -13,13 +15,48 @@ export type AuthRequest = Request & {
   user?: AuthUser
 }
 
-const jwtSecret = process.env.JWT_SECRET ?? 'dev-secret-change-me'
+const configuredJwtSecret = process.env.JWT_SECRET?.trim()
+const jwtSecret = configuredJwtSecret || randomBytes(48).toString('base64url')
+
+if (!configuredJwtSecret) {
+  console.warn('JWT_SECRET is not configured. A temporary secret was generated; users must sign in again after an API restart.')
+}
+
+async function loadCurrentAuthUser(userId: number): Promise<AuthUser | null> {
+  if (!Number.isInteger(userId) || userId < 1) return null
+
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('userId', sql.BigInt, userId)
+    .query(`
+      SELECT
+        account.UserId AS userId,
+        account.FullName AS fullName,
+        account.Email AS email,
+        account.Phone AS phone,
+        role.RoleCode AS roleCode
+      FROM dbo.UserAccount account
+      LEFT JOIN dbo.UserRole userRole ON userRole.UserId = account.UserId
+      LEFT JOIN dbo.Role role ON role.RoleId = userRole.RoleId
+      WHERE account.UserId = @userId AND account.Status = 'Active'
+    `)
+
+  if (!result.recordset.length) return null
+  const account = result.recordset[0]
+  return {
+    userId: Number(account.userId),
+    fullName: String(account.fullName),
+    email: account.email ?? null,
+    phone: account.phone ?? null,
+    roles: result.recordset.map((row) => String(row.roleCode ?? '')).filter(Boolean),
+  }
+}
 
 export function signAuthToken(user: AuthUser) {
   return jwt.sign(user, jwtSecret, { expiresIn: '7d' })
 }
 
-export function requireAuth(request: AuthRequest, response: Response, next: NextFunction) {
+export async function requireAuth(request: AuthRequest, response: Response, next: NextFunction) {
   const header = request.headers.authorization
   const token = header?.startsWith('Bearer ') ? header.slice(7) : ''
 
@@ -29,14 +66,24 @@ export function requireAuth(request: AuthRequest, response: Response, next: Next
   }
 
   try {
-    request.user = jwt.verify(token, jwtSecret) as AuthUser
+    const payload = jwt.verify(token, jwtSecret) as Partial<AuthUser>
+    const user = await loadCurrentAuthUser(Number(payload.userId))
+    if (!user) {
+      response.status(401).json({ message: 'Phiên đăng nhập đã hết hiệu lực hoặc tài khoản đã bị khóa.' })
+      return
+    }
+    request.user = user
     next()
-  } catch {
-    response.status(401).json({ message: 'Phiên đăng nhập không hợp lệ.' })
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      response.status(401).json({ message: 'Phiên đăng nhập không hợp lệ.' })
+      return
+    }
+    next(error)
   }
 }
 
-export function optionalAuth(request: AuthRequest, _response: Response, next: NextFunction) {
+export async function optionalAuth(request: AuthRequest, _response: Response, next: NextFunction) {
   const header = request.headers.authorization
   const token = header?.startsWith('Bearer ') ? header.slice(7) : ''
 
@@ -46,8 +93,13 @@ export function optionalAuth(request: AuthRequest, _response: Response, next: Ne
   }
 
   try {
-    request.user = jwt.verify(token, jwtSecret) as AuthUser
-  } catch {
+    const payload = jwt.verify(token, jwtSecret) as Partial<AuthUser>
+    request.user = await loadCurrentAuthUser(Number(payload.userId)) ?? undefined
+  } catch (error) {
+    if (!(error instanceof jwt.JsonWebTokenError)) {
+      next(error)
+      return
+    }
     request.user = undefined
   }
 

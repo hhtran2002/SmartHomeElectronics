@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { getAdminReturnRequests, updateAdminReturnWorkflow } from '../api'
+import { getAdminReturnRequests, updateAdminReturnRequestStatus, updateAdminReturnWorkflow } from '../api'
 import type { AdminReturnRequest } from '../types'
 import { formatPrice } from '../utils'
 
 type Props = { roles: string[]; token: string }
 type WorkflowStatus = AdminReturnRequest['workflowStatus']
+type ProcessWorkflowStatus = Exclude<WorkflowStatus, 'Rejected'>
 
 const workflowLabels: Record<WorkflowStatus, string> = {
   Reviewing: 'Đang xử lý',
   Returning: 'Đang hoàn hàng',
   Refunded: 'Đã hoàn tiền',
+  Rejected: 'Đã từ chối',
 }
 
 export function AdminReturnsPage({ roles, token }: Props) {
@@ -18,6 +20,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
   const [workingId, setWorkingId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [rejectionReasons, setRejectionReasons] = useState<Record<number, string>>({})
   const allowed = roles.some((role) => ['SystemAdmin', 'OrderAdmin', 'CustomerSupport'].includes(role))
 
   async function loadData() {
@@ -34,7 +37,7 @@ export function AdminReturnsPage({ roles, token }: Props) {
 
   useEffect(() => { void loadData() }, [token, allowed]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function changeWorkflow(item: AdminReturnRequest, workflowStatus: WorkflowStatus) {
+  async function changeWorkflow(item: AdminReturnRequest, workflowStatus: ProcessWorkflowStatus) {
     if (workflowStatus === item.workflowStatus) return
     if (workflowStatus === 'Refunded' && !window.confirm(
       `Xác nhận đã nhận lại hàng và hoàn tiền cho đơn ${item.orderCode}? Hệ thống sẽ nhập trả tồn kho và không thể chuyển lùi trạng thái.`,
@@ -48,6 +51,29 @@ export function AdminReturnsPage({ roles, token }: Props) {
       await loadData()
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : 'Không cập nhật được trạng thái hoàn hàng.')
+    } finally { setWorkingId(null) }
+  }
+
+  async function rejectRequest(item: AdminReturnRequest) {
+    const reason = rejectionReasons[item.returnRequestId]?.trim() ?? ''
+    if (!reason) {
+      setError('Vui lòng nhập lý do từ chối yêu cầu hoàn hàng.')
+      return
+    }
+    setWorkingId(item.returnRequestId)
+    setError('')
+    setMessage('')
+    try {
+      await updateAdminReturnRequestStatus(item.returnRequestId, {
+        status: 'Rejected',
+        refundStatus: 'Pending',
+        adminNote: reason,
+      }, token)
+      setRejectionReasons((current) => ({ ...current, [item.returnRequestId]: '' }))
+      setMessage(`Đã từ chối yêu cầu hoàn hàng của đơn ${item.orderCode}.`)
+      await loadData()
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Không từ chối được yêu cầu hoàn hàng.')
     } finally { setWorkingId(null) }
   }
 
@@ -94,18 +120,26 @@ export function AdminReturnsPage({ roles, token }: Props) {
                 </div>
               </div>
 
-              <label className="status-select return-status-select">
-                Trạng thái hoàn hàng
-                <select
-                  disabled={workingId === item.returnRequestId || item.workflowStatus === 'Refunded'}
-                  value={item.workflowStatus}
-                  onChange={(event) => void changeWorkflow(item, event.target.value as WorkflowStatus)}
-                >
-                  <option value="Reviewing">Đang xử lý</option>
-                  <option value="Returning">Đang hoàn hàng</option>
-                  <option value="Refunded">Đã hoàn tiền</option>
-                </select>
-              </label>
+              {item.workflowStatus === 'Reviewing' && (
+                <div className="return-review-actions">
+                  <button disabled={workingId === item.returnRequestId} onClick={() => void changeWorkflow(item, 'Returning')} type="button">Duyệt yêu cầu hoàn hàng</button>
+                  <label>Lý do nếu từ chối
+                    <textarea
+                      disabled={workingId === item.returnRequestId}
+                      value={rejectionReasons[item.returnRequestId] ?? ''}
+                      onChange={(event) => setRejectionReasons((current) => ({ ...current, [item.returnRequestId]: event.target.value }))}
+                    />
+                  </label>
+                  <button className="danger-button" disabled={workingId === item.returnRequestId || !rejectionReasons[item.returnRequestId]?.trim()} onClick={() => void rejectRequest(item)} type="button">Từ chối yêu cầu</button>
+                </div>
+              )}
+              {item.workflowStatus === 'Returning' && (
+                <div className="return-review-actions">
+                  <p>Yêu cầu đã được duyệt. Chỉ xác nhận sau khi đã nhận lại hàng và hoàn tiền cho khách.</p>
+                  <button disabled={workingId === item.returnRequestId} onClick={() => void changeWorkflow(item, 'Refunded')} type="button">Xác nhận đã nhận hàng & hoàn tiền</button>
+                </div>
+              )}
+              {item.workflowStatus === 'Rejected' && item.adminNote && <div className="status-card error">Lý do từ chối: {item.adminNote}</div>}
 
               <footer>
                 <small>Tạo lúc {new Date(item.createdAt).toLocaleString('vi-VN')}</small>

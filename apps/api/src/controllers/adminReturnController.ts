@@ -48,6 +48,10 @@ export async function processReturnRequest(request: AuthRequest, response: Respo
     response.status(400).json({ message: 'ReturnRequestId không hợp lệ.' })
     return
   }
+  if (status === 'Rejected' && !adminNote) {
+    response.status(400).json({ message: 'Vui lòng nhập lý do từ chối yêu cầu hoàn hàng.' })
+    return
+  }
 
   try {
     const result = await updateReturnRequestStatus({

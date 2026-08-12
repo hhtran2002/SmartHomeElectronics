@@ -6,7 +6,7 @@ export type CheckoutItem = {
 }
 
 export type CheckoutOrderInput = {
-  userId?: number
+  userId: number
   customerName: string
   phone: string
   email: string
@@ -53,7 +53,9 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
       .query(`
         SELECT TOP (1) PaymentMethodId, MethodCode, MethodName
         FROM dbo.PaymentMethod
-        WHERE PaymentMethodId = @paymentMethodId AND Status = 'Active'
+        WHERE PaymentMethodId = @paymentMethodId
+          AND Status = 'Active'
+          AND MethodCode IN ('COD', 'BANK_TRANSFER')
       `)
 
     const paymentMethod = paymentMethodResult.recordset[0] as PaymentMethodSnapshot | undefined
@@ -76,33 +78,7 @@ export async function createCheckoutOrder(input: CheckoutOrderInput) {
     const paymentStatusId = Number(statusResult.recordset[0]?.PaymentStatusId)
     if (!orderStatusId || !paymentStatusId) throw new Error('Thiếu cấu hình trạng thái đơn hàng hoặc thanh toán.')
 
-    let userId = input.userId
-    if (!userId) {
-      const existingUser = await tx()
-        .input('phone', sql.VarChar(20), input.phone)
-        .input('email', sql.VarChar(255), input.email || null)
-        .query(`
-          SELECT TOP (1) UserId
-          FROM dbo.UserAccount
-          WHERE Phone = @phone OR (@email IS NOT NULL AND Email = @email)
-          ORDER BY UserId
-        `)
-      userId = existingUser.recordset[0]?.UserId as number | undefined
-    }
-
-    if (!userId) {
-      const insertedUser = await tx()
-        .input('fullName', sql.NVarChar(150), input.customerName)
-        .input('email', sql.VarChar(255), input.email || null)
-        .input('phone', sql.VarChar(20), input.phone)
-        .input('passwordHash', sql.VarChar(255), 'GUEST_CHECKOUT_NO_PASSWORD')
-        .query(`
-          INSERT INTO dbo.UserAccount (FullName, Email, Phone, PasswordHash, Status, CreatedAt)
-          OUTPUT INSERTED.UserId
-          VALUES (@fullName, @email, @phone, @passwordHash, 'Active', SYSDATETIME())
-        `)
-      userId = insertedUser.recordset[0].UserId
-    }
+    const userId = input.userId
 
     const customerProfile = await tx()
       .input('userId', sql.BigInt, userId)

@@ -41,7 +41,7 @@ export async function createOrder(request: AuthRequest, response: Response, next
 
   try {
     const order = await createCheckoutOrder({
-      userId: request.user?.userId,
+      userId: request.user!.userId,
       customerName,
       phone,
       email,

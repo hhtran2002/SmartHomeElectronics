@@ -246,8 +246,8 @@ export function createBrand(name: string, country: string | null, token: string)
 }
 
 export function createOrder(payload: CheckoutPayload, token?: string) {
-  if (token) return postJsonWithToken<OrderResponse>('/api/orders', token, payload)
-  return postJson<OrderResponse>('/api/orders', payload)
+  if (!token) return Promise.reject(new Error('Bạn cần đăng nhập trước khi đặt hàng.'))
+  return postJsonWithToken<OrderResponse>('/api/orders', token, payload)
 }
 
 export function getPaymentMethods() {

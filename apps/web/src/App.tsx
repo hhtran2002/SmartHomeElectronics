@@ -296,28 +296,40 @@ function App() {
       />
     )
   } else if (hash === '#/checkout') {
-    activePage = 'cart'
-    page = (
-      <CheckoutPage
-        checkoutError={checkoutError}
-        checkoutForm={checkoutForm}
-        checkoutLoading={checkoutLoading}
-        createdOrder={createdOrder}
-        items={checkoutItems}
-        paymentMethods={paymentMethods}
-        selectedPaymentMethodId={selectedPaymentMethodId}
-        onBackToCart={() => {
-          window.location.hash = '#/cart'
-        }}
-        onBackToProducts={() => {
-          window.location.hash = '#/products'
-        }}
-        onCheckoutChange={(patch) => setCheckoutForm((current) => ({ ...current, ...patch }))}
-        onCheckoutSubmit={handleCheckoutSubmit}
-        onPaymentMethodChange={setSelectedPaymentMethodId}
-        token={auth.token}
-      />
-    )
+    if (!auth.token) {
+      activePage = 'auth'
+      page = (
+        <LoginPage
+          onLoginSuccess={(user, token) => {
+            auth.signIn(user, token)
+            window.location.hash = '#/checkout'
+          }}
+        />
+      )
+    } else {
+      activePage = 'cart'
+      page = (
+        <CheckoutPage
+          checkoutError={checkoutError}
+          checkoutForm={checkoutForm}
+          checkoutLoading={checkoutLoading}
+          createdOrder={createdOrder}
+          items={checkoutItems}
+          paymentMethods={paymentMethods}
+          selectedPaymentMethodId={selectedPaymentMethodId}
+          onBackToCart={() => {
+            window.location.hash = '#/cart'
+          }}
+          onBackToProducts={() => {
+            window.location.hash = '#/products'
+          }}
+          onCheckoutChange={(patch) => setCheckoutForm((current) => ({ ...current, ...patch }))}
+          onCheckoutSubmit={handleCheckoutSubmit}
+          onPaymentMethodChange={setSelectedPaymentMethodId}
+          token={auth.token}
+        />
+      )
+    }
 
   } else if (hash === '#/login') {
     activePage = 'auth'
