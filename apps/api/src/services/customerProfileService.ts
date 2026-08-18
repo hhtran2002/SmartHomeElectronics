@@ -102,7 +102,15 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
         CAST(CASE WHEN EXISTS (
           SELECT 1 FROM dbo.Review r
           WHERE r.OrderDetailId = sod.OrderDetailId AND r.UserId = @userId
-        ) THEN 1 ELSE 0 END AS BIT) AS hasReview
+        ) THEN 1 ELSE 0 END AS BIT) AS hasReview,
+        CASE
+          WHEN EXISTS (
+            SELECT 1 FROM dbo.OrderReturnRequest rr
+            WHERE rr.OrderId = sod.OrderId AND rr.Status <> 'Rejected'
+              AND NOT EXISTS (SELECT 1 FROM dbo.OrderReturnRequestItem ri WHERE ri.ReturnRequestId = rr.ReturnRequestId)
+          ) THEN 0
+          ELSE sod.Quantity - ISNULL(returnStats.returnedQuantity, 0)
+        END AS returnableQuantity
       FROM dbo.SalesOrderDetail sod
       INNER JOIN dbo.ProductSku ps ON ps.SkuId = sod.SkuId
       INNER JOIN dbo.Product p ON p.ProductId = ps.ProductId
@@ -112,6 +120,12 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
         WHERE ProductId = p.ProductId
         ORDER BY IsPrimary DESC, SortOrder, ImageId
       ) pi
+      OUTER APPLY (
+        SELECT SUM(ri.Quantity) AS returnedQuantity
+        FROM dbo.OrderReturnRequestItem ri
+        INNER JOIN dbo.OrderReturnRequest rr ON rr.ReturnRequestId = ri.ReturnRequestId
+        WHERE ri.OrderDetailId = sod.OrderDetailId AND rr.Status <> 'Rejected'
+      ) returnStats
       WHERE sod.OrderId = @orderId
       ORDER BY sod.OrderDetailId
     `)
@@ -149,6 +163,7 @@ export async function getCustomerOrderDetail(userId: number, orderId: number) {
 export type ReturnRequestPayload = {
   userId: number
   orderId: number
+  items: Array<{ orderDetailId: number; quantity: number }>
   reason: string
   note?: string
   evidenceUrl: string
@@ -165,6 +180,10 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
 
   if (!input.bankName?.trim() || !input.bankAccountNumber?.trim() || !input.bankAccountName?.trim()) {
     throw new Error('Vui lòng điền đầy đủ Tên ngân hàng, Số tài khoản và Tên chủ tài khoản để nhận tiền hoàn qua chuyển khoản.')
+  }
+
+  if (!input.items || !input.items.length) {
+    throw new Error('Vui lòng chọn sản phẩm cần hoàn hàng.')
   }
 
   const pool = await getPool()
@@ -188,17 +207,57 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
     throw new Error('Bạn chỉ có thể yêu cầu hoàn hàng đối với đơn hàng đã hoàn thành.')
   }
 
-  // Check if there is already a return request for this order
-  const existingResult = await pool.request()
+  // Check if there is already a full order return request (with no items) that is not rejected
+  const fullReturnResult = await pool.request()
     .input('orderId', sql.BigInt, input.orderId)
-    .input('userId', sql.BigInt, input.userId)
     .query(`
-      SELECT TOP (1) ReturnRequestId FROM dbo.OrderReturnRequest
-      WHERE OrderId = @orderId AND UserId = @userId
+      SELECT TOP (1) ReturnRequestId FROM dbo.OrderReturnRequest rr
+      WHERE rr.OrderId = @orderId AND rr.Status <> 'Rejected'
+        AND NOT EXISTS (SELECT 1 FROM dbo.OrderReturnRequestItem ri WHERE ri.ReturnRequestId = rr.ReturnRequestId)
     `)
 
-  if (existingResult.recordset[0]) {
-    throw new Error('Đơn hàng này đã có yêu cầu hoàn hàng được tạo.')
+  if (fullReturnResult.recordset[0]) {
+    throw new Error('Đơn hàng này đã được hoàn trả toàn bộ.')
+  }
+
+  let refundAmount = 0
+  const validatedItems: Array<{ orderDetailId: number; quantity: number }> = []
+
+  // Check quantities and calculate refund amount
+  for (const requested of input.items) {
+    const itemResult = await pool.request()
+      .input('orderDetailId', sql.BigInt, requested.orderDetailId)
+      .input('orderId', sql.BigInt, input.orderId)
+      .query(`
+        SELECT sod.Quantity, sod.LineTotal, sod.ProductNameSnapshot
+        FROM dbo.SalesOrderDetail sod
+        WHERE sod.OrderDetailId = @orderDetailId AND sod.OrderId = @orderId
+      `)
+
+    const orderItem = itemResult.recordset[0]
+    if (!orderItem) {
+      throw new Error(`Sản phẩm với ID ${requested.orderDetailId} không tồn tại trong đơn hàng này.`)
+    }
+
+    // Get total quantity already returned or pending return for this item
+    const returnedResult = await pool.request()
+      .input('orderDetailId', sql.BigInt, requested.orderDetailId)
+      .query(`
+        SELECT ISNULL(SUM(ri.Quantity), 0) AS returnedQuantity
+        FROM dbo.OrderReturnRequestItem ri
+        INNER JOIN dbo.OrderReturnRequest rr ON rr.ReturnRequestId = ri.ReturnRequestId
+        WHERE ri.OrderDetailId = @orderDetailId AND rr.Status <> 'Rejected'
+      `)
+
+    const alreadyReturned = Number(returnedResult.recordset[0].returnedQuantity)
+    const availableToReturn = Number(orderItem.Quantity) - alreadyReturned
+
+    if (requested.quantity > availableToReturn) {
+      throw new Error(`Số lượng yêu cầu hoàn trả cho sản phẩm "${orderItem.ProductNameSnapshot}" (${requested.quantity}) vượt quá số lượng tối đa có thể hoàn trả (${availableToReturn}).`)
+    }
+
+    refundAmount += Number(orderItem.LineTotal) * requested.quantity / Number(orderItem.Quantity)
+    validatedItems.push({ orderDetailId: requested.orderDetailId, quantity: requested.quantity })
   }
 
   const inserted = await pool.request()
@@ -211,7 +270,7 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
     .input('bankName', sql.NVarChar(100), input.bankName.trim())
     .input('bankAccountNumber', sql.VarChar(50), input.bankAccountNumber.trim())
     .input('bankAccountName', sql.NVarChar(150), input.bankAccountName.trim())
-    .input('refundAmount', sql.Decimal(18, 2), Number(orderData.TotalAmount))
+    .input('refundAmount', sql.Decimal(18, 2), refundAmount)
     .query(`
       INSERT INTO dbo.OrderReturnRequest (
         OrderId, UserId, Reason, Note, ImageUrl, EvidenceUrl,
@@ -226,7 +285,21 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
       )
     `)
 
-  return { returnRequestId: inserted.recordset[0].ReturnRequestId as number, status: 'Pending' }
+  const returnRequestId = inserted.recordset[0].ReturnRequestId as number
+
+  // Insert items into OrderReturnRequestItem
+  for (const item of validatedItems) {
+    await pool.request()
+      .input('returnRequestId', sql.BigInt, returnRequestId)
+      .input('orderDetailId', sql.BigInt, item.orderDetailId)
+      .input('quantity', sql.Int, item.quantity)
+      .query(`
+        INSERT INTO dbo.OrderReturnRequestItem (ReturnRequestId, OrderDetailId, Quantity)
+        VALUES (@returnRequestId, @orderDetailId, @quantity)
+      `)
+  }
+
+  return { returnRequestId, status: 'Pending' }
 }
 
 export async function getCustomerReturnRequests(userId: number) {

@@ -725,7 +725,7 @@
 .return-request-fields { display: grid; gap: 18px; }
 .return-request-fields label { color: #444740; display: grid; font-size: 10px; font-weight: 650; gap: 7px; }
 .return-request-fields label em { color: #9b4037; font-size: 8px; font-style: normal; font-weight: 600; margin-left: 5px; }
-.return-request-fields input,
+.return-request-fields input:not([type='checkbox']):not([type='radio']),
 .return-request-fields select,
 .return-request-fields textarea {
   background: #fff;
@@ -739,6 +739,10 @@
   padding: 9px 0;
   resize: vertical;
   width: 100%;
+}
+.return-request-fields input[type='checkbox'] {
+  width: auto;
+  cursor: pointer;
 }
 .return-request-fields textarea { border: 1px solid var(--return-line); min-height: 92px; padding: 10px; }
 .return-request-fields input:focus,

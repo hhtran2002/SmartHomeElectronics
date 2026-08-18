@@ -39,6 +39,7 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   const [returnBankAccountName, setReturnBankAccountName] = useState('')
   const [returnSubmitting, setReturnSubmitting] = useState(false)
   const [returnError, setReturnError] = useState('')
+  const [returnItemIds, setReturnItemIds] = useState<number[]>([])
 
   const loadOrders = useCallback(async () => {
     setLoading(true)
@@ -128,6 +129,10 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
   async function handleReturnSubmit(event: FormEvent) {
     event.preventDefault()
     if (!detail) return
+    if (!returnItemIds.length) {
+      setReturnError('Vui lòng chọn ít nhất một sản phẩm cần hoàn hàng.')
+      return
+    }
     if (!returnEvidenceUrl.trim()) {
       setReturnError('Bạn bắt buộc phải nhập link ảnh hoặc video minh chứng lỗi sản phẩm.')
       return
@@ -142,6 +147,12 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
     try {
       await submitCustomerReturnRequest({
         orderId: detail.order.orderId,
+        items: detail.items
+          .filter((item) => returnItemIds.includes(item.orderDetailId))
+          .map((item) => ({
+            orderDetailId: item.orderDetailId,
+            quantity: item.returnableQuantity ?? item.quantity
+          })),
         reason: returnReason,
         note: returnNote.trim(),
         evidenceUrl: returnEvidenceUrl.trim(),
@@ -208,6 +219,33 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                 <section className="return-request-form-section">
                   <header><span>01</span><div><h3>Sự cố sản phẩm</h3><p>Mô tả tình trạng và cung cấp tài liệu xác minh.</p></div></header>
                   <div className="return-request-fields">
+                    <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
+                      <legend style={{ fontWeight: 700, marginBottom: 8, fontSize: '10px', color: '#444740' }}>Sản phẩm cần hoàn <em>Bắt buộc</em></legend>
+                      {detail.items.map((item) => {
+                        const returnable = item.returnableQuantity ?? item.quantity;
+                        const isNotReturnable = returnable <= 0;
+                        return (
+                          <label key={item.orderDetailId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', cursor: isNotReturnable ? 'not-allowed' : 'pointer', opacity: isNotReturnable ? 0.6 : 1 }}>
+                            <input 
+                              type="checkbox" 
+                              disabled={isNotReturnable}
+                              checked={returnItemIds.includes(item.orderDetailId)} 
+                              onChange={(event) => setReturnItemIds((current) => event.target.checked ? [...current, item.orderDetailId] : current.filter((id) => id !== item.orderDetailId))} 
+                            />
+                            <span style={{ flex: 1, fontSize: '10px', color: '#444740' }}>
+                              {item.productName}{' '}
+                              {isNotReturnable ? (
+                                <small style={{ color: '#dc2626', fontWeight: 'bold' }}>(Đã hoàn trả hết)</small>
+                              ) : (
+                                <small>× {returnable}</small>
+                              )}
+                            </span>
+                            <strong style={{ fontSize: '10px', color: '#444740' }}>{formatPrice(item.lineTotal * returnable / item.quantity)}</strong>
+                          </label>
+                        );
+                      })}
+                      <small style={{ display: 'block', marginTop: 4, color: '#64748b', fontSize: '9px' }}>Chỉ các sản phẩm được chọn mới được thu hồi và hoàn tiền.</small>
+                    </fieldset>
                     <label>Lý do hoàn hàng <em>Bắt buộc</em>
                       <select value={returnReason} onChange={(e) => setReturnReason(e.target.value)}>
                         <option value="Sản phẩm lỗi/hỏng">Sản phẩm bị lỗi hoặc hỏng</option>
@@ -459,11 +497,11 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                   <span className={`order-status ${detail.order.orderStatusCode.toLowerCase()}`}>{detail.order.orderStatusName}</span>
                 </header>
 
-                {/* Return Request Banner / Button */}
+                {/* Return Request Banner & Button */}
                 {isCompleted && (
                   <div style={{ margin: '16px 0', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                    {detail.returnRequest ? (
-                      <div>
+                    {detail.returnRequest && (
+                      <div style={{ marginBottom: detail.items.some(item => (item.returnableQuantity ?? item.quantity) > 0) ? '16px' : '0', borderBottom: detail.items.some(item => (item.returnableQuantity ?? item.quantity) > 0) ? '1px solid #e2e8f0' : '0', paddingBottom: detail.items.some(item => (item.returnableQuantity ?? item.quantity) > 0) ? '16px' : '0' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>Trạng thái khiếu nại hoàn hàng:</span>
                           <span style={{
@@ -511,13 +549,16 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                           </p>
                         )}
                       </div>
-                    ) : (
+                    )}
+
+                    {detail.items.some(item => (item.returnableQuantity ?? item.quantity) > 0) ? (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '13px', color: '#64748b' }}>Bạn gặp sự cố với sản phẩm?</span>
                         <button
                           type="button"
                           onClick={() => {
                             setReturnReason('Sản phẩm lỗi/hỏng')
+                            setReturnItemIds([])
                             setReturnNote('')
                             setReturnEvidenceUrl('')
                             setReturnBankName('')
@@ -535,6 +576,12 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
                           🔄 Yêu cầu hoàn hàng / Đổi trả
                         </button>
                       </div>
+                    ) : (
+                      !detail.returnRequest && (
+                        <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center' }}>
+                          Không có sản phẩm nào đủ điều kiện hoàn trả.
+                        </div>
+                      )
                     )}
                   </div>
                 )}
@@ -568,21 +615,23 @@ export function CustomerOrdersPanel({ token }: { token: string }) {
 
                         {isCompleted && (
                           <div className="customer-order-review-action">
-                          {item.hasReview ? (
+                            {item.returnableQuantity === 0 ? (
+                              <span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '13px' }}>Đã trả hàng</span>
+                            ) : item.hasReview ? (
                               <span className="review-complete">Đã đánh giá</span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openReviewModal({
-                                orderDetailId: item.orderDetailId,
-                                productName: item.productName,
-                                imageUrl: item.imageUrl,
-                                productSlug: item.productSlug,
-                              })}
-                            >
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openReviewModal({
+                                  orderDetailId: item.orderDetailId,
+                                  productName: item.productName,
+                                  imageUrl: item.imageUrl,
+                                  productSlug: item.productSlug,
+                                })}
+                              >
                                 Viết đánh giá
-                            </button>
-                          )}
+                              </button>
+                            )}
                           </div>
                         )}
                       </article>

@@ -71,7 +71,7 @@ export async function updateReturnWorkflow(input: {
     await transaction.begin()
     const tx = () => new sql.Request(transaction)
     const currentResult = await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).query(`
-      SELECT rr.ReturnRequestId, rr.OrderId, rr.Status, rr.RefundStatus, rr.RefundAmount,
+      SELECT rr.ReturnRequestId, rr.OrderId, rr.UserId, rr.Status, rr.RefundStatus, rr.RefundAmount,
         rr.InventoryRestockedAt, so.TotalAmount
       FROM dbo.OrderReturnRequest rr WITH (UPDLOCK, HOLDLOCK)
       INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
@@ -105,21 +105,72 @@ export async function updateReturnWorkflow(input: {
       if (current.Status !== 'Approved' || current.RefundStatus !== 'Processing') {
         throw new Error('Phải duyệt yêu cầu hoàn hàng trước khi xác nhận đã nhận hàng và hoàn tiền.')
       }
-      const exportedItems = await tx().input('orderId', sql.BigInt, current.OrderId).query(`
+      const exportedItemsResult = await tx().input('orderId', sql.BigInt, current.OrderId).query(`
         SELECT receipt.WarehouseId, detail.OrderDetailId, detail.SkuId,
-          SUM(detail.Quantity) AS Quantity, MAX(detail.UnitCost) AS UnitCost
+          detail.Quantity AS ShippedQuantity, detail.UnitCost
         FROM dbo.StockOutReceipt receipt
         INNER JOIN dbo.StockOutReceiptDetail detail ON detail.StockOutReceiptId = receipt.StockOutReceiptId
         WHERE receipt.OrderId = @orderId AND receipt.Reason = 'Order' AND receipt.Status = 'Confirmed'
-        GROUP BY receipt.WarehouseId, detail.OrderDetailId, detail.SkuId
       `)
-      if (!exportedItems.recordset.length) throw new Error('Không tìm thấy phiếu xuất kho gốc của đơn để nhập trả tồn kho.')
+      const exportedItems = exportedItemsResult.recordset
+      if (!exportedItems.length) throw new Error('Không tìm thấy phiếu xuất kho gốc của đơn để nhập trả tồn kho.')
+
+      const returnItemsResult = await tx().input('returnRequestId', sql.BigInt, input.returnRequestId).query(`
+        SELECT OrderDetailId, Quantity
+        FROM dbo.OrderReturnRequestItem
+        WHERE ReturnRequestId = @returnRequestId
+      `)
+      const returnItems = returnItemsResult.recordset
+
+      const restockList: Array<{
+        WarehouseId: number
+        OrderDetailId: number
+        SkuId: number
+        Quantity: number
+        UnitCost: number
+      }> = []
+
+      if (returnItems.length === 0) {
+        // Full return
+        for (const item of exportedItems) {
+          restockList.push({
+            WarehouseId: Number(item.WarehouseId),
+            OrderDetailId: Number(item.OrderDetailId),
+            SkuId: Number(item.SkuId),
+            Quantity: Number(item.ShippedQuantity),
+            UnitCost: Number(item.UnitCost),
+          })
+        }
+      } else {
+        const returnQtyMap = new Map(returnItems.map(item => [Number(item.OrderDetailId), Number(item.Quantity)]))
+        for (const item of exportedItems) {
+          const orderDetailId = Number(item.OrderDetailId)
+          const neededQty = returnQtyMap.get(orderDetailId) ?? 0
+          if (neededQty > 0) {
+            const allocate = Math.min(neededQty, Number(item.ShippedQuantity))
+            if (allocate > 0) {
+              restockList.push({
+                WarehouseId: Number(item.WarehouseId),
+                OrderDetailId: orderDetailId,
+                SkuId: Number(item.SkuId),
+                Quantity: allocate,
+                UnitCost: Number(item.UnitCost),
+              })
+              returnQtyMap.set(orderDetailId, neededQty - allocate)
+            }
+          }
+        }
+      }
+
+      if (restockList.length === 0) {
+        throw new Error('Không có sản phẩm nào hợp lệ để nhập lại kho.')
+      }
 
       const receiptIds = new Map<number, number>()
-      for (const item of exportedItems.recordset) {
-        const warehouseId = Number(item.WarehouseId)
-        const quantity = Number(item.Quantity)
-        const unitCost = Number(item.UnitCost)
+      for (const item of restockList) {
+        const warehouseId = item.WarehouseId
+        const quantity = item.Quantity
+        const unitCost = item.UnitCost
         let receiptId = receiptIds.get(warehouseId)
         if (!receiptId) {
           const receiptCode = `RET-REQ-${input.returnRequestId}-${warehouseId}`
@@ -201,6 +252,30 @@ export async function updateReturnWorkflow(input: {
             ProcessedAt = SYSDATETIME(), ProcessedBy = @adminUserId
           WHERE ReturnRequestId = @returnRequestId
         `)
+
+      // Delete reviews for returned items when refund is completed
+      if (returnItems.length === 0) {
+        // Full return: delete all reviews written by this user for any item in this order
+        await tx()
+          .input('userId', sql.BigInt, current.UserId)
+          .input('orderId', sql.BigInt, current.OrderId)
+          .query(`
+            DELETE r FROM dbo.Review r
+            INNER JOIN dbo.SalesOrderDetail sod ON sod.OrderDetailId = r.OrderDetailId
+            WHERE r.UserId = @userId AND sod.OrderId = @orderId
+          `)
+      } else {
+        // Partial return: delete reviews only for the returned items
+        for (const item of returnItems) {
+          await tx()
+            .input('userId', sql.BigInt, current.UserId)
+            .input('orderDetailId', sql.BigInt, item.OrderDetailId)
+            .query(`
+              DELETE FROM dbo.Review
+              WHERE UserId = @userId AND OrderDetailId = @orderDetailId
+            `)
+        }
+      }
     }
 
     await transaction.commit()

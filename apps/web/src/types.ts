@@ -922,6 +922,7 @@ export type CustomerOrderDetail = {
     imageUrl: string | null
     productSlug: string
     hasReview: boolean
+    returnableQuantity?: number
   }>
   returnRequest?: OrderReturnRequest | null
 }

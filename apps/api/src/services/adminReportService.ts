@@ -18,13 +18,13 @@ export async function getAdminReports(range: ReportRange) {
   const result = await request.query(`
     SELECT
       COUNT(*) AS totalOrders,
-      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS grossRevenue,
-      ISNULL(SUM(CASE WHEN ps.StatusCode = 'Success' THEN so.TotalAmount ELSE 0 END), 0) AS paidRevenue,
+      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount - ISNULL(orderRefund.refundedAmount, 0) ELSE 0 END), 0) AS grossRevenue,
+      ISNULL(SUM(CASE WHEN ps.StatusCode = 'Success' THEN so.TotalAmount - ISNULL(orderRefund.refundedAmount, 0) ELSE 0 END), 0) AS paidRevenue,
       ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.ShippingFee ELSE 0 END), 0) AS shippingFee,
-      ISNULL(AVG(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount END), 0) AS averageOrderValue,
+      ISNULL(AVG(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount - ISNULL(orderRefund.refundedAmount, 0) END), 0) AS averageOrderValue,
       ISNULL(SUM(CASE WHEN os.StatusCode = 'Cancelled' THEN 1 ELSE 0 END), 0) AS cancelledOrders,
       ISNULL(SUM(CASE
-        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
         ELSE 0
       END), 0) AS fulfilledRevenue,
       ISNULL(SUM(CASE
@@ -33,20 +33,20 @@ export async function getAdminReports(range: ReportRange) {
       END), 0) AS costOfGoodsSold,
       ISNULL(SUM(CASE
         WHEN os.StatusCode IN ('Shipping', 'Completed')
-          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0)
         ELSE 0
       END), 0) AS grossProfit,
       CAST(CASE
         WHEN SUM(CASE
-          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
           ELSE 0
         END) > 0
         THEN SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
-            THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+            THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0)
           ELSE 0
         END) * 100.0 / SUM(CASE
-          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+          WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
           ELSE 0
         END)
         ELSE 0
@@ -59,15 +59,20 @@ export async function getAdminReports(range: ReportRange) {
       FROM dbo.SalesOrderDetail sod
       WHERE sod.OrderId = so.OrderId
     ) orderCost
+    OUTER APPLY (
+      SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+      FROM dbo.OrderReturnRequest rr
+      WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+    ) orderRefund
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate);
 
     SELECT
       CONVERT(varchar(10), so.CreatedAt, 23) AS reportDate,
       COUNT(*) AS orderCount,
-      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS revenue,
+      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount - ISNULL(orderRefund.refundedAmount, 0) ELSE 0 END), 0) AS revenue,
       ISNULL(SUM(CASE
-        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount
+        WHEN os.StatusCode IN ('Shipping', 'Completed') THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
         ELSE 0
       END), 0) AS fulfilledRevenue,
       ISNULL(SUM(CASE
@@ -76,7 +81,7 @@ export async function getAdminReports(range: ReportRange) {
       END), 0) AS costOfGoodsSold,
       ISNULL(SUM(CASE
         WHEN os.StatusCode IN ('Shipping', 'Completed')
-          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0)
         ELSE 0
       END), 0) AS grossProfit
     FROM dbo.SalesOrder so
@@ -86,6 +91,11 @@ export async function getAdminReports(range: ReportRange) {
       FROM dbo.SalesOrderDetail sod
       WHERE sod.OrderId = so.OrderId
     ) orderCost
+    OUTER APPLY (
+      SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+      FROM dbo.OrderReturnRequest rr
+      WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+    ) orderRefund
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate)
     GROUP BY CONVERT(varchar(10), so.CreatedAt, 23)
@@ -95,11 +105,17 @@ export async function getAdminReports(range: ReportRange) {
       sod.SkuId AS skuId,
       sod.SkuCodeSnapshot AS skuCode,
       sod.ProductNameSnapshot AS productName,
-      SUM(sod.Quantity) AS quantitySold,
-      ISNULL(SUM(sod.LineTotal), 0) AS revenue
+      SUM(sod.Quantity - ISNULL(returnedItem.returnedQuantity, 0)) AS quantitySold,
+      ISNULL(SUM(sod.LineTotal - (sod.LineTotal * ISNULL(returnedItem.returnedQuantity, 0) / NULLIF(sod.Quantity, 0))), 0) AS revenue
     FROM dbo.SalesOrderDetail sod
     INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+    OUTER APPLY (
+      SELECT SUM(ri.Quantity) AS returnedQuantity
+      FROM dbo.OrderReturnRequestItem ri
+      INNER JOIN dbo.OrderReturnRequest rr ON rr.ReturnRequestId = ri.ReturnRequestId
+      WHERE ri.OrderDetailId = sod.OrderDetailId AND rr.RefundStatus = 'Refunded'
+    ) returnedItem
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate)
       AND os.StatusCode <> 'Cancelled'
@@ -112,11 +128,16 @@ export async function getAdminReports(range: ReportRange) {
       ua.Phone AS phone,
       ua.Email AS email,
       COUNT(*) AS orderCount,
-      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount ELSE 0 END), 0) AS totalSpent
+      ISNULL(SUM(CASE WHEN os.StatusCode <> 'Cancelled' THEN so.TotalAmount - ISNULL(orderRefund.refundedAmount, 0) ELSE 0 END), 0) AS totalSpent
     FROM dbo.SalesOrder so
     INNER JOIN dbo.CustomerProfile cp ON cp.CustomerId = so.CustomerId
     INNER JOIN dbo.UserAccount ua ON ua.UserId = cp.UserId
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+    OUTER APPLY (
+      SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+      FROM dbo.OrderReturnRequest rr
+      WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+    ) orderRefund
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate)
     GROUP BY cp.CustomerId, ua.FullName, ua.Phone, ua.Email
@@ -128,6 +149,11 @@ export async function getAdminReports(range: ReportRange) {
       COUNT(*) AS orderCount
     FROM dbo.SalesOrder so
     INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+    OUTER APPLY (
+      SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+      FROM dbo.OrderReturnRequest rr
+      WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+    ) orderRefund
     WHERE so.CreatedAt >= @fromDate
       AND so.CreatedAt < DATEADD(day, 1, @toDate)
     GROUP BY os.StatusCode, os.StatusName, os.SortOrder

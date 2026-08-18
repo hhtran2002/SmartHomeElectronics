@@ -772,6 +772,7 @@ export function getMyReviewedItems(token: string) {
 export function submitCustomerReturnRequest(
   payload: {
     orderId: number
+    items: Array<{ orderDetailId: number; quantity: number }>
     reason: string
     note?: string
     evidenceUrl: string

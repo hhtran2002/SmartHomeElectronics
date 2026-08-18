@@ -19,7 +19,7 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
         ISNULL(SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
             AND CAST(so.CreatedAt AS date) = CAST(SYSDATETIME() AS date)
-          THEN so.SubtotalAmount - so.DiscountAmount
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
           ELSE 0
         END), 0) AS todayRevenue,
         ISNULL(SUM(CASE
@@ -31,14 +31,14 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
         ISNULL(SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
             AND CAST(so.CreatedAt AS date) = CAST(SYSDATETIME() AS date)
-          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0)
           ELSE 0
         END), 0) AS todayGrossProfit,
         ISNULL(SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
             AND YEAR(so.CreatedAt) = YEAR(SYSDATETIME())
             AND MONTH(so.CreatedAt) = MONTH(SYSDATETIME())
-          THEN so.SubtotalAmount - so.DiscountAmount
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0)
           ELSE 0
         END), 0) AS monthRevenue,
         ISNULL(SUM(CASE
@@ -52,7 +52,7 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
           WHEN os.StatusCode IN ('Shipping', 'Completed')
             AND YEAR(so.CreatedAt) = YEAR(SYSDATETIME())
             AND MONTH(so.CreatedAt) = MONTH(SYSDATETIME())
-          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0)
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0)
           ELSE 0
         END), 0) AS monthGrossProfit,
         (SELECT COUNT(*)
@@ -64,7 +64,12 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
         SELECT SUM(sod.CostOfGoodsSold) AS costOfGoodsSold
         FROM dbo.SalesOrderDetail sod
         WHERE sod.OrderId = so.OrderId
-      ) orderCost;
+      ) orderCost
+      OUTER APPLY (
+        SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+        FROM dbo.OrderReturnRequest rr
+        WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+      ) orderRefund;
 
       SELECT TOP (6)
         so.OrderId AS orderId,
@@ -81,11 +86,11 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
         CONVERT(varchar(10), d.dt, 23) AS reportDate,
         ISNULL(SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
-          THEN so.SubtotalAmount - so.DiscountAmount ELSE 0
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) ELSE 0
         END), 0) AS revenue,
         ISNULL(SUM(CASE
           WHEN os.StatusCode IN ('Shipping', 'Completed')
-          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderCost.costOfGoodsSold, 0) ELSE 0
+          THEN so.SubtotalAmount - so.DiscountAmount - ISNULL(orderRefund.refundedAmount, 0) - ISNULL(orderCost.costOfGoodsSold, 0) ELSE 0
         END), 0) AS grossProfit,
         COUNT(so.OrderId) AS orderCount
       FROM (
@@ -105,16 +110,27 @@ adminDashboardRouter.get('/', async (_request, response, next) => {
         FROM dbo.SalesOrderDetail sod
         WHERE sod.OrderId = so.OrderId
       ) orderCost
+      OUTER APPLY (
+        SELECT ISNULL(SUM(rr.RefundAmount), 0) AS refundedAmount
+        FROM dbo.OrderReturnRequest rr
+        WHERE rr.OrderId = so.OrderId AND rr.RefundStatus = 'Refunded'
+      ) orderRefund
       GROUP BY d.dt
       ORDER BY d.dt;
 
       SELECT TOP (5)
         sod.ProductNameSnapshot AS productName,
-        SUM(sod.Quantity) AS quantitySold,
-        ISNULL(SUM(sod.LineTotal), 0) AS revenue
+        SUM(sod.Quantity - ISNULL(returnedItem.returnedQuantity, 0)) AS quantitySold,
+        ISNULL(SUM(sod.LineTotal - (sod.LineTotal * ISNULL(returnedItem.returnedQuantity, 0) / NULLIF(sod.Quantity, 0))), 0) AS revenue
       FROM dbo.SalesOrderDetail sod
       INNER JOIN dbo.SalesOrder so ON so.OrderId = sod.OrderId
       INNER JOIN dbo.OrderStatus os ON os.OrderStatusId = so.OrderStatusId
+      OUTER APPLY (
+        SELECT SUM(ri.Quantity) AS returnedQuantity
+        FROM dbo.OrderReturnRequestItem ri
+        INNER JOIN dbo.OrderReturnRequest rr ON rr.ReturnRequestId = ri.ReturnRequestId
+        WHERE ri.OrderDetailId = sod.OrderDetailId AND rr.RefundStatus = 'Refunded'
+      ) returnedItem
       WHERE YEAR(so.CreatedAt) = YEAR(SYSDATETIME())
         AND MONTH(so.CreatedAt) = MONTH(SYSDATETIME())
         AND os.StatusCode <> 'Cancelled'

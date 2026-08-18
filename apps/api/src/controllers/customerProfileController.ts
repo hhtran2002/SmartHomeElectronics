@@ -224,6 +224,8 @@ export async function listMyReviews(request: AuthRequest, response: Response, ne
 
 export async function submitReturnRequest(request: AuthRequest, response: Response, next: NextFunction) {
   const orderId = Number(request.body.orderId)
+  const items: Array<{ orderDetailId?: unknown; quantity?: unknown }> = Array.isArray(request.body.items) ? request.body.items : []
+  const returnItems = items.map((item) => ({ orderDetailId: Number(item?.orderDetailId), quantity: Number(item?.quantity) }))
   const reason = String(request.body.reason ?? '').trim()
   const note = String(request.body.note ?? '').trim()
   const evidenceUrl = String(request.body.evidenceUrl ?? request.body.imageUrl ?? '').trim()
@@ -233,6 +235,10 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
 
   if (!Number.isInteger(orderId) || orderId < 1) {
     response.status(400).json({ message: 'OrderId không hợp lệ.' })
+    return
+  }
+  if (!returnItems.length || returnItems.some((item) => !Number.isInteger(item.orderDetailId) || item.orderDetailId < 1 || !Number.isInteger(item.quantity) || item.quantity < 1) || new Set(returnItems.map((item) => item.orderDetailId)).size !== returnItems.length) {
+    response.status(400).json({ message: 'Vui lòng chọn sản phẩm cần hoàn hàng.' })
     return
   }
   if (!reason) {
@@ -252,6 +258,7 @@ export async function submitReturnRequest(request: AuthRequest, response: Respon
     const result = await createReturnRequest({
       userId: request.user!.userId,
       orderId,
+      items: returnItems,
       reason,
       note,
       evidenceUrl,
