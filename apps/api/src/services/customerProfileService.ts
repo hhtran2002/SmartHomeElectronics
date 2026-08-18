@@ -220,6 +220,19 @@ export async function createReturnRequest(input: ReturnRequestPayload) {
     throw new Error('Đơn hàng này đã được hoàn trả toàn bộ.')
   }
 
+  // Limit to at most 2 return requests per order
+  const countResult = await pool.request()
+    .input('orderId', sql.BigInt, input.orderId)
+    .query(`
+      SELECT COUNT(*) AS totalRequests
+      FROM dbo.OrderReturnRequest
+      WHERE OrderId = @orderId
+    `)
+  const totalRequests = Number(countResult.recordset[0].totalRequests)
+  if (totalRequests >= 2) {
+    throw new Error('Bạn đã đạt giới hạn tối đa 2 yêu cầu hoàn trả cho đơn hàng này.')
+  }
+
   let refundAmount = 0
   const validatedItems: Array<{ orderDetailId: number; quantity: number }> = []
 

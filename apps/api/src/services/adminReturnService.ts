@@ -42,13 +42,23 @@ export async function getAdminReturnRequests() {
         WHEN rr.RefundStatus = 'Refunded' AND rr.InventoryRestockedAt IS NOT NULL THEN 'Refunded'
         WHEN rr.RefundStatus IN ('Processing', 'Refunded') THEN 'Returning'
         ELSE 'Reviewing'
-      END AS workflowStatus
+      END AS workflowStatus,
+      CAST(CASE WHEN prevRejected.Reason IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS hasPreviousRejected,
+      prevRejected.AdminNote AS previousRejectedReason
     FROM dbo.OrderReturnRequest rr
     INNER JOIN dbo.SalesOrder so ON so.OrderId = rr.OrderId
     INNER JOIN dbo.UserAccount ua ON ua.UserId = rr.UserId
     LEFT JOIN dbo.UserAccount procUa ON procUa.UserId = rr.ProcessedBy
     LEFT JOIN dbo.UserAccount staffUa ON staffUa.UserId = rr.DeliveryStaffId
     LEFT JOIN dbo.UserAccount whUa ON whUa.UserId = rr.WarehouseConfirmedBy
+    OUTER APPLY (
+      SELECT TOP (1) Reason, AdminNote
+      FROM dbo.OrderReturnRequest
+      WHERE OrderId = rr.OrderId
+        AND ReturnRequestId < rr.ReturnRequestId
+        AND Status = 'Rejected'
+      ORDER BY ReturnRequestId DESC
+    ) prevRejected
     ORDER BY
       CASE WHEN rr.Status = 'Pending' THEN 0 ELSE 1 END,
       rr.CreatedAt DESC

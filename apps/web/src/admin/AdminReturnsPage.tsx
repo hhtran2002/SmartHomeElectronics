@@ -114,6 +114,17 @@ export function AdminReturnsPage({ roles, token }: Props) {
                 <strong>{formatPrice(item.refundAmount ?? item.totalAmount)}</strong>
               </header>
 
+              {item.hasPreviousRejected && (
+                <div style={{ margin: '0 28px 16px', padding: '12px 16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', color: '#b45309', fontSize: '12px' }}>
+                  ⚠️ <strong>Đơn hàng này đã từng có yêu cầu hoàn hàng bị từ chối trước đó.</strong>
+                  {item.previousRejectedReason && (
+                    <p style={{ margin: '6px 0 0', color: '#78350f', background: '#fef3c7', padding: '6px 10px', borderRadius: '4px' }}>
+                      <strong>Lý do từ chối:</strong> {item.previousRejectedReason}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="return-request-body">
                 <div className="return-request-evidence">
                   <span>Lý do</span><strong>{item.reason}</strong>

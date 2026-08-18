@@ -883,6 +883,8 @@ export type AdminReturnRequest = OrderReturnRequest & {
   warehouseConfirmedByName: string | null
   inventoryRestockedAt: string | null
   workflowStatus: 'Reviewing' | 'Returning' | 'Refunded' | 'Rejected'
+  hasPreviousRejected?: boolean
+  previousRejectedReason?: string | null
 }
 
 export type ShipperReturnPickup = {
