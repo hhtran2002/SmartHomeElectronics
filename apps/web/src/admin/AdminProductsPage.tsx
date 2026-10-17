@@ -5,9 +5,12 @@ import {
   getAdminProducts,
   updateAdminProduct,
   updateAdminProductStatus,
+  createCategoryAttribute,
   createCategory,
   createBrand,
   getProduct,
+  getCategoryAttributes,
+  getProductAttributeValues,
 } from '../api'
 import type { AdminProduct, AdminProductPayload, Brand, Category, AdminVariantPayload } from '../types'
 import { formatPrice } from '../utils'
@@ -20,12 +23,20 @@ type Props = {
   token: string
 }
 
+type CategoryAttr = {
+  attributeId: number
+  attributeName: string
+  dataType: string
+  unit: string | null
+}
+
 type ProductFormProps = {
   brands: Brand[]
   categories: Category[]
   editingId: number | null
   form: AdminProductPayload
   saving: boolean
+  token: string
   onCancel?: () => void
   onChange: (form: AdminProductPayload) => void
   onSubmit: (event: FormEvent) => void
@@ -87,6 +98,7 @@ function ProductForm({
   editingId,
   form,
   saving,
+  token,
   onCancel,
   onChange,
   onSubmit,
@@ -100,6 +112,51 @@ function ProductForm({
   const [creatingCategory, setCreatingCategory] = useState(false)
   const [creatingBrand, setCreatingBrand] = useState(false)
   const [hasVariants, setHasVariants] = useState(false)
+
+  // --- Thông số kỹ thuật động ---
+  const [categoryAttrs, setCategoryAttrs] = useState<CategoryAttr[]>([])
+  const [attrValues, setAttrValues] = useState<Record<number, string | boolean>>({}) // attributeId -> value
+  const [attrsLoading, setAttrsLoading] = useState(false)
+  const [showAddAttrModal, setShowAddAttrModal] = useState(false)
+  const [newAttrName, setNewAttrName] = useState('')
+  const [newAttrDataType, setNewAttrDataType] = useState<'Text' | 'Number' | 'Boolean'>('Text')
+  const [newAttrUnit, setNewAttrUnit] = useState('')
+  const [addingAttr, setAddingAttr] = useState(false)
+  const [addAttrError, setAddAttrError] = useState('')
+
+  const handleAddCategoryAttribute = async () => {
+    if (!newAttrName.trim()) {
+      setAddAttrError('Vui lòng nhập tên thông số')
+      return
+    }
+    if (!form.categoryId || form.categoryId <= 0) {
+      setAddAttrError('Vui lòng chọn danh mục trước')
+      return
+    }
+    try {
+      setAddingAttr(true)
+      setAddAttrError('')
+      const res = await createCategoryAttribute({
+        categoryId: form.categoryId,
+        attributeName: newAttrName.trim(),
+        dataType: newAttrDataType,
+        unit: newAttrUnit.trim() || null,
+      }, token)
+      
+      setCategoryAttrs(prev => {
+        if (prev.some(a => a.attributeId === res.data.attributeId)) return prev
+        return [...prev, res.data]
+      })
+      setNewAttrName('')
+      setNewAttrUnit('')
+      setNewAttrDataType('Text')
+      setShowAddAttrModal(false)
+    } catch (err: any) {
+      setAddAttrError(err.message || 'Không thể tạo thuộc tính')
+    } finally {
+      setAddingAttr(false)
+    }
+  }
 
   const selectedCategoryObj = useMemo(() => categories.find(c => c.id === form.categoryId), [categories, form.categoryId])
   const selectedBrandObj = useMemo(() => brands.find(b => b.id === form.brandId), [brands, form.brandId])
@@ -130,6 +187,53 @@ function ProductForm({
       setHasVariants(false)
     }
   }, [form.variants])
+
+  // Tải danh sách thuộc tính khi chọn danh mục
+  useEffect(() => {
+    if (!form.categoryId || form.categoryId <= 0) {
+      setCategoryAttrs([])
+      return
+    }
+    setAttrsLoading(true)
+    getCategoryAttributes(form.categoryId, token)
+      .then((res) => {
+        setCategoryAttrs(res.data)
+      })
+      .catch(() => setCategoryAttrs([]))
+      .finally(() => setAttrsLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.categoryId])
+
+  // Khi sửa sản phẩm: tải giá trị thuộc tính đã lưu
+  useEffect(() => {
+    if (!editingId || editingId <= 0) {
+      setAttrValues({})
+      return
+    }
+    getProductAttributeValues(editingId, token)
+      .then((res) => {
+        const map: Record<number, string | boolean> = {}
+        for (const row of res.data) {
+          if (row.dataType === 'Boolean') {
+            map[row.attributeId] = row.valueBoolean ?? false
+          } else {
+            map[row.attributeId] = row.rawValue ?? ''
+          }
+        }
+        setAttrValues(map)
+      })
+      .catch(() => setAttrValues({}))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId])
+
+  // Đồng bộ attrValues vào form.attributes mỗi khi người dùng chỉnh sửa
+  useEffect(() => {
+    const attrs = Object.entries(attrValues)
+      .filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      .map(([idStr, value]) => ({ attributeId: Number(idStr), value }))
+    onChange({ ...form, attributes: attrs })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attrValues])
 
   const filteredCategories = useMemo(() => {
     if (!categorySearch.trim() || catName === categorySearch) return categories
@@ -465,6 +569,201 @@ function ProductForm({
         Đặc điểm nổi bật
         <textarea value={form.highlights} placeholder="Mỗi dòng là một điểm nổi bật" onChange={(event) => onChange({ ...form, highlights: event.target.value })} />
       </label>
+
+      {/* ===== THÔNG SỐ KỸ THUẬT THEO DANH MỤC ===== */}
+      {form.categoryId > 0 && (
+        <div style={{ marginTop: '20px', borderTop: '2px solid #e2e8f0', paddingTop: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ⚙️ Thông số kỹ thuật {catName ? `(${catName})` : ''}
+              {attrsLoading && <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 400 }}>Đang tải...</span>}
+            </h4>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddAttrModal(!showAddAttrModal)
+                setAddAttrError('')
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#2563eb',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              {showAddAttrModal ? '✕ Đóng' : '+ Thêm thông số cho danh mục'}
+            </button>
+          </div>
+
+          {/* Form thêm thông số mới cho danh mục */}
+          {showAddAttrModal && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '14px 16px',
+              background: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0369a1' }}>
+                  ➕ Định nghĩa thông số kỹ thuật mới cho danh mục "{catName}"
+                </span>
+                <span style={{ fontSize: '11px', color: '#0284c7' }}>
+                  (Sẽ áp dụng cho tất cả sản phẩm thuộc danh mục này)
+                </span>
+              </div>
+
+              {addAttrError && (
+                <div style={{ color: '#dc2626', fontSize: '12px', background: '#fee2e2', padding: '6px 10px', borderRadius: '6px' }}>
+                  {addAttrError}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1fr auto', gap: '8px', alignItems: 'flex-end' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                  Tên thông số *
+                  <input
+                    type="text"
+                    placeholder="VD: Công suất, Số vùng nấu, Mặt kính..."
+                    value={newAttrName}
+                    onChange={(e) => setNewAttrName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        void handleAddCategoryAttribute()
+                      }
+                    }}
+                    style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                  Kiểu dữ liệu
+                  <select
+                    value={newAttrDataType}
+                    onChange={(e) => setNewAttrDataType(e.target.value as any)}
+                    style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+                  >
+                    <option value="Text">Văn bản (Text)</option>
+                    <option value="Number">Số (Number)</option>
+                    <option value="Boolean">Có / Không (Boolean)</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', fontWeight: 600 }}>
+                  Đơn vị (nếu có)
+                  <input
+                    type="text"
+                    placeholder="VD: W, Lít, inch..."
+                    value={newAttrUnit}
+                    onChange={(e) => setNewAttrUnit(e.target.value)}
+                    style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  />
+                </label>
+
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    disabled={addingAttr}
+                    onClick={() => void handleAddCategoryAttribute()}
+                    style={{
+                      padding: '8px 14px',
+                      background: '#0284c7',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {addingAttr ? 'Đang thêm...' : 'Lưu thông số'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!attrsLoading && categoryAttrs.length === 0 && (
+            <div style={{ padding: '16px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#64748b' }}>
+                Danh mục <strong>"{catName}"</strong> chưa có bộ thông số kỹ thuật mẫu nào.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddAttrModal(true)
+                  setAddAttrError('')
+                }}
+                style={{
+                  padding: '7px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#2563eb',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                + Thêm thông số đầu tiên cho danh mục này
+              </button>
+            </div>
+          )}
+
+          {categoryAttrs.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+              {categoryAttrs.map((attr) => (
+                <label key={attr.attributeId} style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: '#374151', fontWeight: 600 }}>
+                  {attr.attributeName}{attr.unit ? ` (${attr.unit})` : ''}
+                  {attr.dataType === 'Boolean' ? (
+                    <select
+                      value={attrValues[attr.attributeId] === true ? 'true' : attrValues[attr.attributeId] === false ? 'false' : ''}
+                      onChange={(e) => setAttrValues((prev) => ({ ...prev, [attr.attributeId]: e.target.value === 'true' }))}
+                      style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#f8fafc' }}
+                    >
+                      <option value="">— Chọn —</option>
+                      <option value="true">Có</option>
+                      <option value="false">Không</option>
+                    </select>
+                  ) : attr.dataType === 'Number' ? (
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="Nhập giá trị..."
+                        value={String(attrValues[attr.attributeId] ?? '')}
+                        onChange={(e) => setAttrValues((prev) => ({ ...prev, [attr.attributeId]: e.target.value }))}
+                        style={{ flex: 1, padding: '8px 10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      />
+                      {attr.unit && <span style={{ color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>{attr.unit}</span>}
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Nhập giá trị..."
+                      value={String(attrValues[attr.attributeId] ?? '')}
+                      onChange={(e) => setAttrValues((prev) => ({ ...prev, [attr.attributeId]: e.target.value }))}
+                      style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    />
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
         <label className="checkbox-label" style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -912,6 +1211,7 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
                 editingId={null}
                 form={createForm}
                 saving={saving}
+                token={token}
                 onCancel={() => { setShowCreateModal(false); setCreateForm(emptyForm); }}
                 onChange={setCreateForm}
                 onSubmit={async (e) => {
@@ -975,6 +1275,7 @@ export function AdminProductsPage({ brands, categories, roles, token }: Props) {
                 editingId={editingId}
                 form={form}
                 saving={saving}
+                token={token}
                 onCancel={cancelEdit}
                 onChange={setForm}
                 onSubmit={handleSubmit}

@@ -460,6 +460,10 @@ export type AdminProductPayload = {
   costPrice?: number | null
   imageUrl?: string
   variants?: AdminVariantPayload[]
+  attributes?: {
+    attributeId: number
+    value: unknown
+  }[]
 }
 
 export type AdminProductImage = ProductImage

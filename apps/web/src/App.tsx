@@ -16,6 +16,7 @@ import { AdminReportsPage } from './admin/AdminReportsPage'
 import { AdminReturnsPage } from './admin/AdminReturnsPage'
 import { AdminReviewsPage } from './admin/AdminReviewsPage'
 import { AdminUsersPage } from './admin/AdminUsersPage'
+import { AdminSerialsPage } from './admin/AdminSerialsPage'
 import { CartPage } from './components/CartPage'
 import { CheckoutAuthGate } from './components/CheckoutAuthGate'
 import { CheckoutPage } from './components/CheckoutPage'
@@ -477,6 +478,13 @@ function App() {
     page = (
       <AdminLayout active="returns" user={auth.user}>
         <AdminReturnsPage roles={auth.user?.roles ?? []} token={auth.token} />
+      </AdminLayout>
+    )
+  } else if (hash === '#/admin/serials') {
+    activePage = 'admin'
+    page = (
+      <AdminLayout active="serials" user={auth.user}>
+        <AdminSerialsPage roles={auth.user?.roles ?? []} token={auth.token} />
       </AdminLayout>
     )
   }

@@ -8,5 +8,6 @@ dist/
 __pycache__/
 .venv/
 docs/
-database/*
-!database/035-return-request-items.sql
+database/
+*.doc
+*.docx

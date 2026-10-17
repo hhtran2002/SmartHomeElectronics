@@ -21,6 +21,10 @@ export type AdminProductInput = {
     price: number
     costPrice: number | null
   }[]
+  attributes?: {
+    attributeId: number
+    value: unknown
+  }[]
 }
 
 function makeSlug(value: string) {
@@ -188,6 +192,10 @@ export async function createAdminProduct(input: AdminProductInput) {
         `)
     }
 
+    if (input.attributes && input.attributes.length > 0) {
+      await saveProductAttributes(tx, productId, input.attributes)
+    }
+
     await transaction.commit()
     return { productId }
   } catch (error) {
@@ -293,12 +301,156 @@ export async function updateAdminProduct(productId: number, input: AdminProductI
       }
     }
 
+    if (input.attributes !== undefined) {
+      await saveProductAttributes(tx, productId, input.attributes)
+    }
+
     await transaction.commit()
     return { productId }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
     throw error
   }
+}
+
+async function saveProductAttributes(
+  tx: () => sql.Request,
+  productId: number,
+  attributes?: { attributeId: number; value: unknown }[]
+) {
+  if (!attributes) return
+  await tx().input('prodIdDel', sql.BigInt, productId).query('DELETE FROM dbo.ProductAttributeValue WHERE ProductId = @prodIdDel')
+  for (const attr of attributes) {
+    if (attr.value === undefined || attr.value === null || attr.value === '') continue
+    const attrInfo = await tx().input('aIdCheck', sql.BigInt, attr.attributeId).query('SELECT DataType FROM dbo.CategoryAttribute WHERE AttributeId = @aIdCheck')
+    if (!attrInfo.recordset.length) continue
+    const dataType = String(attrInfo.recordset[0].DataType)
+
+    let valText: string | null = null
+    let valNumber: number | null = null
+    let valBool: boolean | null = null
+
+    if (dataType === 'Number') {
+      const parsedNum = Number(attr.value)
+      if (Number.isFinite(parsedNum)) valNumber = parsedNum
+    } else if (dataType === 'Boolean') {
+      valBool = attr.value === true || attr.value === 'true' || attr.value === 1 || attr.value === '1'
+    } else {
+      valText = String(attr.value).trim()
+    }
+
+    if (valText === null && valNumber === null && valBool === null) continue
+
+    await tx()
+      .input('pIdAttr', sql.BigInt, productId)
+      .input('aIdAttr', sql.BigInt, attr.attributeId)
+      .input('vTextAttr', sql.NVarChar(500), valText)
+      .input('vNumAttr', sql.Decimal(18, 2), valNumber)
+      .input('vBoolAttr', sql.Bit, valBool === null ? null : (valBool ? 1 : 0))
+      .query(`
+        INSERT INTO dbo.ProductAttributeValue (ProductId, AttributeId, ValueText, ValueNumber, ValueBoolean)
+        VALUES (@pIdAttr, @aIdAttr, @vTextAttr, @vNumAttr, @vBoolAttr)
+      `)
+  }
+}
+
+export async function getCategoryAttributes(categoryId: number) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('categoryId', sql.BigInt, categoryId)
+    .query(`
+      SELECT
+        AttributeId AS attributeId,
+        CategoryId AS categoryId,
+        AttributeName AS attributeName,
+        DataType AS dataType,
+        Unit AS unit,
+        IsFilterable AS isFilterable,
+        IsSearchable AS isSearchable
+      FROM dbo.CategoryAttribute
+      WHERE CategoryId = @categoryId
+      ORDER BY AttributeId
+    `)
+  return result.recordset
+}
+
+export async function createCategoryAttribute(input: {
+  categoryId: number
+  attributeName: string
+  dataType: string
+  unit?: string | null
+  isFilterable?: boolean
+  isSearchable?: boolean
+}) {
+  const pool = await getPool()
+  const trimmedName = input.attributeName.trim()
+  const existing = await pool.request()
+    .input('categoryId', sql.BigInt, input.categoryId)
+    .input('attributeName', sql.NVarChar(150), trimmedName)
+    .query(`
+      SELECT
+        AttributeId AS attributeId,
+        CategoryId AS categoryId,
+        AttributeName AS attributeName,
+        DataType AS dataType,
+        Unit AS unit,
+        IsFilterable AS isFilterable,
+        IsSearchable AS isSearchable
+      FROM dbo.CategoryAttribute
+      WHERE CategoryId = @categoryId AND AttributeName = @attributeName
+    `)
+  if (existing.recordset.length > 0) {
+    return existing.recordset[0]
+  }
+
+  const result = await pool.request()
+    .input('categoryId', sql.BigInt, input.categoryId)
+    .input('attributeName', sql.NVarChar(150), trimmedName)
+    .input('dataType', sql.VarChar(20), input.dataType || 'Text')
+    .input('unit', sql.NVarChar(50), input.unit ? input.unit.trim() : null)
+    .input('isFilterable', sql.Bit, input.isFilterable !== false ? 1 : 0)
+    .input('isSearchable', sql.Bit, input.isSearchable !== false ? 1 : 0)
+    .query(`
+      INSERT INTO dbo.CategoryAttribute (CategoryId, AttributeName, DataType, Unit, IsFilterable, IsSearchable)
+      OUTPUT
+        INSERTED.AttributeId AS attributeId,
+        INSERTED.CategoryId AS categoryId,
+        INSERTED.AttributeName AS attributeName,
+        INSERTED.DataType AS dataType,
+        INSERTED.Unit AS unit,
+        INSERTED.IsFilterable AS isFilterable,
+        INSERTED.IsSearchable AS isSearchable
+      VALUES (@categoryId, @attributeName, @dataType, @unit, @isFilterable, @isSearchable)
+    `)
+  return result.recordset[0]
+}
+
+export async function getProductAttributeValues(productId: number) {
+  const pool = await getPool()
+  const result = await pool.request()
+    .input('productId', sql.BigInt, productId)
+    .query(`
+      SELECT
+        pav.ProductAttributeValueId AS productAttributeValueId,
+        pav.ProductId AS productId,
+        pav.AttributeId AS attributeId,
+        ca.AttributeName AS attributeName,
+        ca.DataType AS dataType,
+        ca.Unit AS unit,
+        pav.ValueText AS valueText,
+        pav.ValueNumber AS valueNumber,
+        pav.ValueBoolean AS valueBoolean,
+        COALESCE(
+          pav.ValueText,
+          CONVERT(NVARCHAR(100), pav.ValueNumber),
+          CASE WHEN pav.ValueBoolean = 1 THEN N'true' WHEN pav.ValueBoolean = 0 THEN N'false' ELSE NULL END
+        ) AS rawValue
+      FROM dbo.ProductAttributeValue pav
+      INNER JOIN dbo.CategoryAttribute ca ON ca.AttributeId = pav.AttributeId
+      WHERE pav.ProductId = @productId
+      ORDER BY ca.AttributeId
+    `)
+  return result.recordset
 }
 
 export async function getAdminProductImages(productId: number) {

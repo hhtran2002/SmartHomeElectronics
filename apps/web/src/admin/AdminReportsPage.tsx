@@ -1,10 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAdminReports, getCustomerSalesReport, searchReportCustomers } from '../api'
+import { getAdminReports, getCustomerSalesReport, getSerialProfitReport, searchReportCustomers } from '../api'
 import type { AdminReports, CustomerSalesReport, ReportCustomerSummary } from '../types'
 import { formatPrice } from '../utils'
 
 type Props = { roles: string[]; token: string }
-type ReportMode = 'time' | 'customer' | 'product'
+type ReportMode = 'time' | 'customer' | 'product' | 'profit'
+
+type ProfitReportData = {
+  summary: {
+    totalUnitsSold: number
+    totalRevenue: number
+    totalCost: number
+    totalGrossProfit: number
+    grossMarginPercentage: number
+  }
+  items: Array<{
+    serialId: number
+    serialNumber: string
+    productId: number
+    productName: string
+    categoryName: string
+    skuId: number
+    skuCode: string
+    costPrice: number
+    soldPrice: number
+    profit: number
+    marginPercentage: number
+    orderId: number | null
+    orderCode: string | null
+    soldAt: string | null
+  }>
+}
 
 function canViewReports(roles: string[]) {
   return roles.includes('OrderAdmin') || roles.includes('SystemAdmin')
@@ -37,6 +63,10 @@ export function AdminReportsPage({ roles, token }: Props) {
   const [customerReport, setCustomerReport] = useState<CustomerSalesReport | null>(null)
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
 
+  // Profit / Loss report state
+  const [profitReport, setProfitReport] = useState<ProfitReportData | null>(null)
+  const [profitSearch, setProfitSearch] = useState('')
+
   const products = useMemo(() => {
     const query = productSearch.trim().toLocaleLowerCase('vi-VN')
     return (reports?.topProducts ?? []).filter((item) => !query
@@ -44,13 +74,34 @@ export function AdminReportsPage({ roles, token }: Props) {
       || item.skuCode.toLocaleLowerCase('vi-VN').includes(query))
   }, [productSearch, reports])
 
+  const filteredProfitItems = useMemo(() => {
+    if (!profitReport?.items) return []
+    const q = profitSearch.trim().toLowerCase()
+    if (!q) return profitReport.items
+    return profitReport.items.filter((item) =>
+      item.serialNumber.toLowerCase().includes(q)
+      || item.productName.toLowerCase().includes(q)
+      || item.skuCode.toLowerCase().includes(q)
+      || (item.orderCode && item.orderCode.toLowerCase().includes(q))
+    )
+  }, [profitReport, profitSearch])
+
   async function loadReports() {
     setLoading(true)
     setError('')
     try {
-      const payload = await getAdminReports(token, filters)
-      setReports(payload.data)
-      if (selectedCustomerId) await loadCustomerDetail(selectedCustomerId)
+      if (mode === 'profit') {
+        const profitPayload = await getSerialProfitReport(token, {
+          fromDate: filters.fromDate,
+          toDate: filters.toDate,
+          search: profitSearch.trim() || undefined,
+        })
+        setProfitReport(profitPayload.data)
+      } else {
+        const payload = await getAdminReports(token, filters)
+        setReports(payload.data)
+        if (selectedCustomerId) await loadCustomerDetail(selectedCustomerId)
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không tải được báo cáo.')
     } finally { setLoading(false) }
@@ -83,7 +134,7 @@ export function AdminReportsPage({ roles, token }: Props) {
     if (!token || !canViewReports(roles)) return
     void loadReports()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roles, token])
+  }, [roles, token, mode])
 
   useEffect(() => {
     if (mode === 'customer' && customers.length === 0 && token) void findCustomers()
@@ -98,8 +149,8 @@ export function AdminReportsPage({ roles, token }: Props) {
       <section className="section-heading">
         <div>
           <span className="eyebrow">Báo cáo thống kê bán hàng</span>
-          <h2>Theo thời gian, khách hàng và mặt hàng</h2>
-          <p>Chọn đúng loại báo cáo cần xem theo nội dung đề cương.</p>
+          <h2>Theo thời gian, khách hàng, mặt hàng và lợi nhuận</h2>
+          <p>Báo cáo doanh số, giá vốn và tỷ suất lợi nhuận bám sát nội dung đề cương.</p>
         </div>
       </section>
 
@@ -107,6 +158,7 @@ export function AdminReportsPage({ roles, token }: Props) {
         <button className={mode === 'time' ? 'active' : ''} onClick={() => setMode('time')}>Theo thời gian</button>
         <button className={mode === 'customer' ? 'active' : ''} onClick={() => setMode('customer')}>Theo khách hàng</button>
         <button className={mode === 'product' ? 'active' : ''} onClick={() => setMode('product')}>Theo mặt hàng</button>
+        <button className={mode === 'profit' ? 'active' : ''} onClick={() => setMode('profit')}>Lợi nhuận (Lãi / Lỗ)</button>
       </nav>
 
       <section className="report-filter-card">
@@ -220,6 +272,121 @@ export function AdminReportsPage({ roles, token }: Props) {
               </section>
             </>
           )}
+        </>
+      )}
+
+      {mode === 'profit' && (
+        <>
+          {profitReport && (
+            <section className="admin-metrics report-metrics">
+              <div><span>Tổng máy đã bán</span><strong>{profitReport.summary.totalUnitsSold} chiếc</strong></div>
+              <div><span>Tổng doanh thu</span><strong>{formatPrice(profitReport.summary.totalRevenue)}</strong></div>
+              <div><span>Tổng giá vốn</span><strong>{formatPrice(profitReport.summary.totalCost)}</strong></div>
+              <div><span>Lợi nhuận gộp (Lãi)</span><strong style={{ color: '#16715b' }}>{formatPrice(profitReport.summary.totalGrossProfit)}</strong></div>
+              <div><span>Tỷ suất lợi nhuận</span><strong>{profitReport.summary.grossMarginPercentage}%</strong></div>
+            </section>
+          )}
+
+          <section className="admin-panel-card">
+            <div className="section-heading compact">
+              <div>
+                <span className="eyebrow">Hiệu quả kinh doanh đích danh</span>
+                <h3>Báo cáo Lãi / Lỗ chi tiết theo từng sản phẩm & máy bán ra</h3>
+                <p>Giá vốn được ghi nhận đích danh theo mã Serial/S/N tại thời điểm xuất kho đơn hàng.</p>
+              </div>
+            </div>
+
+            <label className="report-search">
+              Tìm kiếm
+              <input
+                value={profitSearch}
+                onChange={(event) => setProfitSearch(event.target.value)}
+                placeholder="Mã Serial (S/N), tên sản phẩm, SKU hoặc mã đơn..."
+              />
+            </label>
+
+            <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+              <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 12px' }}>Mã Serial (S/N)</th>
+                    <th style={{ padding: '10px 12px' }}>Sản phẩm</th>
+                    <th style={{ padding: '10px 12px' }}>SKU</th>
+                    <th style={{ padding: '10px 12px' }}>Đơn hàng</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Giá vốn</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Giá bán</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Tiền lãi (Lãi/Lỗ)</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Tỷ suất</th>
+                    <th style={{ padding: '10px 12px' }}>Ngày bán</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProfitItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                        {loading ? 'Đang tính toán báo cáo...' : 'Không có sản phẩm nào bán ra trong khoảng ngày này.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProfitItems.map((item) => {
+                      const isProfit = item.profit > 0
+                      const isZero = item.profit === 0
+                      return (
+                        <tr key={item.serialId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px 12px' }}>
+                            <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#334155' }}>
+                              {item.serialNumber}
+                            </code>
+                          </td>
+                          <td style={{ padding: '10px 12px', maxWidth: '240px' }}>
+                            <strong style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#0f172a' }}>
+                              {item.productName}
+                            </strong>
+                            <small style={{ color: '#64748b' }}>{item.categoryName}</small>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <code style={{ fontSize: '11px', color: '#64748b' }}>{item.skuCode}</code>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            {item.orderCode ? (
+                              <span style={{ fontWeight: 600, color: '#0284c7', fontSize: '12px' }}>{item.orderCode}</span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748b' }}>
+                            {formatPrice(item.costPrice)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                            {formatPrice(item.soldPrice)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: isProfit ? '#16715b' : isZero ? '#64748b' : '#dc2626' }}>
+                            {isProfit ? `+${formatPrice(item.profit)}` : formatPrice(item.profit)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: isProfit ? '#e6f4ea' : isZero ? '#f1f5f9' : '#fce8e6',
+                              color: isProfit ? '#137333' : isZero ? '#5f6368' : '#c5221f',
+                            }}>
+                              {item.marginPercentage}%
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', color: '#64748b', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                            {item.soldAt ? new Date(item.soldAt).toLocaleDateString('vi-VN') : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </>
       )}
     </>

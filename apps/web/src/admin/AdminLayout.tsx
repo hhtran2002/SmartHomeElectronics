@@ -3,7 +3,7 @@ import type { AuthUser } from '../types'
 import './AdminTheme.css'
 import { featureFlags } from '../featureFlags'
 
-type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'returns' | 'inventory' | 'shipper' | 'cod' | 'users' | 'reports'
+type AdminMenuKey = 'dashboard' | 'orders' | 'products' | 'promotions' | 'reviews' | 'returns' | 'inventory' | 'shipper' | 'cod' | 'users' | 'reports' | 'serials'
 
 type Props = {
   active: AdminMenuKey
@@ -23,6 +23,7 @@ const menuItems: Array<{ key: AdminMenuKey; label: string; href: string }> = [
   { key: 'cod', label: 'Đối soát COD', href: '#/admin/cod-remittances' },
   { key: 'users', label: 'Nhân viên', href: '#/admin/users' },
   { key: 'reports', label: 'Báo cáo', href: '#/admin/reports' },
+  { key: 'serials', label: '📟 Mã Serial / S/N', href: '#/admin/serials' },
 ]
 
 const menu = menuItems.filter((item) => featureFlags.extendedDeliveryWorkflow || !['shipper', 'cod'].includes(item.key))

@@ -14,6 +14,7 @@ import { adminReportsRouter } from './routes/adminReports.js'
 import { adminReturnsRouter } from './routes/adminReturns.js'
 import { adminReviewsRouter } from './routes/adminReviews.js'
 import { adminUsersRouter } from './routes/adminUsers.js'
+import { adminSerialsRouter } from './routes/adminSerials.js'
 import { authRouter } from './routes/auth.js'
 import { brandsRouter } from './routes/brands.js'
 import { cartRouter } from './routes/cart.js'
@@ -71,6 +72,7 @@ app.use('/api/admin/reports', adminReportsRouter)
 app.use('/api/admin/returns', adminReturnsRouter)
 app.use('/api/admin/reviews', adminReviewsRouter)
 app.use('/api/admin/users', adminUsersRouter)
+app.use('/api/admin/serials', adminSerialsRouter)
 
 app.use((
   error: unknown,

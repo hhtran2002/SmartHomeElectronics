@@ -2,9 +2,12 @@ import type { NextFunction, Request, Response } from 'express'
 import {
   addAdminProductImage,
   createAdminProduct,
+  createCategoryAttribute,
   deleteAdminProductImage,
   getAdminProductImages,
   getAdminProducts,
+  getCategoryAttributes,
+  getProductAttributeValues,
   setAdminProductPrimaryImage,
   updateAdminProduct,
   updateAdminProductStatus,
@@ -74,6 +77,12 @@ function readProductInput(request: Request): AdminProductInput {
     costPrice,
     imageUrl: readText(request.body.imageUrl),
     variants,
+    attributes: Array.isArray(request.body.attributes)
+      ? request.body.attributes.map((a: any) => ({
+          attributeId: Number(a.attributeId),
+          value: a.value,
+        }))
+      : undefined,
   }
 }
 
@@ -86,6 +95,44 @@ function isValidProductInput(input: AdminProductInput) {
       && input.skuCode
       && input.price > 0,
   )
+}
+
+export async function listCategoryAttributes(request: Request, response: Response, next: NextFunction) {
+  try {
+    const categoryId = Number(request.params.categoryId)
+    response.json({ data: await getCategoryAttributes(categoryId) })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function addCategoryAttribute(request: Request, response: Response, next: NextFunction) {
+  try {
+    const { categoryId, attributeName, dataType, unit, isFilterable, isSearchable } = request.body
+    if (!categoryId || !attributeName) {
+      return response.status(400).json({ message: 'Thiếu categoryId hoặc attributeName' })
+    }
+    const created = await createCategoryAttribute({
+      categoryId: Number(categoryId),
+      attributeName: String(attributeName),
+      dataType: String(dataType || 'Text'),
+      unit: unit ? String(unit) : null,
+      isFilterable: Boolean(isFilterable ?? true),
+      isSearchable: Boolean(isSearchable ?? true),
+    })
+    response.status(201).json({ data: created })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function listProductAttributes(request: Request, response: Response, next: NextFunction) {
+  try {
+    const productId = Number(request.params.id)
+    response.json({ data: await getProductAttributeValues(productId) })
+  } catch (error) {
+    next(error)
+  }
 }
 
 export async function listAdminProducts(_request: Request, response: Response, next: NextFunction) {

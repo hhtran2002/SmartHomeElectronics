@@ -165,6 +165,7 @@ async function createDocumentEmbeddings(documents: string[]) {
     }
 
     vectors.push(vector)
+    await new Promise((resolve) => setTimeout(resolve, 800))
   }
 
   return vectors

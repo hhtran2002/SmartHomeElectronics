@@ -853,3 +853,127 @@ export function getWards(provinceCode: string) {
   return getJson<{ data: AdministrativeWard[] }>(`/api/locations/wards?provinceCode=${encodeURIComponent(provinceCode)}`)
 }
 
+
+export function getCategoryAttributes(categoryId: number, token: string) {
+  return getJsonWithToken<{ data: Array<{
+    attributeId: number
+    categoryId: number
+    attributeName: string
+    dataType: string
+    unit: string | null
+    isFilterable: boolean
+    isSearchable: boolean
+  }> }>(`/api/admin/products/category-attributes/${categoryId}`, token)
+}
+
+export function createCategoryAttribute(payload: {
+  categoryId: number
+  attributeName: string
+  dataType: string
+  unit?: string | null
+  isFilterable?: boolean
+  isSearchable?: boolean
+}, token: string) {
+  return postJsonWithToken<{ data: {
+    attributeId: number
+    categoryId: number
+    attributeName: string
+    dataType: string
+    unit: string | null
+    isFilterable: boolean
+    isSearchable: boolean
+  } }>('/api/admin/products/category-attributes', token, payload)
+}
+
+export function getProductAttributeValues(productId: number, token: string) {
+  return getJsonWithToken<{ data: Array<{
+    productAttributeValueId: number
+    productId: number
+    attributeId: number
+    attributeName: string
+    dataType: string
+    unit: string | null
+    valueText: string | null
+    valueNumber: number | null
+    valueBoolean: boolean | null
+    rawValue: string | null
+  }> }>(`/api/admin/products/${productId}/attributes`, token)
+}
+
+export function getAdminSerials(token: string, filters: {
+  search?: string
+  status?: string
+  skuId?: number
+  page?: number
+  pageSize?: number
+} = {}) {
+  const params = new URLSearchParams()
+  if (filters.search) params.set('search', filters.search)
+  if (filters.status && filters.status !== 'All') params.set('status', filters.status)
+  if (filters.skuId) params.set('skuId', String(filters.skuId))
+  if (filters.page) params.set('page', String(filters.page))
+  if (filters.pageSize) params.set('pageSize', String(filters.pageSize))
+  return getJsonWithToken<{
+    data: Array<{
+      serialId: number
+      serialNumber: string
+      productId: number
+      productName: string
+      skuId: number
+      skuCode: string
+      warehouseId: number
+      warehouseName: string
+      costPrice: number
+      status: string
+      orderId: number | null
+      orderCode: string | null
+      soldPrice: number | null
+      soldAt: string | null
+      createdAt: string
+    }>
+    total: number
+    page: number
+    pageSize: number
+  }>(`/api/admin/serials?${params.toString()}`, token)
+}
+
+export function getSerialProfitReport(token: string, filters: {
+  fromDate?: string
+  toDate?: string
+  search?: string
+  skuId?: number
+} = {}) {
+  const params = new URLSearchParams()
+  if (filters.fromDate) params.set('fromDate', filters.fromDate)
+  if (filters.toDate) params.set('toDate', filters.toDate)
+  if (filters.search) params.set('search', filters.search)
+  if (filters.skuId) params.set('skuId', String(filters.skuId))
+  return getJsonWithToken<{
+    data: {
+      summary: {
+        totalUnitsSold: number
+        totalRevenue: number
+        totalCost: number
+        totalGrossProfit: number
+        grossMarginPercentage: number
+      }
+      items: Array<{
+        serialId: number
+        serialNumber: string
+        productId: number
+        productName: string
+        categoryName: string
+        skuId: number
+        skuCode: string
+        costPrice: number
+        soldPrice: number
+        profit: number
+        marginPercentage: number
+        orderId: number | null
+        orderCode: string | null
+        soldAt: string | null
+      }>
+    }
+  }>(`/api/admin/serials/profit-report?${params.toString()}`, token)
+}
+

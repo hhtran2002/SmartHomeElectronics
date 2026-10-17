@@ -1,4 +1,5 @@
 import { getPool, sql } from '../config/database.js'
+import { createSerialsForStockIn } from './productSerialService.js'
 
 type StockInInput = {
   warehouseId: number
@@ -246,6 +247,7 @@ async function confirmOrderExportInternal(orderId: number, userId: number, requi
         SELECT
           sod.OrderDetailId,
           sod.SkuId,
+          sod.UnitPrice,
           oir.OrderInventoryReservationId,
           oir.InventoryId,
           i.WarehouseId,
@@ -443,6 +445,23 @@ async function confirmOrderExportInternal(orderId: number, userId: number, requi
       `)
 
     await transaction.commit()
+
+    // Gán mã Serial theo FIFO cho từng sản phẩm trong đơn xuất kho
+    try {
+      const { assignSerialsForOrder } = await import('./productSerialService.js')
+      for (const item of allocations.recordset) {
+        await assignSerialsForOrder(
+          orderId,
+          Number(item.OrderDetailId),
+          Number(item.SkuId),
+          Number(item.QuantityToExport),
+          Number(item.UnitPrice),
+        )
+      }
+    } catch (serialError) {
+      console.error('[Serial] Không thể gán mã serial khi xuất kho:', serialError)
+    }
+
     return {
       orderId,
       orderCode: order.OrderCode,
@@ -569,6 +588,21 @@ export async function createStockIn(input: StockInInput) {
       `)
 
     await transaction.commit()
+
+    // Tự động sinh mã Serial cho từng sản phẩm vật lý vừa nhập kho
+    try {
+      await createSerialsForStockIn(
+        input.warehouseId,
+        input.skuId,
+        input.quantity,
+        input.unitCost,
+        receiptId,
+      )
+    } catch (serialError) {
+      // Không rollback inventory nếu serial fail — log lại để xử lý sau
+      console.error('[Serial] Không thể tạo mã serial sau nhập kho:', serialError)
+    }
+
     return { stockInReceiptId: receiptId, receiptCode }
   } catch (error) {
     await transaction.rollback().catch(() => undefined)
