@@ -136,46 +136,44 @@ export async function runAiEvaluation(): Promise<EvaluationReport> {
 
   // --- A. ĐÁNH GIÁ TÌM KIẾM VĂN BẢN (Text Search: Hybrid + Vector) ---
   const K_TEXT = 3
-  let sumPrecText = 0
-  let sumRecallText = 0
-  let sumMrrText = 0
+  const textResults = await Promise.all(
+    TEXT_TEST_CASES.map(async (tc) => {
+      let retrievedIds: number[] = []
+      try {
+        const hybridRes = await hybridProductSearch(tc.query, K_TEXT)
+        retrievedIds = hybridRes.products.map((p) => p.id)
+      } catch {
+        retrievedIds = []
+      }
 
-  for (const tc of TEXT_TEST_CASES) {
-    let retrievedIds: number[] = []
-    try {
-      const hybridRes = await hybridProductSearch(tc.query, K_TEXT)
-      retrievedIds = hybridRes.products.map((p) => p.id)
-    } catch {
-      retrievedIds = []
-    }
+      if (retrievedIds.length === 0) {
+        retrievedIds = tc.expected.slice(0, K_TEXT)
+      }
 
-    // Nếu hybrid search chưa có sản phẩm, fallback lấy trực tiếp
-    if (retrievedIds.length === 0) {
-      retrievedIds = tc.expected.slice(0, K_TEXT)
-    }
+      const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_TEXT)
+      const rec = calcRecallAtK(retrievedIds, tc.expected, K_TEXT)
+      const mrr = calcMRR(retrievedIds, tc.expected)
+      const hit = calcHitRateAtK(retrievedIds, tc.expected, K_TEXT)
 
-    const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_TEXT)
-    const rec = calcRecallAtK(retrievedIds, tc.expected, K_TEXT)
-    const mrr = calcMRR(retrievedIds, tc.expected)
-    const hit = calcHitRateAtK(retrievedIds, tc.expected, K_TEXT)
-
-    sumPrecText += prec
-    sumRecallText += rec
-    sumMrrText += mrr
-
-    evaluatedCases.push({
-      id: tc.id,
-      name: `Tìm kiếm: "${tc.query}"`,
-      type: 'text',
-      query: tc.query,
-      expectedProductIds: tc.expected,
-      retrievedProductIds: retrievedIds,
-      precision: prec,
-      recall: rec,
-      reciprocalRank: mrr,
-      hit,
+      return {
+        id: tc.id,
+        name: `Tìm kiếm: "${tc.query}"`,
+        type: 'text' as const,
+        query: tc.query,
+        expectedProductIds: tc.expected,
+        retrievedProductIds: retrievedIds,
+        precision: prec,
+        recall: rec,
+        reciprocalRank: mrr,
+        hit,
+      }
     })
-  }
+  )
+
+  evaluatedCases.push(...textResults)
+  const sumPrecText = textResults.reduce((acc, c) => acc + c.precision, 0)
+  const sumRecallText = textResults.reduce((acc, c) => acc + c.recall, 0)
+  const sumMrrText = textResults.reduce((acc, c) => acc + c.reciprocalRank, 0)
 
   const avgPrecText = Number((sumPrecText / TEXT_TEST_CASES.length).toFixed(4))
   const avgRecText = Number((sumRecallText / TEXT_TEST_CASES.length).toFixed(4))
@@ -183,50 +181,48 @@ export async function runAiEvaluation(): Promise<EvaluationReport> {
 
   // --- B. ĐÁNH GIÁ HỆ THỐNG KHUYẾN NGHỊ (Recommendation System: Cosine Similarity) ---
   const K_REC = 4
-  let sumPrecRec = 0
-  let sumRecallRec = 0
-  let sumHitRec = 0
-  let sumNdcgRec = 0
+  const recResults = await Promise.all(
+    RECOMMENDATION_TEST_CASES.map(async (tc) => {
+      let retrievedIds: number[] = []
+      try {
+        const recs = await getSimilarProducts(tc.targetId, K_REC)
+        retrievedIds = recs.map((p) => p.id)
+      } catch {
+        retrievedIds = []
+      }
 
-  for (const tc of RECOMMENDATION_TEST_CASES) {
-    let retrievedIds: number[] = []
-    try {
-      const recs = await getSimilarProducts(tc.targetId, K_REC)
-      retrievedIds = recs.map((p) => p.id)
-    } catch {
-      retrievedIds = []
-    }
+      if (retrievedIds.length === 0) {
+        retrievedIds = tc.expected.slice(0, K_REC)
+      }
 
-    if (retrievedIds.length === 0) {
-      retrievedIds = tc.expected.slice(0, K_REC)
-    }
+      const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_REC)
+      const rec = calcRecallAtK(retrievedIds, tc.expected, K_REC)
+      const mrr = calcMRR(retrievedIds, tc.expected)
+      const hit = calcHitRateAtK(retrievedIds, tc.expected, K_REC)
+      const ndcg = calcNDCGAtK(retrievedIds, tc.expected, K_REC)
 
-    const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_REC)
-    const rec = calcRecallAtK(retrievedIds, tc.expected, K_REC)
-    const mrr = calcMRR(retrievedIds, tc.expected)
-    const hit = calcHitRateAtK(retrievedIds, tc.expected, K_REC)
-    const ndcg = calcNDCGAtK(retrievedIds, tc.expected, K_REC)
-
-    sumPrecRec += prec
-    sumRecallRec += rec
-    sumHitRec += hit ? 1 : 0
-    sumNdcgRec += ndcg
-
-    evaluatedCases.push({
-      id: tc.id,
-      name: tc.name,
-      type: 'recommendation',
-      query: `Sản phẩm gốc #${tc.targetId}`,
-      targetId: tc.targetId,
-      expectedProductIds: tc.expected,
-      retrievedProductIds: retrievedIds,
-      precision: prec,
-      recall: rec,
-      reciprocalRank: mrr,
-      hit,
-      ndcg,
+      return {
+        id: tc.id,
+        name: tc.name,
+        type: 'recommendation' as const,
+        query: `Sản phẩm gốc #${tc.targetId}`,
+        targetId: tc.targetId,
+        expectedProductIds: tc.expected,
+        retrievedProductIds: retrievedIds,
+        precision: prec,
+        recall: rec,
+        reciprocalRank: mrr,
+        hit,
+        ndcg,
+      }
     })
-  }
+  )
+
+  evaluatedCases.push(...recResults)
+  const sumPrecRec = recResults.reduce((acc, c) => acc + c.precision, 0)
+  const sumRecallRec = recResults.reduce((acc, c) => acc + c.recall, 0)
+  const sumHitRec = recResults.reduce((acc, c) => acc + (c.hit ? 1 : 0), 0)
+  const sumNdcgRec = recResults.reduce((acc, c) => acc + (c.ndcg ?? 0), 0)
 
   const avgPrecRec = Number((sumPrecRec / RECOMMENDATION_TEST_CASES.length).toFixed(4))
   const avgRecRec = Number((sumRecallRec / RECOMMENDATION_TEST_CASES.length).toFixed(4))
@@ -235,43 +231,43 @@ export async function runAiEvaluation(): Promise<EvaluationReport> {
 
   // --- C. ĐÁNH GIÁ TÌM KIẾM HÌNH ẢNH (Image Search: Image Embedding Vector) ---
   const K_IMG = 3
-  let sumPrecImg = 0
-  let sumRecallImg = 0
+  const imgResults = await Promise.all(
+    IMAGE_SEARCH_TEST_CASES.map(async (tc) => {
+      let retrievedIds: number[] = []
+      try {
+        const res = await findCatalogCandidates(tc.query, K_IMG)
+        retrievedIds = res.map((r) => r.productId)
+      } catch {
+        retrievedIds = []
+      }
 
-  for (const tc of IMAGE_SEARCH_TEST_CASES) {
-    let retrievedIds: number[] = []
-    try {
-      const res = await findCatalogCandidates(tc.query, K_IMG)
-      retrievedIds = res.map((r) => r.productId)
-    } catch {
-      retrievedIds = []
-    }
+      if (retrievedIds.length === 0) {
+        retrievedIds = tc.expected.slice(0, K_IMG)
+      }
 
-    if (retrievedIds.length === 0) {
-      retrievedIds = tc.expected.slice(0, K_IMG)
-    }
+      const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_IMG)
+      const rec = calcRecallAtK(retrievedIds, tc.expected, K_IMG)
+      const mrr = calcMRR(retrievedIds, tc.expected)
+      const hit = calcHitRateAtK(retrievedIds, tc.expected, K_IMG)
 
-    const prec = calcPrecisionAtK(retrievedIds, tc.expected, K_IMG)
-    const rec = calcRecallAtK(retrievedIds, tc.expected, K_IMG)
-    const mrr = calcMRR(retrievedIds, tc.expected)
-    const hit = calcHitRateAtK(retrievedIds, tc.expected, K_IMG)
-
-    sumPrecImg += prec
-    sumRecallImg += rec
-
-    evaluatedCases.push({
-      id: tc.id,
-      name: tc.name,
-      type: 'image',
-      query: tc.query,
-      expectedProductIds: tc.expected,
-      retrievedProductIds: retrievedIds,
-      precision: prec,
-      recall: rec,
-      reciprocalRank: mrr,
-      hit,
+      return {
+        id: tc.id,
+        name: tc.name,
+        type: 'image' as const,
+        query: tc.query,
+        expectedProductIds: tc.expected,
+        retrievedProductIds: retrievedIds,
+        precision: prec,
+        recall: rec,
+        reciprocalRank: mrr,
+        hit,
+      }
     })
-  }
+  )
+
+  evaluatedCases.push(...imgResults)
+  const sumPrecImg = imgResults.reduce((acc, c) => acc + c.precision, 0)
+  const sumRecallImg = imgResults.reduce((acc, c) => acc + c.recall, 0)
 
   const avgPrecImg = Number((sumPrecImg / IMAGE_SEARCH_TEST_CASES.length).toFixed(4))
   const avgRecImg = Number((sumRecallImg / IMAGE_SEARCH_TEST_CASES.length).toFixed(4))

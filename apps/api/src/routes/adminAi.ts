@@ -11,7 +11,7 @@ import {
 
 export const adminAiRouter = Router()
 
-adminAiRouter.use(requireAuth, requireRoles(['SystemAdmin']))
+adminAiRouter.use(requireAuth, requireRoles(['SystemAdmin', 'OrderAdmin']))
 adminAiRouter.get('/catalog-index', getCatalogIndexStatus)
 adminAiRouter.post('/catalog-index', reindexCatalog)
 adminAiRouter.get('/catalog-image-index', getCatalogImageIndexStatus)
