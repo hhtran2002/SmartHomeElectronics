@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { getProductReviewEligibility, submitProductQuestion, submitProductReview } from '../api'
+import { getProductReviewEligibility, getSimilarProducts, submitProductQuestion, submitProductReview } from '../api'
 import type { Product, ProductAttribute, ProductQuestion, ProductReview } from '../types'
 import { formatPrice } from '../utils'
 import './ProductDetail.css'
@@ -176,6 +176,24 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
 
     return () => { cancelled = true }
   }, [product?.slug, token])
+
+  const [similarProducts, setSimilarProducts] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!product?.slug) {
+      setSimilarProducts([])
+      return
+    }
+    let cancelled = false
+    void getSimilarProducts(product.slug)
+      .then((res) => {
+        if (!cancelled && res.data) setSimilarProducts(res.data)
+      })
+      .catch(() => {
+        if (!cancelled) setSimilarProducts([])
+      })
+    return () => { cancelled = true }
+  }, [product?.slug])
 
   if (loading) {
     return <main className="detail-page"><div className="status-card">Đang tải chi tiết sản phẩm...</div></main>
@@ -546,6 +564,104 @@ export function ProductDetail({ error, loading, product, onAddToCart, onBack, to
           </section>
         </div>
       </article>
+
+      {/* Gợi ý sản phẩm tương tự bằng AI Recommendation */}
+      {similarProducts.length > 0 && (
+        <article className="detail-section-card detail-recommendations-section" style={{ marginTop: '24px' }}>
+          <header className="detail-section-heading">
+            <div>
+              <span className="eyebrow" style={{ color: 'var(--blue-600, #2563eb)', fontWeight: 800 }}>✨ AI Recommendation</span>
+              <h2>Sản phẩm tương tự có thể bạn quan tâm</h2>
+            </div>
+            <p>Gợi ý tự động dựa trên độ tương đồng đặc tính kỹ thuật và phân khúc sản phẩm.</p>
+          </header>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+            gap: '16px',
+            marginTop: '16px',
+          }}>
+            {similarProducts.map((item) => {
+              const itemPrice = item.finalPrice ?? item.price ?? item.basePrice
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    window.location.hash = `#/products/${item.slug}`
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '14px',
+                    background: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)'
+                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.08)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)'
+                  }}
+                >
+                  <div>
+                    <div style={{
+                      width: '100%',
+                      height: '140px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      borderRadius: '10px',
+                      background: '#f8fafc',
+                    }}>
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+                      ) : (
+                        <span style={{ fontSize: '32px', color: '#cbd5e1' }}>⌂</span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+                        {item.brandName} · {item.categoryName}
+                      </span>
+                      <h4 style={{
+                        fontSize: '13px',
+                        margin: '4px 0 6px 0',
+                        lineHeight: 1.35,
+                        color: '#0f172a',
+                        fontWeight: 700,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}>
+                        {item.name}
+                      </h4>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                    <strong style={{ color: '#16715b', fontSize: '14px' }}>
+                      {formatPrice(itemPrice)}
+                    </strong>
+                    <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700 }}>
+                      Xem →
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </article>
+      )}
     </main>
   )
 }

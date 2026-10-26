@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { askAiAboutProducts, getProduct, searchProductsByImage } from '../api'
+import { askAiAboutProducts, getProduct, parseAiQuery, searchProductsByImage } from '../api'
 import { ProductFilters } from '../components/ProductFilters'
 import { ProductGrid } from '../components/ProductGrid'
 import type {
@@ -70,6 +70,15 @@ export function ProductsPage({
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
   const [pendingImageQuestion, setPendingImageQuestion] = useState('')
   const [showAiModal, setShowAiModal] = useState(false)
+  const [extractedAttributes, setExtractedAttributes] = useState<{
+    category: string | null
+    brand: string | null
+    minPrice: number | null
+    maxPrice: number | null
+    attributes: Array<{ attributeName: string; value: string }>
+    semanticIntent: string
+    detectedKeywords: string[]
+  } | null>(null)
   const chatHistoryRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const aiQuotaUnlimited = roles.includes('SystemAdmin') || aiQuota?.unlimited === true
@@ -164,6 +173,9 @@ export function ProductsPage({
           clearImageAttachment()
         }
       } else {
+        void parseAiQuery(question)
+          .then((res) => setExtractedAttributes(res.data))
+          .catch(() => {})
         const answer = await askAiAboutProducts(question, history, aiContextProductIds, token)
         setAiMessages((current) => [...current, {
           role: 'assistant',
@@ -400,6 +412,31 @@ export function ProductsPage({
                   </div>
                   <small>{aiProducts.length ? `${aiProducts.length} kết quả` : 'Kết quả sẽ cập nhật tại đây'}</small>
                 </header>
+                {extractedAttributes && (extractedAttributes.category || extractedAttributes.brand || extractedAttributes.minPrice || extractedAttributes.maxPrice || (extractedAttributes.attributes && extractedAttributes.attributes.length > 0)) && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '10px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>⚡ AI trích xuất:</span>
+                    {extractedAttributes.category && (
+                      <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                        📁 {extractedAttributes.category}
+                      </span>
+                    )}
+                    {extractedAttributes.brand && (
+                      <span style={{ background: '#f3e8ff', color: '#7e22ce', padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                        🏷️ {extractedAttributes.brand}
+                      </span>
+                    )}
+                    {(extractedAttributes.minPrice || extractedAttributes.maxPrice) && (
+                      <span style={{ background: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                        💰 {extractedAttributes.minPrice ? `${(extractedAttributes.minPrice / 1000000).toFixed(0)}tr` : '0'} - {extractedAttributes.maxPrice ? `${(extractedAttributes.maxPrice / 1000000).toFixed(0)}tr` : '∞'}
+                      </span>
+                    )}
+                    {extractedAttributes.attributes?.map((attr: { attributeName: string; value: string }, idx: number) => (
+                      <span key={idx} style={{ background: '#f1f5f9', color: '#334155', padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+                        ⚙️ {attr.attributeName}: {attr.value}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="ai-results-scroll">
                   {aiProducts.length > 0 ? (
                     <ProductGrid error="" loading={false} products={aiProducts} onAddToCart={onAddToCart} onViewDetail={(slug) => { setShowAiModal(false); onViewDetail(slug); }} />

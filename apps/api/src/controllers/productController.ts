@@ -49,3 +49,24 @@ export async function getProductDetail(request: Request, response: Response, nex
     next(error)
   }
 }
+
+export async function listSimilarProducts(request: Request, response: Response, next: NextFunction) {
+  try {
+    const slug = String(request.params.slug ?? '')
+    const product = await getProductBySlug(slug)
+
+    if (!product) {
+      response.status(404).json({ message: 'Không tìm thấy sản phẩm.' })
+      return
+    }
+
+    const limit = Math.min(12, Math.max(2, readPositiveNumber(request.query.limit, 4)))
+    const { getSimilarProducts } = await import('../services/recommendationService.js')
+    const similar = await getSimilarProducts(product.id, limit)
+
+    response.json({ data: similar })
+  } catch (error) {
+    next(error)
+  }
+}
+

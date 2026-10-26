@@ -977,3 +977,132 @@ export function getSerialProfitReport(token: string, filters: {
   }>(`/api/admin/serials/profit-report?${params.toString()}`, token)
 }
 
+export function getSimilarProducts(slug: string) {
+  return getJson<{
+    data: Array<{
+      id: number
+      productId: number
+      name: string
+      slug: string
+      basePrice: number
+      price: number | null
+      originalPrice?: number | null
+      finalPrice?: number | null
+      categoryName: string
+      categorySlug: string
+      brandName: string
+      imageUrl: string | null
+      availableQuantity: number
+      warrantyMonths: number
+      installRequired: boolean
+    }>
+  }>(`/api/products/${encodeURIComponent(slug)}/similar`)
+}
+
+export function parseAiQuery(query: string) {
+  return postJson<{
+    data: {
+      category: string | null
+      brand: string | null
+      minPrice: number | null
+      maxPrice: number | null
+      attributes: Array<{ attributeName: string; value: string }>
+      semanticIntent: string
+      detectedKeywords: string[]
+    }
+  }>('/api/ai/parse-query', { query })
+}
+
+export function getAiEvaluationReport(token: string) {
+  return getJsonWithToken<{
+    data: {
+      executedAt: string
+      summary: {
+        textSearch: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          mrr: number
+          sampleCount: number
+        }
+        imageSearch: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          sampleCount: number
+        }
+        recommendation: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          hitRateAtK: number
+          ndcgAtK: number
+          sampleCount: number
+        }
+        overallScore: number
+      }
+      cases: Array<{
+        id: string
+        name: string
+        type: 'text' | 'image' | 'recommendation'
+        query: string
+        targetId?: number
+        expectedProductIds: number[]
+        retrievedProductIds: number[]
+        precision: number
+        recall: number
+        reciprocalRank: number
+        hit: boolean
+        ndcg?: number
+      }>
+    }
+  }>('/api/admin/ai/evaluation', token)
+}
+
+export function runAiEvaluationBenchmark(token: string) {
+  return postJsonWithToken<{
+    data: {
+      executedAt: string
+      summary: {
+        textSearch: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          mrr: number
+          sampleCount: number
+        }
+        imageSearch: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          sampleCount: number
+        }
+        recommendation: {
+          k: number
+          precisionAtK: number
+          recallAtK: number
+          hitRateAtK: number
+          ndcgAtK: number
+          sampleCount: number
+        }
+        overallScore: number
+      }
+      cases: Array<{
+        id: string
+        name: string
+        type: 'text' | 'image' | 'recommendation'
+        query: string
+        targetId?: number
+        expectedProductIds: number[]
+        retrievedProductIds: number[]
+        precision: number
+        recall: number
+        reciprocalRank: number
+        hit: boolean
+        ndcg?: number
+      }>
+    }
+  }>('/api/admin/ai/evaluation/run', token, {})
+}
+
+

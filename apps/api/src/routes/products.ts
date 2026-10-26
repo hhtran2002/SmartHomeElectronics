@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../auth.js'
-import { getProductDetail, listProducts } from '../controllers/productController.js'
+import { getProductDetail, listProducts, listSimilarProducts } from '../controllers/productController.js'
 import {
   getReviewEligibility,
   submitProductQuestion,
@@ -10,6 +10,7 @@ import {
 export const productsRouter = Router()
 
 productsRouter.get('/', listProducts)
+productsRouter.get('/:slug/similar', listSimilarProducts)
 productsRouter.get('/:slug', getProductDetail)
 productsRouter.get('/:slug/review-eligibility', requireAuth, getReviewEligibility)
 productsRouter.post('/:slug/reviews', requireAuth, submitProductReview)

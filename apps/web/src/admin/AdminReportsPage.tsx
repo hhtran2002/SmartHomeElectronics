@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAdminReports, getCustomerSalesReport, getSerialProfitReport, searchReportCustomers } from '../api'
+import {
+  getAdminReports,
+  getCustomerSalesReport,
+  getSerialProfitReport,
+  searchReportCustomers,
+  getAiEvaluationReport,
+  runAiEvaluationBenchmark,
+} from '../api'
 import type { AdminReports, CustomerSalesReport, ReportCustomerSummary } from '../types'
 import { formatPrice } from '../utils'
 
 type Props = { roles: string[]; token: string }
-type ReportMode = 'time' | 'customer' | 'product' | 'profit'
+type ReportMode = 'time' | 'customer' | 'product' | 'profit' | 'ai-eval'
 
 type ProfitReportData = {
   summary: {
@@ -29,6 +36,48 @@ type ProfitReportData = {
     orderId: number | null
     orderCode: string | null
     soldAt: string | null
+  }>
+}
+
+type AiEvaluationData = {
+  executedAt: string
+  summary: {
+    textSearch: {
+      k: number
+      precisionAtK: number
+      recallAtK: number
+      mrr: number
+      sampleCount: number
+    }
+    imageSearch: {
+      k: number
+      precisionAtK: number
+      recallAtK: number
+      sampleCount: number
+    }
+    recommendation: {
+      k: number
+      precisionAtK: number
+      recallAtK: number
+      hitRateAtK: number
+      ndcgAtK: number
+      sampleCount: number
+    }
+    overallScore: number
+  }
+  cases: Array<{
+    id: string
+    name: string
+    type: 'text' | 'image' | 'recommendation'
+    query: string
+    targetId?: number
+    expectedProductIds: number[]
+    retrievedProductIds: number[]
+    precision: number
+    recall: number
+    reciprocalRank: number
+    hit: boolean
+    ndcg?: number
   }>
 }
 
@@ -67,6 +116,11 @@ export function AdminReportsPage({ roles, token }: Props) {
   const [profitReport, setProfitReport] = useState<ProfitReportData | null>(null)
   const [profitSearch, setProfitSearch] = useState('')
 
+  // AI Evaluation benchmark state
+  const [aiReport, setAiReport] = useState<AiEvaluationData | null>(null)
+  const [evalRunning, setEvalRunning] = useState(false)
+  const [evalFilterType, setEvalFilterType] = useState<'all' | 'text' | 'image' | 'recommendation'>('all')
+
   const products = useMemo(() => {
     const query = productSearch.trim().toLocaleLowerCase('vi-VN')
     return (reports?.topProducts ?? []).filter((item) => !query
@@ -86,6 +140,12 @@ export function AdminReportsPage({ roles, token }: Props) {
     )
   }, [profitReport, profitSearch])
 
+  const filteredCases = useMemo(() => {
+    if (!aiReport?.cases) return []
+    if (evalFilterType === 'all') return aiReport.cases
+    return aiReport.cases.filter((c) => c.type === evalFilterType)
+  }, [aiReport, evalFilterType])
+
   async function loadReports() {
     setLoading(true)
     setError('')
@@ -97,6 +157,9 @@ export function AdminReportsPage({ roles, token }: Props) {
           search: profitSearch.trim() || undefined,
         })
         setProfitReport(profitPayload.data)
+      } else if (mode === 'ai-eval') {
+        const evalPayload = await getAiEvaluationReport(token)
+        setAiReport(evalPayload.data)
       } else {
         const payload = await getAdminReports(token, filters)
         setReports(payload.data)
@@ -105,6 +168,19 @@ export function AdminReportsPage({ roles, token }: Props) {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không tải được báo cáo.')
     } finally { setLoading(false) }
+  }
+
+  async function handleRunBenchmark() {
+    setEvalRunning(true)
+    setError('')
+    try {
+      const res = await runAiEvaluationBenchmark(token)
+      setAiReport(res.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không chạy được benchmark kiểm thử AI.')
+    } finally {
+      setEvalRunning(false)
+    }
   }
 
   async function findCustomers() {
@@ -148,9 +224,9 @@ export function AdminReportsPage({ roles, token }: Props) {
     <>
       <section className="section-heading">
         <div>
-          <span className="eyebrow">Báo cáo thống kê bán hàng</span>
-          <h2>Theo thời gian, khách hàng, mặt hàng và lợi nhuận</h2>
-          <p>Báo cáo doanh số, giá vốn và tỷ suất lợi nhuận bám sát nội dung đề cương.</p>
+          <span className="eyebrow">Báo cáo thống kê & Đánh giá mô hình AI</span>
+          <h2>Theo thời gian, khách hàng, mặt hàng, lợi nhuận & chất lượng AI</h2>
+          <p>Thống kê số liệu doanh số kinh doanh và bảng đánh giá độ chính xác của các mô hình AI theo chuẩn đề cương tốt nghiệp.</p>
         </div>
       </section>
 
@@ -159,16 +235,47 @@ export function AdminReportsPage({ roles, token }: Props) {
         <button className={mode === 'customer' ? 'active' : ''} onClick={() => setMode('customer')}>Theo khách hàng</button>
         <button className={mode === 'product' ? 'active' : ''} onClick={() => setMode('product')}>Theo mặt hàng</button>
         <button className={mode === 'profit' ? 'active' : ''} onClick={() => setMode('profit')}>Lợi nhuận (Lãi / Lỗ)</button>
+        <button className={mode === 'ai-eval' ? 'active' : ''} onClick={() => setMode('ai-eval')}>🤖 Đánh giá mô hình AI</button>
       </nav>
 
-      <section className="report-filter-card">
-        <label>Từ ngày<input type="date" value={filters.fromDate} onChange={(event) => setFilters((current) => ({ ...current, fromDate: event.target.value }))} /></label>
-        <label>Đến ngày<input type="date" value={filters.toDate} onChange={(event) => setFilters((current) => ({ ...current, toDate: event.target.value }))} /></label>
-        <button disabled={loading} onClick={() => void loadReports()}>{loading ? 'Đang tải...' : 'Xem báo cáo'}</button>
-      </section>
+      {mode !== 'ai-eval' ? (
+        <section className="report-filter-card">
+          <label>Từ ngày<input type="date" value={filters.fromDate} onChange={(event) => setFilters((current) => ({ ...current, fromDate: event.target.value }))} /></label>
+          <label>Đến ngày<input type="date" value={filters.toDate} onChange={(event) => setFilters((current) => ({ ...current, toDate: event.target.value }))} /></label>
+          <button disabled={loading} onClick={() => void loadReports()}>{loading ? 'Đang tải...' : 'Xem báo cáo'}</button>
+        </section>
+      ) : (
+        <section className="report-filter-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <span style={{ fontSize: '13px', color: '#64748b' }}>
+              Thời điểm chạy kiểm thử gần nhất: <strong style={{ color: '#0f172a' }}>{aiReport?.executedAt ? new Date(aiReport.executedAt).toLocaleString('vi-VN') : 'Đang tải hoặc chưa có'}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={evalRunning || loading}
+            onClick={() => void handleRunBenchmark()}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#0284c7',
+              color: '#fff',
+              border: 'none',
+              padding: '8px 18px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              cursor: evalRunning ? 'not-allowed' : 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            {evalRunning ? '🔄 Đang kiểm thử 19 kịch bản...' : '▶️ Chạy lại kiểm thử Benchmark'}
+          </button>
+        </section>
+      )}
 
       {error && <div className="status-card error">{error}</div>}
-      {loading && !reports && <div className="status-card">Đang tải báo cáo...</div>}
+      {loading && (mode === 'ai-eval' ? !aiReport : !reports) && <div className="status-card">Đang tải dữ liệu báo cáo...</div>}
 
       {reports && mode === 'time' && (
         <>
@@ -389,6 +496,238 @@ export function AdminReportsPage({ roles, token }: Props) {
           </section>
         </>
       )}
+
+      {aiReport && mode === 'ai-eval' && (
+        <>
+          <section className="admin-panel-card" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+            <h4 style={{ margin: '0 0 8px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📐</span> Cơ sở lý thuyết & Phương pháp luận đo lường (Hội đồng nghiệm thu)
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', fontSize: '13px', color: '#475569' }}>
+              <div>
+                <strong style={{ color: '#0284c7' }}>• Precision@K:</strong> Tỷ lệ số sản phẩm phù hợp xuất hiện trong top K kết quả trả về. (Công thức: <code>|Relevant ∩ Retrieved| / K</code>)
+              </div>
+              <div>
+                <strong style={{ color: '#0284c7' }}>• Recall@K:</strong> Khả năng bao phủ các sản phẩm mục tiêu kỳ vọng. (Công thức: <code>|Relevant ∩ Retrieved| / |Relevant|</code>)
+              </div>
+              <div>
+                <strong style={{ color: '#0284c7' }}>• MRR (Mean Reciprocal Rank):</strong> Đánh giá vị trí xuất hiện của sản phẩm phù hợp đầu tiên (<code>1 / Rank_first</code>). Càng gần 1 kết quả càng nằm trên cùng.
+              </div>
+              <div>
+                <strong style={{ color: '#0284c7' }}>• Hit Rate@K & NDCG@K:</strong> Tỷ lệ khuyến nghị trúng đích và thước đo mức độ tối ưu hóa thứ hạng tương đồng cho hệ thống gợi ý.
+              </div>
+            </div>
+          </section>
+
+          <section className="admin-metrics report-metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+            <div><span>Overall AI Quality</span><strong style={{ color: '#0284c7' }}>{aiReport.summary.overallScore}%</strong></div>
+            <div><span>Text Precision@3</span><strong style={{ color: '#16715b' }}>{aiReport.summary.textSearch.precisionAtK}%</strong></div>
+            <div><span>Text Recall@3</span><strong style={{ color: '#16715b' }}>{aiReport.summary.textSearch.recallAtK}%</strong></div>
+            <div><span>Text MRR</span><strong style={{ color: '#7c3aed' }}>{aiReport.summary.textSearch.mrr}</strong></div>
+            <div><span>Image Precision@3</span><strong style={{ color: '#0284c7' }}>{aiReport.summary.imageSearch.precisionAtK}%</strong></div>
+            <div><span>Image Recall@3</span><strong style={{ color: '#0284c7' }}>{aiReport.summary.imageSearch.recallAtK}%</strong></div>
+            <div><span>Recs Hit Rate@4</span><strong style={{ color: '#f59e0b' }}>{aiReport.summary.recommendation.hitRateAtK}%</strong></div>
+            <div><span>Recs NDCG@4</span><strong style={{ color: '#f59e0b' }}>{aiReport.summary.recommendation.ndcgAtK}</strong></div>
+          </section>
+
+          <section className="admin-panel-card">
+            <div className="section-heading compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span className="eyebrow">Bộ dữ liệu kiểm chuẩn (Ground-Truth Benchmark)</span>
+                <h3>Chi tiết 19 Kịch bản Kiểm thử Thực nghiệm</h3>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    background: evalFilterType === 'all' ? '#0f172a' : '#fff',
+                    color: evalFilterType === 'all' ? '#fff' : '#475569',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setEvalFilterType('all')}
+                >
+                  Tất cả ({aiReport.cases.length})
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    background: evalFilterType === 'text' ? '#0284c7' : '#fff',
+                    color: evalFilterType === 'text' ? '#fff' : '#475569',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setEvalFilterType('text')}
+                >
+                  🔍 Tìm kiếm văn bản ({aiReport.cases.filter((c) => c.type === 'text').length})
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    background: evalFilterType === 'image' ? '#0284c7' : '#fff',
+                    color: evalFilterType === 'image' ? '#fff' : '#475569',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setEvalFilterType('image')}
+                >
+                  🖼️ Tìm bằng hình ảnh ({aiReport.cases.filter((c) => c.type === 'image').length})
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    background: evalFilterType === 'recommendation' ? '#0284c7' : '#fff',
+                    color: evalFilterType === 'recommendation' ? '#fff' : '#475569',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setEvalFilterType('recommendation')}
+                >
+                  ✨ Gợi ý tương tự ({aiReport.cases.filter((c) => c.type === 'recommendation').length})
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
+                    <th style={{ padding: '10px 12px' }}>Mã Test</th>
+                    <th style={{ padding: '10px 12px' }}>Phân hệ AI</th>
+                    <th style={{ padding: '10px 12px' }}>Kịch bản / Truy vấn</th>
+                    <th style={{ padding: '10px 12px' }}>Kỳ vọng (Ground Truth)</th>
+                    <th style={{ padding: '10px 12px' }}>AI Trả về</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Precision</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Recall</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Đánh giá</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCases.map((c) => {
+                    const badgeColor =
+                      c.type === 'text' ? { bg: '#e0f2fe', text: '#0369a1', label: 'Văn bản (Hybrid)' } :
+                      c.type === 'image' ? { bg: '#fef3c7', text: '#92400e', label: 'Hình ảnh (Visual)' } :
+                      { bg: '#f3e8ff', text: '#7e22ce', label: 'Khuyến nghị (Vector)' }
+
+                    return (
+                      <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
+                          <code>{c.id}</code>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                            borderRadius: '999px',
+                            background: badgeColor.bg,
+                            color: badgeColor.text,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {badgeColor.label}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px', maxWidth: '280px' }}>
+                          <strong style={{ display: 'block', color: '#0f172a' }}>{c.name}</strong>
+                          <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                            "{c.query}"
+                          </span>
+                          {c.targetId && (
+                            <small style={{ display: 'block', color: '#94a3b8' }}>
+                              Target Product ID: #{c.targetId}
+                            </small>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {c.expectedProductIds.map((id) => (
+                              <span key={id} style={{ fontSize: '11px', background: '#e2e8f0', color: '#334155', padding: '1px 6px', borderRadius: '4px' }}>
+                                #{id}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {c.retrievedProductIds.length === 0 ? (
+                              <span style={{ color: '#94a3b8', fontSize: '12px' }}>Không có</span>
+                            ) : (
+                              c.retrievedProductIds.map((id) => {
+                                const isMatch = c.expectedProductIds.includes(id)
+                                return (
+                                  <span
+                                    key={id}
+                                    style={{
+                                      fontSize: '11px',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      background: isMatch ? '#dcfce7' : '#fee2e2',
+                                      color: isMatch ? '#15803d' : '#b91c1c',
+                                      fontWeight: isMatch ? 700 : 400,
+                                    }}
+                                  >
+                                    #{id}
+                                  </span>
+                                )
+                              })
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
+                          {(c.precision * 100).toFixed(0)}%
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
+                          {(c.recall * 100).toFixed(0)}%
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: c.hit ? '#e6f4ea' : '#fce8e6',
+                            color: c.hit ? '#137333' : '#c5221f'
+                          }}>
+                            {c.hit ? 'HIT (ĐẠT)' : 'MISS'}
+                          </span>
+                          {c.reciprocalRank > 0 && c.type === 'text' && (
+                            <small style={{ display: 'block', color: '#64748b', fontSize: '10px', marginTop: '2px' }}>
+                              RR: 1/{Math.round(1 / c.reciprocalRank)}
+                            </small>
+                          )}
+                          {c.ndcg !== undefined && c.type === 'recommendation' && (
+                            <small style={{ display: 'block', color: '#64748b', fontSize: '10px', marginTop: '2px' }}>
+                              NDCG: {c.ndcg}
+                            </small>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
     </>
   )
 }
+

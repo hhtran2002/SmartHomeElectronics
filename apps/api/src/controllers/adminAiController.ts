@@ -33,3 +33,28 @@ export async function reindexCatalogImages(_request: Request, response: Response
     next(error)
   }
 }
+
+let cachedEvaluationReport: any = null
+
+export async function getAiEvaluationReport(_request: Request, response: Response, next: NextFunction) {
+  try {
+    const { runAiEvaluation } = await import('../services/aiEvaluationService.js')
+    if (!cachedEvaluationReport) {
+      cachedEvaluationReport = await runAiEvaluation()
+    }
+    response.json({ data: cachedEvaluationReport })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function runAiEvaluationBenchmark(_request: Request, response: Response, next: NextFunction) {
+  try {
+    const { runAiEvaluation } = await import('../services/aiEvaluationService.js')
+    cachedEvaluationReport = await runAiEvaluation()
+    response.json({ data: cachedEvaluationReport })
+  } catch (error) {
+    next(error)
+  }
+}
+

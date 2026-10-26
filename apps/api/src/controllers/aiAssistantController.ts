@@ -144,3 +144,35 @@ export async function findProductsByImage(request: AuthRequest, response: Respon
     handleAiError(error, response, next)
   }
 }
+
+export async function parseQuery(request: Request, response: Response, next: NextFunction) {
+  try {
+    const query = String(request.body?.query ?? '').trim()
+    if (!query) {
+      response.status(400).json({ message: 'Vui lòng cung cấp query.' })
+      return
+    }
+    const { parseNaturalLanguageQuery } = await import('../services/aiQueryService.js')
+    const extracted = await parseNaturalLanguageQuery(query)
+    response.json({ data: extracted })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function searchProductsHybrid(request: Request, response: Response, next: NextFunction) {
+  try {
+    const query = String(request.body?.query ?? '').trim()
+    if (!query) {
+      response.status(400).json({ message: 'Vui lòng cung cấp query.' })
+      return
+    }
+    const limit = Math.min(20, Math.max(1, Number(request.body?.limit ?? 8)))
+    const { hybridProductSearch } = await import('../services/aiQueryService.js')
+    const result = await hybridProductSearch(query, limit)
+    response.json({ data: result })
+  } catch (error) {
+    next(error)
+  }
+}
+

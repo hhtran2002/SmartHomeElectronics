@@ -5,6 +5,8 @@ import {
   chatAboutProducts,
   findProductsByImage,
   findProductsByMeaning,
+  parseQuery,
+  searchProductsHybrid,
 } from '../controllers/aiAssistantController.js'
 import { aiRateLimit } from '../middleware/aiRateLimit.js'
 import { requireAuth } from '../auth.js'
@@ -38,3 +40,6 @@ function uploadSingleImage(request: Request, response: Response, next: NextFunct
 aiAssistantRouter.post('/search', aiRateLimit, findProductsByMeaning)
 aiAssistantRouter.post('/chat', aiRateLimit, requireAuth, chatAboutProducts)
 aiAssistantRouter.post('/image-search', aiRateLimit, requireAuth, uploadSingleImage, findProductsByImage)
+aiAssistantRouter.post('/parse-query', parseQuery)
+aiAssistantRouter.post('/hybrid-search', searchProductsHybrid)
+
