@@ -48,14 +48,14 @@ export type EvaluationReport = {
 
 // 1. Tập dữ liệu kiểm thử chuẩn (Ground-Truth Benchmark Dataset)
 const TEXT_TEST_CASES = [
-  { id: 'T01', query: 'Tivi 55 inch 4K độ phân giải cao', expected: [21, 23, 24] },
+  { id: 'T01', query: 'Tivi 55 inch 4K độ phân giải cao', expected: [21, 23, 24, 44] },
   { id: 'T02', query: 'Robot hút bụi lau nhà Xiaomi thông minh', expected: [33, 34] },
   { id: 'T03', query: 'Tủ lạnh Samsung Inverter tiết kiệm điện', expected: [29, 30] },
-  { id: 'T04', query: 'Máy giặt Inverter khối lượng giặt lớn trên 10kg', expected: [25, 26, 27] },
-  { id: 'T05', query: 'Máy sấy thông hơi 7kg', expected: [47] },
-  { id: 'T06', query: 'Tủ lạnh 4 cánh dung tích lớn trên 400 lít', expected: [30] },
-  { id: 'T07', query: 'Smart TV màn hình lớn 65 inch QLED', expected: [22] },
-  { id: 'T08', query: 'Robot hút bụi tự động giặt giẻ sạc pin', expected: [34, 35] },
+  { id: 'T04', query: 'Máy giặt Inverter khối lượng giặt lớn trên 10kg', expected: [25, 26, 27, 59] },
+  { id: 'T05', query: 'Máy sấy thông hơi 7kg', expected: [68] },
+  { id: 'T06', query: 'Tủ lạnh 4 cánh dung tích lớn trên 400 lít', expected: [30, 66] },
+  { id: 'T07', query: 'Smart TV màn hình lớn 65 inch QLED', expected: [22, 42] },
+  { id: 'T08', query: 'Robot hút bụi tự động giặt giẻ sạc pin', expected: [34, 35, 36, 55] },
   { id: 'T09', query: 'Máy giặt Toshiba cửa trên', expected: [27] },
   { id: 'T10', query: 'Tủ lạnh LG ngăn đông trên làm lạnh nhanh', expected: [32] },
 ]
